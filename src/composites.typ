@@ -24,7 +24,7 @@
       if title != none {
         block(below: 3pt, text(weight: "bold", title))
       }
-      body
+      { set align(center); body }
       if desc != none {
         block(above: 3pt, text(size: 0.7em, fill: luma(80), desc))
       }

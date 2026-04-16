@@ -10,6 +10,6 @@
 #h(6pt)
 #cell(fill: rgb("#FA8072"), expandable: true)[`T`]
 #h(6pt)
-#cell(phantom: true, width: 20pt)[]
+#cell(phantom: true, width: 20pt)[#hide[`X`]]
 #h(6pt)
 #cell(fill: rgb("#C8E6C9"), width: 28pt, height: 20pt, overlay: [S])[`03`]

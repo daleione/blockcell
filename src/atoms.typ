@@ -113,7 +113,7 @@
   block(width: width, {
     set text(size: 0.55em, fill: luma(120))
     set align(center)
-    [#sym.arrow.l #body #sym.arrow.r]
+    [#sym.arrow.l~#body~#sym.arrow.r]
   })
 }
 

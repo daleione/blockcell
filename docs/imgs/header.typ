@@ -17,7 +17,7 @@
     #note[… len]
   ]
 ]#schema(title: [*IPv4 Row 1*])[
-  #bit-row(total: 32, width: 200pt, fields: (
+  #bit-row(total: 32, width: 240pt, show-bits: false, fields: (
     (bits: 4,  label: [Ver],  fill: rgb("#FFF9C4")),
     (bits: 4,  label: [IHL],  fill: rgb("#FFF9C4")),
     (bits: 8,  label: [DSCP], fill: rgb("#E1BEE7")),
