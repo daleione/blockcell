@@ -5,7 +5,7 @@
             <g>
                 <g class="typst-group">
                     <g>
-                        <path class="typst-shape" fill="none" stroke="#c8c8c8" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" transform="matrix(1 0 0 1 0 18.917796875)" d="M 0 0h 400 "/>
+                        <path class="typst-shape" fill="none" stroke="#dcdcdc" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" transform="matrix(1 0 0 1 0 18.917796875)" d="M 0 0h 400 "/>
                         <g class="typst-group" transform="matrix(1 0 0 1 8 4)">
                             <g>
                                 <path class="typst-shape" fill="#b4e9a9" fill-rule="nonzero" d="M 0 0m 0 1.75 c 0 -0.9664983 0.7835017 -1.75 1.75 -1.75 h 40.623047 c 0.9664993 0 1.75 0.7835017 1.75 1.75 v 5.0585938 c 0 0.9664984 -0.7835007 1.75 -1.75 1.75 h -40.623047 c -0.9664983 0 -1.75 -0.7835016 -1.75 -1.75 Z "/>

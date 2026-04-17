@@ -11,6 +11,7 @@
 
 #import "atoms.typ": *
 #import "containers.typ": *
+#import "palettes.typ": palettes
 
 /// A top-level diagram container with optional title and description.
 ///
@@ -26,7 +27,7 @@
       }
       { set align(center); body }
       if desc != none {
-        block(above: 3pt, text(size: 0.7em, fill: luma(80), desc))
+        block(above: 3pt, text(size: 0.7em, fill: palettes.base.text-muted, desc))
       }
     },
   )
@@ -70,7 +71,7 @@
     columns: (label-width, 1fr),
     align: (right + horizon, left + horizon),
     gutter: 6pt,
-    if label != none { text(size: 0.75em, fill: luma(100), label) } else { [] },
+    if label != none { text(size: 0.75em, fill: palettes.base.text-muted, label) } else { [] },
     body,
   )
 }
@@ -88,22 +89,22 @@
 /// ```
 #let lane(name: none, items: ()) = {
   block(width: 100%, inset: (y: 4pt), {
-    place(horizon, line(length: 100%, stroke: (paint: luma(200), thickness: 1pt)))
+    place(horizon, line(length: 100%, stroke: (paint: palettes.base.border-subtle, thickness: 1pt)))
     for item in items {
       h(8pt)
       box(
         fill: item.fill,
-        stroke: (paint: black, thickness: 0.5pt),
+        stroke: (paint: palettes.base.border, thickness: 0.5pt),
         radius: 2pt,
         inset: (x: 4pt, y: 2pt),
         baseline: 30%,
-        text(size: 0.75em, fill: black, item.label),
+        text(size: 0.75em, fill: palettes.base.text, item.label),
       )
     }
     v(4pt)
     if name != none {
       v(1pt)
-      text(size: 0.65em, fill: luma(120), name)
+      text(size: 0.65em, fill: palettes.base.text-subtle, name)
     }
   })
 }
@@ -133,7 +134,7 @@
       box(baseline: 20%, {
         box(
           fill: item.fill, width: swatch-size, height: swatch-size,
-          stroke: 0.5pt + black, radius: 2pt,
+          stroke: 0.5pt + palettes.base.border, radius: 2pt,
         )
         h(4pt)
         text(size: 0.8em, item.label)
@@ -162,33 +163,24 @@
 ///   Optional keys: `stroke`, `dash`.
 /// - `show-bits`: If `true`, show bit widths as subscript. Default: `true`.
 #let bit-row(total: 32, width: 400pt, fields: (), show-bits: true) = {
-  let gap = 0pt  // no gap between fields for tight packing
-  let usable = width - (fields.len() - 1) * gap
-
   box(baseline: 30%, {
-    for (i, f) in fields.enumerate() {
-      let w = usable * f.bits / total
-      let s = if "stroke" in f { f.stroke } else { 0.8pt + black }
-      let d = if "dash" in f { f.dash } else { none }
+    for f in fields {
       cell(
         {
           f.label
-          if show-bits {
-            sub-label[#{ str(f.bits) }b]
-          }
+          if show-bits { sub-label[#{ str(f.bits) }b] }
         },
         fill: f.fill,
-        width: w,
-        stroke: s,
-        dash: d,
+        width: width * f.bits / total,
+        stroke: f.at("stroke", default: 0.8pt + palettes.base.border),
+        dash: f.at("dash", default: none),
       )
-      if i < fields.len() - 1 { h(gap) }
     }
   })
 }
 
 /// A titled section card for grouping related diagrams.
-#let section(title, fill: luma(252), stroke: 0.5pt + luma(220), body) = {
+#let section(title, fill: palettes.base.surface-alt, stroke: 0.5pt + palettes.base.border-soft, body) = {
   block(
     width: 100%, inset: 14pt, fill: fill,
     radius: 4pt, stroke: stroke, above: 14pt,

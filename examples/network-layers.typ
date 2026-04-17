@@ -9,23 +9,7 @@
 #set page(width: 560pt, height: auto, margin: 20pt)
 #set text(size: 9pt)
 
-// ---------------------------------------------------------------------------
-// User-defined palette for networking domain
-// ---------------------------------------------------------------------------
-
-#let C = (
-  link: rgb("#BBDEFB"),       // blue 100 — link layer
-  internet: rgb("#C8E6C9"),   // green 100 — internet layer
-  transport: rgb("#FFE0B2"),  // orange 100 — transport layer
-  app: rgb("#F8BBD0"),        // pink 100 — application layer
-  data: rgb("#DCEDC8"),       // lime 100 — payload data
-  addr: rgb("#B2DFDB"),       // teal 100 — addresses
-  flag: rgb("#E1BEE7"),       // purple 100 — flags/control
-  meta: rgb("#FFF9C4"),       // yellow 100 — metadata
-  checksum: rgb("#D1C4E9"),   // deep purple 100 — checksums
-  reserved: luma(230),
-)
-
+#let C = palettes.network
 #let sub = sub-label
 
 // Row width for consistent field alignment (simulating 32-bit word rows)

@@ -10,30 +10,9 @@
 #set page(width: 600pt, height: auto, margin: 20pt)
 #set text(size: 10pt)
 
-// ---------------------------------------------------------------------------
-// Palette
-// ---------------------------------------------------------------------------
-
-#let C = (
-  reg: rgb("#EF9A9A"),       // red 200 — registers
-  l1: rgb("#F48FB1"),        // pink 200 — L1 cache
-  l2: rgb("#CE93D8"),        // purple 200 — L2 cache
-  l3: rgb("#90CAF9"),        // blue 200 — L3 cache
-  ram: rgb("#80CBC4"),       // teal 200 — main memory
-  disk: rgb("#A5D6A7"),      // green 200 — disk/SSD
-  data: rgb("#FFE0B2"),      // warm orange — data cells
-  shared: rgb("#C8E6C9"),    // green 100 — shared
-  modified: rgb("#FFCC80"),  // orange — modified
-  invalid: luma(220),       // gray — invalid
-  exclusive: rgb("#B3E5FC"), // light blue — exclusive
-)
-
+#let C = palettes.cache
 #let mc = cell.with(width: 32pt, height: 22pt, inset: 3pt)
 #let data-cell(v, c: C.data) = mc(fill: c)[#text(weight: "bold")[#v]]
-
-// section() is now provided by the library
-
-// =========================================================================
 
 = Cache Hierarchy
 

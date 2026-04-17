@@ -5,19 +5,49 @@ Quickly visualize memory layouts, protocol headers, register maps, cache hierarc
 
 ![Memory layout, protocol header, and enum diagram examples.](docs/imgs/header.svg)
 
+## Quick start
+
+**Nothing to configure — every primitive has a working default.**
+
 ```typ
 #import "@preview/blockcell:0.1.0": *
 
+#cell[A]  #cell[B]  #cell[C]
+#badge[NEW]  #tag[x]
+```
+
+**Semantic status? One-line spread.**
+
+```typ
+#badge(..palettes.status.success)[OK]
+#badge(..palettes.status.warning)[WAIT]
+#cell(..palettes.status.danger)[Error]
+```
+
+**Real use case — domain palettes for structural diagrams.**
+
+```typ
+#let C = palettes.rust
+#cell(fill: C.ptr)[ptr]
+#cell(fill: C.sized)[len]
+#cell(fill: C.sized)[cap]
+```
+
+Compose those atoms into full structural layouts:
+
+```typ
+#let C = palettes.rust
+
 #schema(title: raw("Vec<T>"))[
   #region[
-    #cell(fill: rgb("#87CEFA"))[`ptr`#sub-label[2/4/8]]
-    #cell(fill: rgb("#00FFFF"))[`len`#sub-label[2/4/8]]
-    #cell(fill: rgb("#00FFFF"))[`cap`#sub-label[2/4/8]]
+    #cell(fill: C.ptr)[`ptr`#sub-label[2/4/8]]
+    #cell(fill: C.sized)[`len`#sub-label[2/4/8]]
+    #cell(fill: C.sized)[`cap`#sub-label[2/4/8]]
   ]
   #connector()
-  #target(fill: rgb("#C6DBE7"), label: "(heap)", width: 130pt)[
-    #cell(fill: rgb("#FA8072"))[`T`]
-    #cell(fill: rgb("#FA8072"))[`T`]
+  #target(fill: C.heap, label: "(heap)", width: 130pt)[
+    #cell(fill: C.any)[`T`]
+    #cell(fill: C.any)[`T`]
     #note[… len]
   ]
 ]
@@ -27,11 +57,12 @@ Quickly visualize memory layouts, protocol headers, register maps, cache hierarc
 
 The API is organized into three composable layers:
 
-| Layer | Purpose | Functions |
-|-------|---------|-----------|
-| **Layer 1 — Atoms** | Individual visual elements | `cell` `tag` `note` `badge` `sub-label` `span-label` `wrap` `brace` |
-| **Layer 2 — Containers** | Grouping and structure | `region` `target` `connector` `divider` `detail` `entry-list` |
-| **Layer 3 — Composites** | Complete diagram patterns | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row` |
+| Layer                    | Purpose                    | Functions                                                                                                            |
+| ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Layer 1 — Atoms**      | Individual visual elements | `cell` `tag` `note` `badge` `sub-label` `span-label` `wrap` `brace`                                                  |
+| **Layer 2 — Containers** | Grouping and structure     | `region` `target` `connector` `divider` `detail` `entry-list`                                                        |
+| **Layer 3 — Composites** | Complete diagram patterns  | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row`                                              |
+| **Palettes**             | Curated color sets         | `palettes.base` `palettes.status` `palettes.pastel` `palettes.categorical` `palettes.sequential` (+ domain examples) |
 
 ## Layer 1 — Atoms
 
@@ -40,8 +71,8 @@ The API is organized into three composable layers:
 The core building block. A rectangular box with a label, color, and optional decorations.
 
 ```typ
-#cell(body, fill: luma(220), width: auto, height: auto,
-  stroke: 0.8pt + black, dash: none, radius: 0pt,
+#cell(body, fill: palettes.base.surface-strong, width: auto, height: auto,
+  stroke: 0.8pt + palettes.base.border, dash: none, radius: 0pt,
   inset: (x: 4pt, y: 2pt), expandable: false,
   phantom: false, overlay: none, baseline: 30%)
 ```
@@ -128,7 +159,7 @@ Horizontal span indicator `← label →`.
 
 Adds a thick colored border around content for double-border effects (e.g. Rust's `Cell<T>`).
 
-![wrap examples: plain cell → wrapped cell, RefCell\<T\> effect.](docs/imgs/wrap.svg)
+![wrap examples: plain cell → wrapped cell, RefCell<T> effect.](docs/imgs/wrap.svg)
 
 ```typ
 #wrap(stroke: 3pt + gold)[
@@ -153,10 +184,13 @@ Marks a range of elements with a brace and label below.
 Groups multiple cells into a visual unit with a background and border.
 
 ```typ
-#region(body, fill: luma(242), stroke: 1pt + gray, radius: 4pt,
-  width: auto, content-align: center, danger: false, faded: false)
+#region(body, fill: palettes.base.surface, stroke: 1pt + palettes.base.border-soft,
+  dash: none, radius: 4pt, width: auto, content-align: center,
+  label: none, danger: false, faded: false)
 ```
 
+- `dash`: Border dash pattern (`none`, `"dashed"`, `"dotted"`).
+- `label`: Optional bottom-right annotation (e.g. `"(heap)"`).
 - `danger`: Thick red border (e.g. unsafe access).
 - `faded`: Dashed border, semi-transparent (e.g. zero-size / absent).
 
@@ -172,7 +206,7 @@ Groups multiple cells into a visual unit with a background and border.
 
 ### `target` — Referenced region
 
-Dashed-border region with an optional bottom-right label. Represents a linked / referenced area (heap, static, etc.).
+Dashed-border region with an optional bottom-right label. Represents a linked / referenced area (heap, static, etc.). Thin wrapper over `region` with `dash: "dashed"` and a transparentized fill.
 
 ```typ
 #target(body, fill: rgb("#FDECDC"), label: none, width: auto)
@@ -194,7 +228,7 @@ Links a region to its target.
 ![connector linking a region to a target.](docs/imgs/connector.svg)
 
 ```typ
-#connector(length: 8pt, stroke: 1pt + gray)
+#connector(length: 8pt, stroke: 1pt + palettes.base.border-soft)
 ```
 
 ### `divider` — Text separator
@@ -252,7 +286,7 @@ Top-level inline container with a title and description. Multiple `schema` block
 
 The most common pattern: a top-level field region linked to a target region below.
 
-![linked-schema: Box\<T\> and String.](docs/imgs/linked-schema.svg)
+![linked-schema: Box<T> and String.](docs/imgs/linked-schema.svg)
 
 ```typ
 #linked-schema(
@@ -341,19 +375,84 @@ Fields scale proportionally by bit count. Designed for protocol headers and regi
 
 ## Usage Patterns
 
-### Define a domain palette
+### Use a built-in palette
 
-The package has no built-in color semantics. Define your own palette per domain:
+The package ships with several palettes under the `palettes` namespace,
+organized by _visual role_ rather than subject domain:
+
+#### `palettes.status` — semantic states
+
+Each state is a `(fill, stroke)` pair you spread directly into any
+function that accepts those arguments — one concept, one access:
 
 ```typ
-// Rust memory layout
-#let C = (
-  any: rgb("#FA8072"), ptr: rgb("#87CEFA"),
-  sized: rgb("#00FFFF"), heap: rgb("#C6DBE7"),
-  cell: rgb("#FFD700"),
-)
+#badge(..palettes.status.success)[OK]
+#badge(..palettes.status.danger)[ERROR]
+#cell(..palettes.status.warning)[Check me]
+```
 
-// Network protocol
+Need the dark tone for text? Use `.stroke`:
+
+```typ
+#text(fill: palettes.status.info.stroke)[note]
+```
+
+Keys: `success` `warning` `danger` `info` `neutral` — each a `(fill:, stroke:)` dict.
+
+#### `palettes.pastel` — named soft swatches
+
+A general-purpose base. Use when you just want "a nice blue".
+
+```typ
+#cell(fill: palettes.pastel.blue)[Inbox]
+#cell(fill: palettes.pastel.green)[Approved]
+```
+
+Keys: `red` `pink` `purple` `indigo` `blue` `cyan` `teal` `green` `lime` `yellow` `orange` `brown` `gray`.
+
+#### `palettes.categorical` — 8 colors for N groups
+
+An **array** of 8 harmonious but distinguishable colors. Ideal for legends
+or series where you just need "the next distinct color".
+
+```typ
+#for (i, label) in ([Alpha], [Beta], [Gamma]).enumerate() {
+  cell(fill: palettes.categorical.at(i))[#label]
+}
+```
+
+#### `palettes.sequential` — intensity ramps
+
+Light → dark single-hue ramps (5 steps). Use for levels, priority, heatmap-like coding.
+
+```typ
+#for lvl in range(5) {
+  cell(fill: palettes.sequential.blue.at(lvl))[L#lvl]
+}
+```
+
+Ramps: `blue`, `green`, `orange`, `purple`, `gray`.
+
+#### Domain examples
+
+`palettes.rust`, `palettes.network`, `palettes.cache` are the exact palettes
+used by the bundled examples. Treat them as starting points — copy, rename,
+or ignore entirely.
+
+### Tweak or extend a palette
+
+Spread into a new dict to override or add keys:
+
+```typ
+#let C = (..palettes.pastel, accent: rgb("#FF6F00"))
+#cell(fill: C.accent)[Highlight]
+```
+
+### Define a custom palette
+
+When the built-ins don't fit, a palette is just a dict of colors:
+
+```typ
 #let C = (
   header: rgb("#BBDEFB"), addr: rgb("#B2DFDB"),
   flag: rgb("#E1BEE7"), data: rgb("#DCEDC8"),

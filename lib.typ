@@ -33,8 +33,16 @@
 //   legend         Color legend mapping fills to labels
 //   bit-row        Proportional bit-field row for protocol/register layouts
 //
+// Palettes (curated color sets):
+//   palettes.status       Semantic states (success/warning/danger/info/neutral)
+//   palettes.pastel       Named soft swatches (red, blue, green, …)
+//   palettes.categorical  8 distinct colors for legends / N-way groups
+//   palettes.sequential   Light→dark single-hue ramps (5 steps)
+//   palettes.rust / .network / .cache — domain examples
+//
 // ============================================================================
 
 #import "src/atoms.typ": cell, tag, note, badge, sub-label, span-label, wrap, brace
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row
+#import "src/palettes.typ": palettes

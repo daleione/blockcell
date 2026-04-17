@@ -10,6 +10,20 @@
 // span-label - A horizontal extent label (e.g., ← capacity →)
 // ============================================================================
 
+#import "palettes.typ": palettes
+
+/// Merge a dash pattern into an existing stroke, preserving paint and thickness.
+/// Returns the stroke unchanged when `dash` is `none`.
+#let _stroke-with-dash(stroke, dash) = {
+  if dash == none { return stroke }
+  if type(stroke) == dictionary {
+    (..stroke, dash: dash)
+  } else {
+    let s = std.stroke(stroke)
+    (paint: s.paint, thickness: s.thickness, dash: dash)
+  }
+}
+
 /// A colored rectangular cell — the atomic building block of all diagrams.
 ///
 /// ```typst
@@ -22,10 +36,10 @@
 /// ```
 #let cell(
   body,
-  fill: luma(220),
+  fill: palettes.base.surface-strong,
   width: auto,
   height: auto,
-  stroke: 0.8pt + black,
+  stroke: 0.8pt + palettes.base.border,
   dash: none,
   radius: 0pt,
   inset: (x: 4pt, y: 2pt),
@@ -37,24 +51,12 @@
   let actual-fill = if phantom { fill.transparentize(60%) } else { fill }
   let actual-dash = if phantom { "dashed" } else { dash }
 
-  // Build final stroke: apply dash override onto the user's stroke
-  let stroke-val = if actual-dash != none {
-    if type(stroke) == dictionary {
-      (..stroke, dash: actual-dash)
-    } else {
-      // Native stroke (e.g. `2pt + red`): extract paint/thickness via std
-      let s = std.stroke(stroke)
-      (paint: s.paint, thickness: s.thickness, dash: actual-dash)
-    }
-  } else {
-    stroke
-  }
-
   box(
     width: width, height: height, fill: actual-fill,
-    stroke: stroke-val, radius: radius, inset: inset, baseline: baseline,
+    stroke: _stroke-with-dash(stroke, actual-dash),
+    radius: radius, inset: inset, baseline: baseline,
     {
-      set text(fill: black, hyphenate: false)
+      set text(fill: palettes.base.text, hyphenate: false)
       set align(center)
       set par(justify: false)
       if expandable {
@@ -68,7 +70,7 @@
       }
       if overlay != none {
         place(top + right,
-          text(size: 0.5em, weight: "bold", fill: luma(60), overlay))
+          text(size: 0.5em, weight: "bold", fill: palettes.base.text-muted, overlay))
       }
     },
   )
@@ -111,7 +113,7 @@
 /// length to override.
 #let span-label(body, width: 100%) = {
   block(width: width, {
-    set text(size: 0.55em, fill: luma(120))
+    set text(size: 0.55em, fill: palettes.base.text-subtle)
     set align(center)
     [#sym.arrow.l~#body~#sym.arrow.r]
   })
@@ -127,7 +129,7 @@
 ///   #cell(fill: salmon)[`T`]   // keeps its own thin black border
 /// ]
 /// ```
-#let wrap(body, stroke: 3pt + black, radius: 3pt, inset: 2pt) = {
+#let wrap(body, stroke: 3pt + palettes.base.border, radius: 3pt, inset: 2pt) = {
   box(
     stroke: stroke, radius: radius, inset: inset,
     baseline: 30%, body,
@@ -150,13 +152,13 @@
       grid(
         columns: (1fr, auto, 1fr),
         align: horizon,
-        line(length: 100%, stroke: 0.6pt + luma(120)),
-        text(size: 0.7em, fill: luma(120), h(2pt) + sym.arrow.b + h(2pt)),
-        line(length: 100%, stroke: 0.6pt + luma(120)),
+        line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
+        text(size: 0.7em, fill: palettes.base.text-subtle, h(2pt) + sym.arrow.b + h(2pt)),
+        line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
       )
     })
     // Bottom: the label
     v(1pt)
-    text(size: 0.65em, fill: luma(100), body)
+    text(size: 0.65em, fill: palettes.base.text-muted, body)
   })
 }

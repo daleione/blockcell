@@ -9,24 +9,7 @@
 #set page(width: 780pt, height: auto, margin: 20pt)
 #set text(size: 10pt)
 
-// ---------------------------------------------------------------------------
-// Rust-specific palette & helpers (matching cheats.rs SCSS exactly)
-// ---------------------------------------------------------------------------
-
-#let C = (
-  any: rgb("#FA8072"),        // salmon
-  ptr: rgb("#87CEFA"),        // lightskyblue
-  sized: rgb("#00FFFF"),      // cyan
-  cell-bg: rgb("#FFD700"),    // gold — UnsafeCell visual bg
-  cell-border: rgb("#FFD700"),// gold — .celled border (4px)
-  atomic: rgb("#3CB371"),     // mediumseagreen
-  uninit: rgb("#D1C4E9"),     // light purple
-  enum-bg: rgb("#FAFAD2"),    // lightgoldenrodyellow
-  heap: rgb("#C6DBE7"),       // heap memory
-  anymem: rgb("#FDECDC"),     // any referenced memory
-)
-
-// sub-label is now provided by the library; alias for brevity
+#let C = palettes.rust
 #let sub = sub-label
 
 // Type cell (salmon, generic T)

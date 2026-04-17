@@ -37,32 +37,32 @@
 #align(center)[
   #schema(title: raw("Vec<T>"))[
     #region[
-      #cell(fill: rgb("#87CEFA"))[`ptr`#sub-label[2/4/8]]
-      #cell(fill: rgb("#00FFFF"))[`len`#sub-label[2/4/8]]
-      #cell(fill: rgb("#00FFFF"))[`cap`#sub-label[2/4/8]]
+      #cell(fill: palettes.rust.ptr)[`ptr`#sub-label[2/4/8]]
+      #cell(fill: palettes.rust.sized)[`len`#sub-label[2/4/8]]
+      #cell(fill: palettes.rust.sized)[`cap`#sub-label[2/4/8]]
     ]
     #connector()
-    #target(fill: rgb("#C6DBE7"), label: "(heap)", width: 130pt)[
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
+    #target(fill: palettes.rust.heap, label: "(heap)", width: 130pt)[
+      #cell(fill: palettes.rust.any)[`T`]
+      #cell(fill: palettes.rust.any)[`T`]
       #note[… len]
     ]
   ]
   #schema(title: [*IPv4 Row 1*])[
     #bit-row(total: 32, width: 200pt, fields: (
-      (bits: 4,  label: [Ver],  fill: rgb("#FFF9C4")),
-      (bits: 4,  label: [IHL],  fill: rgb("#FFF9C4")),
-      (bits: 8,  label: [DSCP], fill: rgb("#E1BEE7")),
-      (bits: 16, label: [Total Len], fill: rgb("#FFF9C4")),
+      (bits: 4,  label: [Ver],       fill: palettes.network.meta),
+      (bits: 4,  label: [IHL],       fill: palettes.network.meta),
+      (bits: 8,  label: [DSCP],      fill: palettes.network.flag),
+      (bits: 16, label: [Total Len], fill: palettes.network.meta),
     ))
   ]
   #schema(title: [*enum E*])[
-    #region(fill: rgb("#FAFAD2"))[
-      #tag[`Tag`] #cell(fill: rgb("#FA8072"))[`A`]
+    #region(fill: palettes.rust.enum-bg)[
+      #tag[`Tag`] #cell(fill: palettes.rust.any)[`A`]
     ]
     #divider(body: [exclusive or])
-    #region(fill: rgb("#FAFAD2"))[
-      #tag[`Tag`] #cell(fill: rgb("#FA8072"), width: 60pt)[`B`]
+    #region(fill: palettes.rust.enum-bg)[
+      #tag[`Tag`] #cell(fill: palettes.rust.any, width: 60pt)[`B`]
     ]
   ]
 ]
@@ -79,7 +79,7 @@
 - 缓存层次结构与一致性协议
 - 流水线和线程安全可视化
 
-包的设计哲学是 *领域无关* —— 所有原语都是通用的彩色方块和容器，不绑定任何特定编程语言或技术领域。用户通过定义自己的调色板和辅助函数来适配特定领域。
+包的设计哲学是 *领域无关* —— 所有原语都是通用的彩色方块和容器，不绑定任何特定编程语言或技术领域。包内置了以视觉角色分类的调色板（状态、柔和色、分类、梯度）作为即用起点，用户也可以自行定义领域调色板和辅助函数。
 
 == 安装
 
@@ -125,6 +125,15 @@
       ]
     ],
   )
+  #v(6pt)
+  #region(fill: rgb("#F3E5F5"), width: 490pt)[
+    #text(weight: "bold")[Palettes — 调色板（按视觉角色分类）]
+    #v(2pt)
+    #text(size: 0.85em)[
+      `palettes.status` `palettes.pastel` `palettes.categorical` `palettes.sequential`
+      #h(6pt) (+ 域示例 `rust` / `network` / `cache`)
+    ]
+  ]
 ]
 
 #v(8pt)
@@ -522,21 +531,146 @@
 
 #v(12pt)
 
-= 使用模式
+== 调色板
 
-== 定义领域调色板
+包通过 `palettes` 命名空间提供一组按 *视觉角色* 分类的内置调色板，开箱即用。无需手写 RGB 字典。
 
-包本身不内置颜色语义。用户应根据领域定义自己的调色板：
+=== `palettes.status` — 语义状态
+
+每种状态都是一个 `(fill, stroke)` 对，直接用 `..` 展开传给任何接受这两个参数的函数。一次访问表达一个概念，不必手动配对。
 
 ```typst
-// Rust 内存布局
-#let C = (
-  any: rgb("#FA8072"), ptr: rgb("#87CEFA"),
-  sized: rgb("#00FFFF"), heap: rgb("#C6DBE7"),
-  cell: rgb("#FFD700"),
+#badge(..palettes.status.success)[OK]
+#cell(..palettes.status.danger)[Error]
+```
+
+#align(center)[
+  #badge(..palettes.status.success)[SUCCESS]
+  #h(4pt)
+  #badge(..palettes.status.warning)[WARNING]
+  #h(4pt)
+  #badge(..palettes.status.danger)[DANGER]
+  #h(4pt)
+  #badge(..palettes.status.info)[INFO]
+  #h(4pt)
+  #badge(..palettes.status.neutral)[NEUTRAL]
+]
+
+#v(2pt)
+
+键：`success` `warning` `danger` `info` `neutral` —— 每个都是 `(fill:, stroke:)` 字典。需要深色用作文字时取 `.stroke`：
+
+```typst
+#text(fill: palettes.status.info.stroke)[note]
+```
+
+=== `palettes.pastel` — 13 色命名柔和色
+
+通用基础色。需要 "一个好看的蓝" 时直接用。
+
+```typst
+#cell(fill: palettes.pastel.blue)[Inbox]
+```
+
+#align(center)[
+  #let swatch(name) = cell(fill: palettes.pastel.at(name), width: 34pt, height: 22pt)[
+    #text(size: 0.72em)[#name]
+  ]
+  #swatch("red")  #swatch("pink")  #swatch("purple") #swatch("indigo")
+  #swatch("blue") #swatch("cyan")  #swatch("teal")   #swatch("green")
+  #swatch("lime") #swatch("yellow") #swatch("orange") #swatch("brown")
+  #swatch("gray")
+]
+
+#v(2pt)
+
+键：`red` `pink` `purple` `indigo` `blue` `cyan` `teal` `green` `lime` `yellow` `orange` `brown` `gray`。
+
+=== `palettes.categorical` — 8 色分类数组
+
+8 种彼此可区分的颜色组成的*数组*。按索引 `.at(i)` 取色——适合图例、N 分组、数据系列。
+
+```typst
+#for (i, label) in ([Alpha], [Beta], [Gamma]).enumerate() {
+  cell(fill: palettes.categorical.at(i))[#label]
+}
+```
+
+#align(center)[
+  #for (i, label) in (
+    [Design], [Engineering], [Marketing], [Sales],
+    [Support], [Finance], [Legal], [Ops],
+  ).enumerate() {
+    cell(fill: palettes.categorical.at(i), width: 50pt, height: 22pt)[
+      #text(size: 0.8em)[#label]
+    ]
+  }
+]
+
+=== `palettes.sequential` — 明度梯度
+
+5 组单色梯度（`blue`、`green`、`orange`、`purple`、`gray`），每组 5 阶（浅→深）。适合等级、强度、热力图式编码。
+
+```typst
+#for lvl in range(5) {
+  cell(fill: palettes.sequential.blue.at(lvl))[L#lvl]
+}
+```
+
+#align(center)[
+  #for hue in ("blue", "green", "orange", "purple", "gray") {
+    text(size: 0.8em, weight: "bold")[#hue]
+    h(4pt)
+    for lvl in range(5) {
+      cell(fill: palettes.sequential.at(hue).at(lvl), width: 36pt, height: 20pt)[
+        #text(size: 0.75em, fill: if lvl < 2 { black } else { white }, weight: "bold")[L#lvl]
+      ]
+    }
+    linebreak()
+    v(2pt)
+  }
+]
+
+=== 域示例
+
+以下三个调色板是官方示例文档使用的域调色板。可以直接用，可以复制改键，也可以完全忽略。
+
+#grid(
+  columns: (1fr, 1fr, 1fr),
+  column-gutter: 8pt,
+  row-gutter: 4pt,
+  text(weight: "bold", size: 0.9em)[`palettes.rust`],
+  text(weight: "bold", size: 0.9em)[`palettes.network`],
+  text(weight: "bold", size: 0.9em)[`palettes.cache`],
+  text(size: 0.8em)[Rust 内存布局\ （any/ptr/sized/heap...）],
+  text(size: 0.8em)[TCP/IP 协议头\ （link/addr/flag/meta...）],
+  text(size: 0.8em)[CPU 缓存层次 + MESI\ （l1/l2/l3/ram/modified...）],
 )
 
-// 网络协议
+#v(8pt)
+
+= 使用模式
+
+== 使用调色板
+
+首选：直接使用内置 `palettes.xxx`。用 `#let C = ...` 给常用调色板起个短别名：
+
+```typst
+#let C = palettes.pastel
+#cell(fill: C.blue)[Inbox]
+#cell(fill: C.green)[Approved]
+```
+
+要在已有调色板上增/改几个键，用展开运算符：
+
+```typst
+#let C = (..palettes.pastel, accent: rgb("#FF6F00"))
+#cell(fill: C.accent)[Highlight]
+```
+
+内置不够用时，定义自己的字典：
+
+```typst
 #let C = (
   header: rgb("#BBDEFB"), addr: rgb("#B2DFDB"),
   flag: rgb("#E1BEE7"), data: rgb("#DCEDC8"),
@@ -579,103 +713,103 @@
 
 == 网络协议：IPv4 + TCP（使用 `bit-row`）
 
+#let N = palettes.network
+
 #section[IPv4 + TCP Header][
   #text(weight: "bold")[IPv4 Header]
   #v(4pt)
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 4,  label: [Ver],  fill: rgb("#FFF9C4")),
-    (bits: 4,  label: [IHL],  fill: rgb("#FFF9C4")),
-    (bits: 8,  label: [DSCP], fill: rgb("#E1BEE7")),
-    (bits: 16, label: [Total Length], fill: rgb("#B2DFDB")),
+    (bits: 4,  label: [Ver],          fill: N.meta),
+    (bits: 4,  label: [IHL],          fill: N.meta),
+    (bits: 8,  label: [DSCP],         fill: N.flag),
+    (bits: 16, label: [Total Length], fill: N.addr),
   ))
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 8,  label: [TTL],      fill: rgb("#FFF9C4")),
-    (bits: 8,  label: [Protocol], fill: rgb("#FFF9C4")),
-    (bits: 16, label: [Hdr Checksum], fill: rgb("#D1C4E9")),
+    (bits: 8,  label: [TTL],          fill: N.meta),
+    (bits: 8,  label: [Protocol],     fill: N.meta),
+    (bits: 16, label: [Hdr Checksum], fill: N.checksum),
   ))
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 32, label: [Source Address], fill: rgb("#B2DFDB")),
+    (bits: 32, label: [Source Address], fill: N.addr),
   ))
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 32, label: [Destination Address], fill: rgb("#B2DFDB")),
+    (bits: 32, label: [Destination Address], fill: N.addr),
   ))
   #v(8pt)
   #text(weight: "bold")[TCP Segment]
   #v(4pt)
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 16, label: [Src Port], fill: rgb("#FFE0B2")),
-    (bits: 16, label: [Dst Port], fill: rgb("#FFE0B2")),
+    (bits: 16, label: [Src Port], fill: N.transport),
+    (bits: 16, label: [Dst Port], fill: N.transport),
   ))
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 32, label: [Sequence Number], fill: rgb("#FFF9C4")),
+    (bits: 32, label: [Sequence Number], fill: N.meta),
   ))
   #bit-row(total: 32, width: 490pt, fields: (
-    (bits: 4,  label: [Off],    fill: rgb("#FFF9C4")),
-    (bits: 4,  label: [Rsv],    fill: luma(230), dash: "dashed"),
-    (bits: 8,  label: [Flags],  fill: rgb("#E1BEE7")),
-    (bits: 16, label: [Window], fill: rgb("#FFF9C4")),
+    (bits: 4,  label: [Off],    fill: N.meta),
+    (bits: 4,  label: [Rsv],    fill: N.reserved, dash: "dashed"),
+    (bits: 8,  label: [Flags],  fill: N.flag),
+    (bits: 16, label: [Window], fill: N.meta),
   ))
 ]
 
 == Rust：Cell 类型族（使用 `wrap`）
 
-#let C-rust = (
-  any: rgb("#FA8072"), sized: rgb("#00FFFF"),
-  cell: rgb("#FFD700"), enum-bg: rgb("#FAFAD2"),
-)
+#let R = palettes.rust
 
 #schema(title: raw("UnsafeCell<T>"), desc: [允许别名可变性。])[
-  #region(fill: C-rust.cell)[
-    #cell(fill: C-rust.any, expandable: true)[`T`]
+  #region(fill: R.cell-bg)[
+    #cell(fill: R.any, expandable: true)[`T`]
   ]
 ]#schema(title: raw("Cell<T>"), desc: [移入移出 `T`。])[
   #region[
-    #wrap(stroke: 3pt + C-rust.cell)[
-      #cell(fill: C-rust.any, expandable: true)[`T`]
+    #wrap(stroke: 3pt + R.cell-border)[
+      #cell(fill: R.any, expandable: true)[`T`]
     ]
   ]
 ]#schema(title: raw("RefCell<T>"), desc: [动态借用检查。])[
   #region[
-    #wrap(stroke: 3pt + C-rust.cell)[
-      #cell(fill: C-rust.sized)[`borrowed`]
+    #wrap(stroke: 3pt + R.cell-border)[
+      #cell(fill: R.sized)[`borrowed`]
     ]
-    #wrap(stroke: 3pt + C-rust.cell)[
-      #cell(fill: C-rust.any, expandable: true)[`T`]
+    #wrap(stroke: 3pt + R.cell-border)[
+      #cell(fill: R.any, expandable: true)[`T`]
     ]
   ]
 ]#schema(title: raw("Option<T>"), desc: [Some 或 None。])[
-  #region(fill: C-rust.enum-bg)[#tag[`Tag`]]
+  #region(fill: R.enum-bg)[#tag[`Tag`]]
   #divider(body: [or])
-  #region(fill: C-rust.enum-bg)[#tag[`Tag`] #cell(fill: C-rust.any, width: 50pt)[`T`]]
+  #region(fill: R.enum-bg)[#tag[`Tag`] #cell(fill: R.any, width: 50pt)[`T`]]
 ]
 
 == 缓存层次与 MESI（使用 `legend`）
 
+#let K = palettes.cache
 #let mc = cell.with(width: 28pt, height: 20pt, inset: 2pt)
 
 #section[MESI Protocol][
   #legend(
-    (label: [#strong[M]odified],  fill: rgb("#FFCC80")),
-    (label: [#strong[E]xclusive], fill: rgb("#B3E5FC")),
-    (label: [#strong[S]hared],    fill: rgb("#C8E6C9")),
-    (label: [#strong[I]nvalid],   fill: luma(220)),
+    (label: [#strong[M]odified],  fill: K.modified),
+    (label: [#strong[E]xclusive], fill: K.exclusive),
+    (label: [#strong[S]hared],    fill: K.shared),
+    (label: [#strong[I]nvalid],   fill: K.invalid),
   )
   #v(8pt)
   #grid-row(label: [Memory])[
-    #mc(fill: rgb("#FFE0B2"))[`03`] #mc(fill: rgb("#FFE0B2"))[`FF`]
-    #mc(fill: rgb("#FFE0B2"))[`7F`] #mc(fill: rgb("#FFE0B2"))[`A0`]
+    #mc(fill: K.data)[`03`] #mc(fill: K.data)[`FF`]
+    #mc(fill: K.data)[`7F`] #mc(fill: K.data)[`A0`]
   ]
   #grid-row(label: [CPU 0])[
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`03`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`FF`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`7F`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`A0`]
+    #mc(fill: K.shared, overlay: [S])[`03`]
+    #mc(fill: K.shared, overlay: [S])[`FF`]
+    #mc(fill: K.shared, overlay: [S])[`7F`]
+    #mc(fill: K.shared, overlay: [S])[`A0`]
   ]
   #grid-row(label: [CPU 1])[
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`03`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`FF`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`7F`]
-    #mc(fill: rgb("#C8E6C9"), overlay: [S])[`A0`]
+    #mc(fill: K.shared, overlay: [S])[`03`]
+    #mc(fill: K.shared, overlay: [S])[`FF`]
+    #mc(fill: K.shared, overlay: [S])[`7F`]
+    #mc(fill: K.shared, overlay: [S])[`A0`]
   ]
 ]
 
