@@ -89,6 +89,8 @@
 /// ```typst
 /// #badge[STALLED]
 /// #badge(fill: rgb("#C8E6C9"), stroke: rgb("#2E7D32"))[HIT]
+/// #badges.success[OK]
+/// #badges.danger[ERROR]
 /// ```
 #let badge(body, fill: rgb("#FFECB3"), stroke: rgb("#FF8F00")) = {
   box(
@@ -100,6 +102,18 @@
     text(size: 0.6em, weight: "bold", fill: stroke.darken(40%), body),
   )
 }
+
+/// Prebound status badge shortcuts.
+///
+/// Provides a shorter alternative to `#badge(..palettes.status.success)[OK]`,
+/// while keeping `palettes.status.*` as the underlying source of truth.
+#let badges = (
+  success: badge.with(..palettes.status.success),
+  warning: badge.with(..palettes.status.warning),
+  danger: badge.with(..palettes.status.danger),
+  info: badge.with(..palettes.status.info),
+  neutral: badge.with(..palettes.status.neutral),
+)
 
 /// Subscript-style label for field size annotations.
 ///

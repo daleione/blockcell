@@ -42,7 +42,7 @@
 //
 // ============================================================================
 
-#import "src/atoms.typ": cell, tag, note, badge, sub-label, span-label, wrap, brace
+#import "src/atoms.typ": cell, tag, note, badge, badges, sub-label, span-label, wrap, brace
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row
 #import "src/palettes.typ": palettes

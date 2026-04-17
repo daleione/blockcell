@@ -540,20 +540,20 @@
 每种状态都是一个 `(fill, stroke)` 对，直接用 `..` 展开传给任何接受这两个参数的函数。一次访问表达一个概念，不必手动配对。
 
 ```typst
-#badge(..palettes.status.success)[OK]
+#badges.success[OK]
 #cell(..palettes.status.danger)[Error]
 ```
 
 #align(center)[
-  #badge(..palettes.status.success)[SUCCESS]
+  #badges.success[SUCCESS]
   #h(4pt)
-  #badge(..palettes.status.warning)[WARNING]
+  #badges.warning[WARNING]
   #h(4pt)
-  #badge(..palettes.status.danger)[DANGER]
+  #badges.danger[DANGER]
   #h(4pt)
-  #badge(..palettes.status.info)[INFO]
+  #badges.info[INFO]
   #h(4pt)
-  #badge(..palettes.status.neutral)[NEUTRAL]
+  #badges.neutral[NEUTRAL]
 ]
 
 #v(2pt)

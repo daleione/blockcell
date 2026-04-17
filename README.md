@@ -16,11 +16,17 @@ Quickly visualize memory layouts, protocol headers, register maps, cache hierarc
 #badge[NEW]  #tag[x]
 ```
 
-**Semantic status? One-line spread.**
+**Semantic status? Use the built-in badge shortcuts.**
 
 ```typ
-#badge(..palettes.status.success)[OK]
-#badge(..palettes.status.warning)[WAIT]
+#badges.success[OK]
+#badges.warning[WAIT]
+#badges.danger[ERROR]
+```
+
+Need the underlying `(fill, stroke)` pair for another component? The original palette form still works:
+
+```typ
 #cell(..palettes.status.danger)[Error]
 ```
 
@@ -125,6 +131,23 @@ Compact colored badge for states or alerts.
 
 ```typ
 #badge[STALLED]
+#badges.success[HIT]
+#badges.danger[MISS]
+```
+
+`badges` provides prebound status shortcuts for the common semantic states:
+
+```typ
+#badges.success[OK]
+#badges.warning[WAIT]
+#badges.danger[ERROR]
+#badges.info[INFO]
+#badges.neutral[SKIP]
+```
+
+If you need full control, `badge` still accepts explicit `fill` and `stroke`:
+
+```typ
 #badge(fill: rgb("#C8E6C9"), stroke: rgb("#2E7D32"))[HIT]
 #badge(fill: rgb("#FFCDD2"), stroke: rgb("#C62828"))[MISS]
 ```
