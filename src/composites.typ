@@ -179,6 +179,101 @@
   })
 }
 
+/// A row of cells whose widths are distributed by `flex` ratios (fr units).
+///
+/// Solves the "every column needs an explicit `width: NNpt`" pain point: each
+/// item declares a `flex` weight and the row divides its available width
+/// proportionally, like CSS `flex-grow`. Backed by Typst `grid` with `fr`
+/// column units.
+///
+/// ```typst
+/// #flex-row(
+///   (flex: 1, body: cell(fill: blue)[Category Tree]),
+///   (flex: 1, body: cell(fill: cyan)[Product Card]),
+///   (flex: 2, body: cell(fill: teal)[Search Index]),  // 2× wider
+/// )
+/// ```
+///
+/// Child elements with `width: auto` (the default for `cell`) keep their
+/// intrinsic width inside the assigned column. To fill the column, set
+/// `width: 100%` on the child.
+///
+/// - `width`: Total row width. `auto` (default) fills the parent.
+/// - `gap`: Column gutter.
+/// - `align`: Cross-axis alignment (default `horizon`).
+/// - Items: positional `(flex:, body:)` dictionaries.
+#let flex-row(width: auto, gap: 0pt, align: horizon, ..items) = {
+  let entries = items.pos()
+  let cols = entries.map(e => e.flex * 1fr)
+  let bodies = entries.map(e => e.body)
+  let actual-width = if width == auto { 100% } else { width }
+
+  block(width: actual-width,
+    grid(
+      columns: cols,
+      column-gutter: gap,
+      align: align,
+      ..bodies,
+    ),
+  )
+}
+
+/// Vertically stack flow-chart nodes with an auto-inserted down-arrow
+/// between each consecutive pair. Each node is centered on the column axis
+/// so lines visually align even when node widths differ.
+///
+/// To label a specific arrow, attach `edge-label:` to the *destination* node
+/// — the label is read off the arrow pointing *into* that node. This reads
+/// top-down alongside the flow and stays robust under reordering.
+///
+/// ```typst
+/// #flow-col(
+///   terminal[Start],
+///   process[Load config],
+///   decision[Config valid?],
+///   process(edge-label: [Yes])[Start server],
+///   terminal(status: "danger")[Exit],
+/// )
+/// ```
+///
+/// - Positional args: nodes (any content; nodes produced with
+///   `edge-label:` are auto-unwrapped).
+/// - `edge-style`: default style for auto-inserted edges (`"solid"`,
+///   `"dashed"`, `"dotted"`).
+/// - `gap`: extra spacing added around each auto-inserted edge.
+///
+/// For complex 2-D flowcharts (diagonal routing, rejoining branches), reach
+/// for `fletcher` / `cetz`; this composite covers the common linear case.
+#let flow-col(
+  ..nodes,
+  edge-style: "solid",
+  gap: 0pt,
+) = {
+  let items = nodes.pos()
+  if items.len() == 0 { return }
+
+  // Unwrap sentinel dicts produced by `flow-node(edge-label: ...)`.
+  let unwrap(item) = if type(item) == dictionary and item.at("flow-node-wrapped", default: false) {
+    (body: item.body, edge-label: item.edge-label)
+  } else {
+    (body: item, edge-label: none)
+  }
+
+  let rows = ()
+  for (i, node) in items.enumerate() {
+    let u = unwrap(node)
+    if i > 0 {
+      rows.push(align(center, edge(
+        direction: "down",
+        style: edge-style,
+        label: u.edge-label,
+      )))
+    }
+    rows.push(align(center, u.body))
+  }
+  std.stack(dir: ttb, spacing: gap, ..rows)
+}
+
 /// A titled section card for grouping related diagrams.
 #let section(title, fill: palettes.base.surface-alt, stroke: 0.5pt + palettes.base.border-soft, body) = {
   block(

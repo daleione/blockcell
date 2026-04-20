@@ -15,6 +15,10 @@
 //   span-label   Horizontal extent label (← capacity →)
 //   wrap         Decorative border wrapper (double-border effects)
 //   brace        Horizontal brace with centered label below
+//   edge         Horizontal directed connector with optional label/arrow
+//   flow-node    Flowchart node (rect / diamond / stadium / circle)
+//                + semantic aliases process / decision / terminal / junction
+//                (each ships with a conventional default fill)
 //
 // Layer 2 — Containers (grouping and structure):
 //   region       Bordered container grouping cells into a unit
@@ -23,6 +27,7 @@
 //   divider      Text separator between layout alternatives
 //   detail       Explanation / zoom bar below a region
 //   entry-list   Vertical list of entries inside a target
+//   group        Bordered container with top-left title for logical grouping
 //
 // Layer 3 — Composites (complete diagram patterns):
 //   schema         Top-level inline diagram with title and description
@@ -32,6 +37,16 @@
 //   section        Titled card for grouping related diagrams
 //   legend         Color legend mapping fills to labels
 //   bit-row        Proportional bit-field row for protocol/register layouts
+//   flex-row       Row of cells with fr-based proportional widths
+//   flow-col       Vertical flow-chart column with auto-inserted down-arrows
+//   branch         Diamond decision: Yes continues down, No branches right
+//   branch-merge   Diamond with Yes / No columns that rejoin below
+//   switch         N-way branch (diamond fans out to cases, rejoining below);
+//                  cases are built with the `case(label, body)` constructor
+//   flow-loop      Wraps a body with a back-edge on the left ("repeat")
+//   seq-lane       Sequence diagram; steps built with the `seq-*` constructors
+//                  (seq-call / seq-ret / seq-note / seq-act /
+//                   seq-alt / seq-opt / seq-loop / seq-par)
 //
 // Palettes (curated color sets):
 //   palettes.status       Semantic states (success/warning/danger/info/neutral)
@@ -42,7 +57,9 @@
 //
 // ============================================================================
 
-#import "src/atoms.typ": cell, tag, note, badge, badges, sub-label, span-label, wrap, brace
-#import "src/containers.typ": region, target, connector, divider, detail, entry-list
-#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row
+#import "src/atoms.typ": cell, tag, note, label, badge, sub-label, span-label, wrap, brace, edge, flow-node, process, decision, terminal, junction
+#import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
+#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col
+#import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
+#import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/palettes.typ": palettes
