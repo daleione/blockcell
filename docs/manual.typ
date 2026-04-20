@@ -5,7 +5,7 @@
 #import "../lib.typ": *
 
 #set page(width: 600pt, height: auto, margin: (x: 36pt, y: 30pt))
-#set text(size: 10pt, lang: "zh", font: ("Source Han Sans SC", "PingFang SC", "Noto Sans CJK SC"))
+#set text(size: 10pt, lang: "zh", font: ("LXGW WenKai"))
 #set par(leading: 0.8em, justify: true)
 #show heading.where(level: 1): set text(size: 18pt)
 #show heading.where(level: 2): it => {
@@ -103,7 +103,8 @@
       #text(size: 0.85em)[
         `cell` `tag` `note`\
         `badge` `sub-label`\
-        `span-label` `wrap` `brace`
+        `span-label` `wrap`\
+        `brace` `edge`
       ]
     ],
     region(fill: rgb("#E8F5E9"), width: 155pt)[
@@ -112,7 +113,8 @@
       #text(size: 0.85em)[
         `region` `target`\
         `connector` `divider`\
-        `detail` `entry-list`
+        `detail` `entry-list`\
+        `stack` `group`
       ]
     ],
     region(fill: rgb("#FFF3E0"), width: 155pt)[
@@ -121,7 +123,9 @@
       #text(size: 0.85em)[
         `schema` `linked-schema`\
         `grid-row` `lane`\
-        `section` `legend` `bit-row`
+        `section` `legend`\
+        `bit-row` `flex-row`\
+        `seq-lane`
       ]
     ],
   )
@@ -132,6 +136,18 @@
     #text(size: 0.85em)[
       `palettes.status` `palettes.pastel` `palettes.categorical` `palettes.sequential`
       #h(6pt) (+ 域示例 `rust` / `network` / `cache`)
+    ]
+  ]
+  #v(6pt)
+  #region(fill: rgb("#FFECB3"), width: 490pt)[
+    #text(weight: "bold")[流程图 — 专题章节]
+    #v(2pt)
+    #text(size: 0.85em)[
+      `process` `decision` `terminal` `junction` (`flow-node`)
+      #h(4pt) `flow-col`
+      #h(4pt) `branch` `branch-merge` `switch` + `case`
+      #h(4pt) `flow-loop`
+      #h(6pt) → 详见 "流程图" 章节
     ]
   ]
 ]
@@ -218,6 +234,18 @@
   #note[… n times]
 ]
 
+=== `label` — 弱化标签
+
+用于结构图中的短标签、说明文字或轻量标题，比 `note` 更偏结构说明，但比正文更轻。
+
+#align(center)[
+  #label[Memory]
+  #h(10pt)
+  #label[(heap)]
+  #h(10pt)
+  #label[Only on eviction]
+]
+
 === `badge` — 状态徽章
 
 紧凑的状态指示器。
@@ -225,6 +253,28 @@
 #align(center)[
   #badge[STALLED]
   #h(8pt)
+  #badge(status: "success")[HIT]
+  #h(8pt)
+  #badge(status: "danger")[MISS]
+]
+
+`status` 参数为常见语义状态提供了更短的入口：
+
+#align(center)[
+  #badge(status: "success")[OK]
+  #h(4pt)
+  #badge(status: "warning")[WAIT]
+  #h(4pt)
+  #badge(status: "danger")[ERROR]
+  #h(4pt)
+  #badge(status: "info")[INFO]
+  #h(4pt)
+  #badge(status: "neutral")[SKIP]
+]
+
+需要完全控制时，`badge` 仍然接受显式的 `fill` 和 `stroke`：
+
+#align(center)[
   #badge(fill: rgb("#C8E6C9"), stroke: rgb("#2E7D32"))[HIT]
   #h(8pt)
   #badge(fill: rgb("#FFCDD2"), stroke: rgb("#C62828"))[MISS]
@@ -281,6 +331,42 @@
 #align(center, text(size: 0.8em, fill: luma(120))[
   普通 cell #h(12pt) → #h(12pt) wrap 后（双层边框） #h(20pt) RefCell\<T> 效果
 ])
+
+=== `edge` — 有向连接线
+
+带可选标签和实心三角箭头的有向线段，用于表达 "A → B" 的调用、引用、状态转移
+关系。横向（`"right"` / `"left"`）是 inline 元素，夹在一行 cell 之间；纵向
+（`"down"` / `"up"`）是块级元素，用在竖排节点之间（见 `flow-col`），标签贴
+在线的右侧。跨容器路由请用 `cetz` / `fletcher`。
+
+```typst
+#cell[Controller] #edge(label: [HTTP]) #cell[Business]
+#cell[Business]   #edge(label: [SQL], style: "dashed") #cell[MySQL]
+```
+
+#align(center)[
+  #cell(fill: palettes.pastel.blue)[Controller]
+  #edge(label: [HTTP])
+  #cell(fill: palettes.pastel.cyan)[Business]
+  #edge(label: [SQL], style: "dashed")
+  #cell(fill: palettes.pastel.teal)[MySQL]
+]
+
+#v(4pt)
+
+状态机风格 —— 用 stroke 颜色编码"成功 / 失败"语义：
+
+#align(center)[
+  #region(fill: palettes.pastel.yellow)[WAIT_BUYER_PAY]
+  #edge(label: [支付成功], stroke: 1pt + green)
+  #region(fill: palettes.pastel.orange)[WAIT_SELLER_SEND]
+  #edge(label: [超时关单], style: "dashed", stroke: 1pt + red)
+  #region(fill: palettes.status.danger.fill)[CLOSED]
+]
+
+#v(4pt)
+
+参数：`direction` 取 `"right"` / `"left"` / `"down"` / `"up"`；`style` 取 `"solid"`、`"dashed"`、`"dotted"`；`head` 取 `"arrow"` 或 `"none"`；`length` 沿方向轴自适应或手动设定。
 
 === `brace` — 水平花括号
 
@@ -346,6 +432,24 @@
   #target[#cell(fill: rgb("#FA8072"))[`T`]]
 ])
 
+=== `stack` — 垂直堆叠
+
+用于把多个图块按垂直方向排列。每一项都作为独立的内容块传入，这样边界更明确，也避免反复手写 `#v(...)` 或单列 `grid`。
+
+#align(center)[
+  #stack(
+    [#region(fill: palettes.cache.l1.lighten(40%), width: 120pt)[
+      #text(weight: "bold")[L1 Cache]
+    ]],
+    [#region(fill: palettes.cache.l2.lighten(40%), width: 160pt)[
+      #text(weight: "bold")[L2 Cache]
+    ]],
+    [#region(fill: palettes.cache.l3.lighten(40%), width: 200pt)[
+      #text(weight: "bold")[L3 Cache]
+    ]],
+  )
+]
+
 === `divider` — 分隔符
 
 布局替代方案之间的文本分隔符。
@@ -366,6 +470,43 @@
     ([`*Drop::drop(&mut T)`], [`size`], [`align`], [`*Trait::f(&T, …)`]),
   )
 ]
+
+=== `group` — 逻辑分组外框
+
+带左上角小标题的边框容器，用于把*多个独立子组件*圈在同一逻辑边界内。语义介于
+`region`（单个结构单元，右下角小注）和 `section`（文档级卡片，顶部大标题）之间。
+`dash: "dashed"` 表示逻辑分组（非物理边界）。
+
+```typst
+#let cat = palettes.categorical
+#group(label: [业务层 Business], fill: cat.at(1).lighten(42%))[
+  #region(fill: cat.at(1))[Business: 自有平台]
+  #v(4pt)
+  #region(fill: cat.at(1).lighten(10%))[Business: 外部平台同步]
+  #v(4pt)
+  #region(fill: cat.at(1).lighten(20%))[Business: 横向公共能力]
+]
+```
+
+#align(center)[
+  #group(label: [业务层 Business], fill: palettes.categorical.at(1).lighten(42%), width: 320pt)[
+    #region(fill: palettes.categorical.at(1), width: 100%)[
+      #text(weight: "bold")[Business: 自有平台]
+    ]
+    #v(4pt)
+    #region(fill: palettes.categorical.at(1).lighten(10%), width: 100%)[
+      #text(weight: "bold")[Business: 外部平台同步]
+    ]
+    #v(4pt)
+    #region(fill: palettes.categorical.at(1).lighten(20%), width: 100%)[
+      #text(weight: "bold")[Business: 横向公共能力]
+    ]
+  ]
+]
+
+#v(4pt)
+
+可嵌套；用 `fill` 深浅区分层级。
 
 #v(8pt)
 
@@ -456,6 +597,90 @@
   )
 ])
 
+=== `seq-lane` — 时序图
+
+声明式 UML 时序图。与 `lane`（"状态随时间走"）互补，`seq-lane` 表达
+"参与者之间互相调用"。覆盖 UML 标准词汇：跨参与者消息、回调、自调用、
+控制焦点（activation）、组合片段（alt / opt / loop / par）、便签。
+
+*Step 构造函数* —— Step 由 `seq-*` 构造，直接以位置参数传给 `seq-lane`：
+
+#grid(
+  columns: (160pt, 1fr),
+  row-gutter: 4pt,
+  text(weight: "bold")[`seq-call(from, to)[..]`],
+  [同步消息（实线 + 实心三角箭头）；`from == to` 时自动渲染为自调用 U 形回环],
+  text(weight: "bold")[`seq-ret(from, to)[..]`],
+  [回调（虚线 + 开口 V 形箭头）],
+  text(weight: "bold")[`seq-note(over)[..]`],
+  [便签（折角矩形）；`over` 取单个 id 或 `("a","b")` 跨多列],
+  text(weight: "bold")[`seq-act(who)[..]`],
+  [单参与者列内的工作块],
+  text(weight: "bold")[`seq-alt(cond, ..)`],
+  [可选分支组合片段；首参为条件（方括号内容），其余为嵌套 step],
+  text(weight: "bold")[`seq-opt` / `seq-loop` / `seq-par`],
+  [同上，分别对应 opt / loop / par 片段语义],
+)
+
+#v(4pt)
+
+*参与者* —— 从 step id 按首次出现顺序自动推导，颜色循环使用 `palettes.categorical`。
+传 `participants:` 可自定义显示名或颜色（按 id 局部覆盖，用户顺序优先）。
+
+*控制焦点* —— 默认开启。每个 `seq-call` 在目标列生命线上开启一段活动区间，
+匹配的 `seq-ret` 关闭。`call` 的实心三角与 `ret` 的开口 V 头形不同，便于一眼
+区分请求与回复。用 `activate: false` 关闭，`activation-width` 调整矩形宽度。
+
+*组合片段* —— `seq-alt` / `seq-opt` / `seq-loop` / `seq-par` 以位置参数嵌套，
+渲染为虚线框 + 左上角小标签 + 方括号条件。天然支持任意层嵌套。
+
+#v(4pt)
+
+*示例* —— 用户登录流程，涵盖跨参与者调用、自调用、便签、alt 分支与回调：
+
+```typst
+#seq-lane(
+  participants: (
+    (id: "browser", name: [Browser]),
+    (id: "api",     name: [API]),
+    (id: "auth",    name: [Auth Service]),
+    (id: "db",      name: [Database]),
+  ),
+  seq-call("browser", "api")[POST /login],
+  seq-call("api", "api")[validate input],
+  seq-alt([credentials provided],
+    seq-call("api", "auth")[authenticate(user, pwd)],
+    seq-call("auth", "db")[SELECT user],
+    seq-ret("db", "auth")[user row],
+    seq-note("auth")[bcrypt compare],
+    seq-ret("auth", "api")[session token],
+  ),
+  seq-ret("api", "browser")[200 + Set-Cookie],
+)
+```
+
+#align(center)[
+  #seq-lane(
+    width: 460pt,
+    participants: (
+      (id: "browser", name: [Browser]),
+      (id: "api",     name: [API]),
+      (id: "auth",    name: [Auth Service]),
+      (id: "db",      name: [Database]),
+    ),
+    seq-call("browser", "api")[POST /login],
+    seq-call("api", "api")[validate input],
+    seq-alt([credentials provided],
+      seq-call("api", "auth")[authenticate(user, pwd)],
+      seq-call("auth", "db")[SELECT user],
+      seq-ret("db", "auth")[user row],
+      seq-note("auth")[bcrypt compare],
+      seq-ret("auth", "api")[session token],
+    ),
+    seq-ret("api", "browser")[200 + Set-Cookie],
+  )
+]
+
 === `section` — 分节卡片
 
 带标题的卡片容器，用于组织相关图表。
@@ -529,7 +754,33 @@
   IPv4 头部前 3 行 — 每个字段宽度按比特数自动等比分配
 ])
 
-#v(12pt)
+=== `flex-row` — 按比例分配列宽
+
+用 `flex` 权重（类似 CSS `flex-grow`）切分行内宽度，告别手写 `width: NNpt`。
+每项是 `(flex:, body:)` 字典，列宽 = `flex / sum(flex) * 行宽`。底层是 Typst 的
+`fr` 列单元。
+
+```typst
+#flex-row(
+  (flex: 1, body: cell(fill: blue)[Category Tree]),
+  (flex: 1, body: cell(fill: cyan)[Product Card]),
+  (flex: 2, body: cell(fill: teal)[Search Index]),  // 2× 宽
+)
+```
+
+#align(center, box(width: 480pt)[
+  #let Q = palettes.sequential
+  #flex-row(gap: 4pt,
+    (flex: 1, body: cell(fill: Q.blue.at(0), width: 100%)[Category Tree]),
+    (flex: 1, body: cell(fill: Q.blue.at(2), width: 100%)[Product Card]),
+    (flex: 2, body: cell(fill: Q.blue.at(4), width: 100%)[Search Index]),
+  )
+])
+
+#v(4pt)
+
+子元素默认 `width: auto`（保留自身宽度）；要让它填满所分列宽，显式传
+`width: 100%`。`width: auto`（默认）让整行撑满父容器，可传显式长度固定宽度。
 
 == 调色板
 
@@ -537,23 +788,23 @@
 
 === `palettes.status` — 语义状态
 
-每种状态都是一个 `(fill, stroke)` 对，直接用 `..` 展开传给任何接受这两个参数的函数。一次访问表达一个概念，不必手动配对。
+每种状态都是一个 `(fill, stroke)` 对，直接用 `..` 展开传给任何接受这两个参数的函数。对 `badge` 来说，包还提供了更短的 `status` 参数入口。
 
 ```typst
-#badges.success[OK]
+#badge(status: "success")[OK]
 #cell(..palettes.status.danger)[Error]
 ```
 
 #align(center)[
-  #badges.success[SUCCESS]
+  #badge(status: "success")[SUCCESS]
   #h(4pt)
-  #badges.warning[WARNING]
+  #badge(status: "warning")[WARNING]
   #h(4pt)
-  #badges.danger[DANGER]
+  #badge(status: "danger")[DANGER]
   #h(4pt)
-  #badges.info[INFO]
+  #badge(status: "info")[INFO]
   #h(4pt)
-  #badges.neutral[NEUTRAL]
+  #badge(status: "neutral")[NEUTRAL]
 ]
 
 #v(2pt)
@@ -618,17 +869,24 @@
 ```
 
 #align(center)[
-  #for hue in ("blue", "green", "orange", "purple", "gray") {
-    text(size: 0.8em, weight: "bold")[#hue]
-    h(4pt)
-    for lvl in range(5) {
-      cell(fill: palettes.sequential.at(hue).at(lvl), width: 36pt, height: 20pt)[
-        #text(size: 0.75em, fill: if lvl < 2 { black } else { white }, weight: "bold")[L#lvl]
-      ]
-    }
-    linebreak()
-    v(2pt)
-  }
+  #grid(
+    columns: (auto, auto),
+    column-gutter: 8pt,
+    row-gutter: 4pt,
+    align: (right + horizon, left + horizon),
+    ..(for hue in ("blue", "green", "orange", "purple", "gray") {
+      (
+        text(size: 0.8em, weight: "bold")[#hue],
+        {
+          for lvl in range(5) {
+            cell(fill: palettes.sequential.at(hue).at(lvl), width: 36pt, height: 20pt)[
+              #text(size: 0.75em, fill: if lvl < 2 { black } else { white }, weight: "bold")[L#lvl]
+            ]
+          }
+        },
+      )
+    })
+  )
 ]
 
 === 域示例
@@ -646,6 +904,318 @@
   text(size: 0.8em)[TCP/IP 协议头\ （link/addr/flag/meta...）],
   text(size: 0.8em)[CPU 缓存层次 + MESI\ （l1/l2/l3/ram/modified...）],
 )
+
+#v(8pt)
+
+= 流程图
+
+*blockcell* 内置一套完整的流程图工具，覆盖线性流程、条件分支、N 路分发、循环
+回流等常见结构。本章作为独立专题，自底向上依次介绍：*节点 → 容器 → 分支 →
+循环*，每节配有可直接复制的代码与渲染效果。
+
+适用范围：*自顶向下*、以树形嵌套表达的结构化流程图（业务流程、API 调用链、
+状态转移等）。非树形 2D 拓扑（对角线箭头、跨层连线、自由 DAG）请使用
+`fletcher` / `cetz`。
+
+#v(6pt)
+
+#align(center)[
+  #region(fill: rgb("#FFECB3"), width: 490pt)[
+    #text(weight: "bold")[本章涉及图元]
+    #v(2pt)
+    #grid(
+      columns: (90pt, 1fr),
+      row-gutter: 4pt,
+      text(size: 0.85em, weight: "bold")[节点],
+      text(size: 0.85em)[`process` / `decision` / `terminal` / `junction`（别名，带默认色）· `flow-node`（底层）],
+      text(size: 0.85em, weight: "bold")[纵向容器],
+      text(size: 0.85em)[`flow-col` 自动插入下行箭头；节点上加 `edge-label:` 标注进入它的那条箭头],
+      text(size: 0.85em, weight: "bold")[分支],
+      text(size: 0.85em)[`branch`（不汇合）·`branch-merge`（汇合）·`switch` + `case(label, body)`（N 路）],
+      text(size: 0.85em, weight: "bold")[循环],
+      text(size: 0.85em)[`flow-loop` 带左侧回边],
+    )
+  ]
+]
+
+== 节点形状
+
+语义别名按流程图的颜色惯例自带默认色——无需每次都写 `fill:`：
+
+#grid(
+  columns: (110pt, 1fr),
+  row-gutter: 6pt,
+  text(weight: "bold")[`process`], [矩形执行步骤；默认 `pastel.blue`],
+  text(weight: "bold")[`decision`], [菱形条件判断；默认 `pastel.yellow`，宽度自动适配文字],
+  text(weight: "bold")[`terminal`], [胶囊开始/结束；默认 `pastel.green`],
+  text(weight: "bold")[`junction`], [圆形跨页锚点；默认 `pastel.cyan`，`size:` 控制直径],
+  text(weight: "bold")[`flow-node`], [底层构造函数；想要额外的 `shape: "circle"` 或自定义配色时直接调用],
+)
+
+#v(4pt)
+
+```typst
+#process[Process]
+#decision[Go?]
+#terminal[Start / End]
+#junction[1]
+```
+
+#align(center)[
+  #process[Process]
+  #h(8pt)
+  #decision[Go?]
+  #h(8pt)
+  #terminal[Start / End]
+  #h(8pt)
+  #junction[1]
+]
+
+#v(4pt)
+
+*状态色快捷方式：* 所有节点支持 `status:`（对应 `palettes.status` 的 5 个键），
+一键切成语义状态色并同时设置 fill 和 stroke。典型用法是错误出口：
+
+```typst
+#terminal(status: "danger")[Exit]
+#process(status: "warning")[Retry]
+```
+
+#align(center)[
+  #terminal(status: "danger")[Exit]
+  #h(8pt)
+  #process(status: "warning")[Retry]
+]
+
+#v(4pt)
+
+当然也可以覆盖默认 `fill` / `stroke` / `width` / `height` / `inset` 来自定义。
+
+== 线性流程：`flow-col`
+
+把节点竖排为一条流水线，相邻节点之间自动插入向下箭头。要给某条箭头加标签，
+给 *目标节点* 传 `edge-label:`——即"标注那条指向我的箭头"。这种写法
+不依赖下标，插入/移动节点不会错位：
+
+```typst
+#flow-col(
+  terminal[Start],
+  process[Load config],
+  decision[Config valid?],
+  process(edge-label: [Yes])[Start server],
+  terminal(status: "danger")[Exit],
+)
+```
+
+#align(center)[
+  #flow-col(
+    terminal[Start],
+    process[Load config],
+    decision[Config valid?],
+    process(edge-label: [Yes])[Start server],
+    terminal(status: "danger")[Exit],
+  )
+]
+
+#v(4pt)
+
+`flow-col` 是流程图的 *纵向骨架*——后面介绍的 `branch` / `branch-merge` /
+`switch` / `flow-loop` 都被设计为直接塞进 `flow-col` 当作"加胖了的一节"。
+
+== 条件分支：`branch` vs. `branch-merge`
+
+两种 if-else 形态，区别在 No 路径是否回到主干：
+
+#grid(
+  columns: (110pt, 1fr),
+  row-gutter: 6pt,
+  text(weight: "bold")[`branch`], [
+    Yes 向下继续主路径，No 向右散出 —— *两条路不汇合*。
+    适合主流程 + 异常/快速返回。
+  ],
+  text(weight: "bold")[`branch-merge`], [
+    Yes / No 并列两列展开，底部通过水平汇合线重新汇入单一出口 ——
+    *两条路归一*。适合都回到主流程的 if-else。
+  ],
+)
+
+=== `branch` — No 分支不汇合
+
+```typst
+#flow-col(
+  terminal[Start],
+  process[Load config],
+  branch([Config valid?],
+    yes: process[Start server],
+    no:  process(status: "danger")[Log error + exit],
+  ),
+  terminal[Ready],
+)
+```
+
+#align(center)[
+  #flow-col(
+    terminal[Start],
+    process[Load config],
+    branch([Config valid?],
+      yes: process[Start server],
+      no:  process(status: "danger")[Log error + exit],
+    ),
+    terminal[Ready],
+  )
+]
+
+#v(4pt)
+
+#grid(
+  columns: (110pt, 1fr),
+  row-gutter: 4pt,
+  text(weight: "bold")[`cond`], [菱形内的说明文字（位置参数）],
+  text(weight: "bold")[`yes`], [Yes 分支（向下）；`none` 时止于菱形，由外层 `flow-col` 接续],
+  text(weight: "bold")[`no`], [No 分支（向右）；`none` 则不渲染替代分支],
+  text(weight: "bold")[`yes-label` / `no-label`], [箭头标签，默认 `[Yes]` / `[No]`],
+  text(weight: "bold")[`diamond-width`], [菱形宽度，默认 120pt],
+)
+
+#v(4pt)
+
+`yes` / `no` 接受任意内容，可以嵌套 `flow-col` 或再套 `branch` 表达子流程。
+
+=== `branch-merge` — Yes/No 底部汇合
+
+```typst
+#flow-col(
+  process[Parse request],
+  branch-merge([Cached?],
+    yes: process(fill: palettes.pastel.green)[Return cached],
+    no:  process(fill: palettes.pastel.orange)[Compute + cache],
+  ),
+  process[Respond],
+)
+```
+
+#align(center)[
+  #flow-col(
+    process[Parse request],
+    branch-merge([Cached?],
+      yes: process(fill: palettes.pastel.green)[Return cached],
+      no:  process(fill: palettes.pastel.orange)[Compute + cache],
+    ),
+    process[Respond],
+  )
+]
+
+#v(4pt)
+
+#grid(
+  columns: (110pt, 1fr),
+  row-gutter: 4pt,
+  text(weight: "bold")[`merge`], [`false` 关闭底部汇合线，退化为两列并列],
+  text(weight: "bold")[`col-gap`], [两列间距，默认 40pt],
+  text(weight: "bold")[`diamond-width`], [菱形宽度，默认 120pt],
+)
+
+== N 路分支：`switch`
+
+`branch-merge` 的泛化，任意数量分支从菱形分发、底部汇合。case 用 `case(label,
+body)` 构造器声明（位置参数），`label` 作为从菱形下行的箭头注释：
+
+```typst
+#flow-col(
+  process[Receive event],
+  switch([event.kind],
+    case([order],  process(fill: palettes.pastel.green)[Place order]),
+    case([refund], process(fill: palettes.pastel.yellow)[Issue refund]),
+    case([cancel], process(fill: palettes.pastel.orange)[Cancel order]),
+  ),
+  process[Emit audit log],
+)
+```
+
+#align(center)[
+  #flow-col(
+    process[Receive event],
+    switch([event.kind],
+      case([order],  process(fill: palettes.pastel.green)[Place order]),
+      case([refund], process(fill: palettes.pastel.yellow)[Issue refund]),
+      case([cancel], process(fill: palettes.pastel.orange)[Cancel order]),
+    ),
+    process[Emit audit log],
+  )
+]
+
+#v(4pt)
+
+列宽统一取所有 case body 的最大宽度以保证对称（奇数 case 时中列落在菱形主轴
+上）。命名参数与 `branch-merge` 一致；默认 `diamond-width: 140pt`、
+`col-gap: 24pt`（更紧凑以容纳更多分支）。
+
+== 循环：`flow-loop`
+
+把一段流程包成"循环体"，左侧自动画一条回边：*body 底部中心 → 向左 → 向上 →
+向右，以向下箭头重新插入 body 顶部中心*。
+
+典型搭配：body 放一个 `flow-col`，内含一个 `branch`——一路是循环出口，另一路
+由回边回到顶部：
+
+```typst
+#flow-loop(
+  flow-col(
+    process[Poll queue],
+    process[Handle job],
+    branch([More work?],
+      yes: process[Continue],
+      no:  terminal(status: "danger")[Shutdown],
+    ),
+  ),
+  back-label: [continue],
+)
+```
+
+#align(center)[
+  #flow-loop(
+    flow-col(
+      process[Poll queue],
+      process[Handle job],
+      branch([More work?],
+        yes: process[Continue],
+        no:  terminal(status: "danger")[Shutdown],
+      ),
+    ),
+    back-label: [continue],
+  )
+]
+
+#v(4pt)
+
+#grid(
+  columns: (110pt, 1fr),
+  row-gutter: 4pt,
+  text(weight: "bold")[`back-label`], [回边标签；`none` 隐藏（默认 `[retry]`）],
+  text(weight: "bold")[`arm`], [回边到 body 主列（中心）的横向距离，默认 80pt。按主列度量——即使 body 含侧出分支导致宽度很大，回边也始终贴近主列],
+)
+
+== 选型速查
+
+#align(center)[
+  #region(width: 490pt)[
+    #grid(
+      columns: (110pt, 1fr),
+      row-gutter: 6pt,
+      text(weight: "bold")[`flow-col`], [纯线性：Start → A → B → End],
+      text(weight: "bold")[`branch`], [主线 + 一路侧出不汇合（异常/快速返回/终止）],
+      text(weight: "bold")[`branch-merge`], [Yes/No 都属于主流程，最终汇回同一出口],
+      text(weight: "bold")[`switch`], [3 路及以上分支（`event.kind`、`status` 枚举等）],
+      text(weight: "bold")[`flow-loop`], [循环/重试；通常包一个含出口 `branch` 的 `flow-col`],
+    )
+  ]
+]
+
+#v(6pt)
+
+这几个组合都是块级图元，可以 *自由嵌套*：`branch-merge` 的某一臂里再塞
+`switch`、`flow-loop` 里包 `branch-merge` 都是合法的。复杂流程通过树状嵌套即可
+描述，无需手动摆放坐标。
 
 #v(8pt)
 
