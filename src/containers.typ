@@ -8,6 +8,7 @@
 // divider    - A text separator between layout alternatives
 // detail     - An explanation bar below a region
 // entry-list - A vertical list of entries inside a target
+// stack      - A simple vertical stack with configurable gap
 // ============================================================================
 
 #import "palettes.typ": palettes
@@ -113,4 +114,81 @@
       )
     }
   })
+}
+
+/// A bordered container with a top-left title for grouping multiple
+/// independent sub-components into a logical boundary.
+///
+/// Sits between `region` (one structural unit, bottom-right small label) and
+/// `section` (document-level card, big top-centered title). Use `group` for
+/// "these N children belong together" — module ownership, layered sub-systems,
+/// etc. Pass `dash: "dashed"` to indicate a logical (non-physical) boundary.
+///
+/// ```typst
+/// #group(label: [业务层 Business], fill: cat.at(1).lighten(40%))[
+///   #svc(cat.at(1))[Business: 自有平台]
+///   #v(4pt)
+///   #svc(cat.at(1).lighten(10%))[Business: 外部平台同步]
+/// ]
+/// ```
+///
+/// - `label`: Top-left title content. Omit to draw a bare frame.
+/// - `dash`: `"dashed"` for logical groupings (non-physical boundary).
+/// - `width`: Frame width. `auto` lets the box size to its content.
+#let group(
+  body,
+  label: none,
+  fill: palettes.base.surface,
+  stroke: 1pt + palettes.base.border-soft,
+  dash: none,
+  radius: 5pt,
+  width: auto,
+  inset: 10pt,
+  content-align: left,
+) = {
+  box(
+    width: width,
+    fill: fill,
+    stroke: _stroke-with-dash(stroke, dash),
+    radius: radius,
+    inset: inset,
+    baseline: 30%,
+    {
+      set align(content-align)
+      if label != none {
+        block(width: 100%, below: 6pt,
+          align(left,
+            box(
+              fill: fill.darken(12%),
+              stroke: 0.6pt + fill.darken(45%),
+              radius: 3pt,
+              inset: (x: 6pt, y: 2pt),
+              text(size: 0.78em, weight: "bold", fill: palettes.base.text, label),
+            )))
+      }
+      body
+    },
+  )
+}
+
+/// A simple vertical stack with configurable gap.
+///
+/// Accepts multiple content items as positional arguments so each stacked item
+/// is explicit and stable.
+///
+/// ```typst
+/// #stack(
+///   [#label[Memory]],
+///   [#region[...]],
+///   [#detail[64 bytes]],
+/// )
+/// ```
+#let stack(..items, gap: 4pt, align: left) = {
+  let entries = items.pos()
+  grid(
+    columns: 1,
+    row-gutter: gap,
+    align: (align,),
+    ..entries,
+  )
 }

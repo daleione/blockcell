@@ -16,12 +16,12 @@ Quickly visualize memory layouts, protocol headers, register maps, cache hierarc
 #badge[NEW]  #tag[x]
 ```
 
-**Semantic status? Use the built-in badge shortcuts.**
+**Semantic status? Use the built-in `status` parameter.**
 
 ```typ
-#badges.success[OK]
-#badges.warning[WAIT]
-#badges.danger[ERROR]
+#badge(status: "success")[OK]
+#badge(status: "warning")[WAIT]
+#badge(status: "danger")[ERROR]
 ```
 
 Need the underlying `(fill, stroke)` pair for another component? The original palette form still works:
@@ -65,9 +65,9 @@ The API is organized into three composable layers:
 
 | Layer                    | Purpose                    | Functions                                                                                                            |
 | ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Layer 1 — Atoms**      | Individual visual elements | `cell` `tag` `note` `badge` `sub-label` `span-label` `wrap` `brace`                                                  |
-| **Layer 2 — Containers** | Grouping and structure     | `region` `target` `connector` `divider` `detail` `entry-list`                                                        |
-| **Layer 3 — Composites** | Complete diagram patterns  | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row`                                              |
+| **Layer 1 — Atoms**      | Individual visual elements | `cell` `tag` `note` `label` `badge` `sub-label` `span-label` `wrap` `brace` `edge` `flow-node`                       |
+| **Layer 2 — Containers** | Grouping and structure     | `region` `target` `connector` `divider` `detail` `entry-list` `stack` `group`                                        |
+| **Layer 3 — Composites** | Complete diagram patterns  | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row` `flex-row` `seq-lane`                         |
 | **Palettes**             | Curated color sets         | `palettes.base` `palettes.status` `palettes.pastel` `palettes.categorical` `palettes.sequential` (+ domain examples) |
 
 ## Layer 1 — Atoms
@@ -123,6 +123,17 @@ Small inline text for "… n times" style annotations.
 #note[… n times]
 ```
 
+### `label` — Muted diagram label
+
+Small muted label text for structural annotations such as section hints,
+state notes, or short captions.
+
+```typ
+#label[Memory]
+#label[(heap)]
+#label[Only on eviction]
+```
+
 ### `badge` — Status indicator
 
 Compact colored badge for states or alerts.
@@ -131,18 +142,18 @@ Compact colored badge for states or alerts.
 
 ```typ
 #badge[STALLED]
-#badges.success[HIT]
-#badges.danger[MISS]
+#badge(status: "success")[HIT]
+#badge(status: "danger")[MISS]
 ```
 
-`badges` provides prebound status shortcuts for the common semantic states:
+Use `status` for the common semantic states:
 
 ```typ
-#badges.success[OK]
-#badges.warning[WAIT]
-#badges.danger[ERROR]
-#badges.info[INFO]
-#badges.neutral[SKIP]
+#badge(status: "success")[OK]
+#badge(status: "warning")[WAIT]
+#badge(status: "danger")[ERROR]
+#badge(status: "info")[INFO]
+#badge(status: "neutral")[SKIP]
 ```
 
 If you need full control, `badge` still accepts explicit `fill` and `stroke`:
@@ -189,6 +200,53 @@ Adds a thick colored border around content for double-border effects (e.g. Rust'
   #cell(fill: salmon)[`T`]   // inner cell keeps its own thin black border
 ]
 ```
+
+### `edge` — Directed connector
+
+Inline horizontal arrow with optional label and arrowhead. Express
+"A → B" relationships (calls, references, transitions) between sibling
+cells in a row.
+
+```typ
+#edge(label: none, direction: "right", style: "solid", head: "arrow",
+  stroke: 0.8pt + palettes.base.border, length: 24pt)
+```
+
+```typ
+#cell[Controller] #edge(label: [HTTP]) #cell[Business]
+#cell[Business]   #edge(label: [SQL], style: "dashed") #cell[MySQL]
+```
+
+- `direction`: `"right"` or `"left"`.
+- `style`: `"solid"` / `"dashed"` / `"dotted"`.
+- `head`: `"arrow"` (solid triangle) or `"none"`.
+- v1 supports horizontal, fixed-length only. Cross-container routing is out
+  of scope (use `cetz` / `fletcher` for that).
+
+### `flow-node` — Flowchart node
+
+Rectangle / diamond / stadium / circle node primitive for flowchart-style
+diagrams. Combine with `edge` to express conditional branches and process
+flows. Three aliases ship for the standard semantics: `process` (rect),
+`decision` (diamond), `terminal` (stadium).
+
+```typ
+#flow-node(body, shape: "rect", fill: palettes.base.surface,
+  stroke: 0.8pt + palettes.base.border, width: auto, height: auto,
+  inset: (x: 10pt, y: 6pt))
+```
+
+```typ
+#process[支付回调到达]
+#edge()
+#decision(width: 170pt)[state == CLOSED?]
+#edge(label: [Yes], stroke: 1pt + red)
+#process[恢复 + 退款]
+```
+
+- For `diamond`, prefer an explicit `width` (the horizontal diagonal); long
+  text otherwise distorts the shape.
+- `stadium` (pill) auto-sizes to content; ideal for start/end terminals.
 
 ### `brace` — Horizontal brace
 
@@ -252,6 +310,51 @@ Links a region to its target.
 
 ```typ
 #connector(length: 8pt, stroke: 1pt + palettes.base.border-soft)
+```
+
+### `group` — Logical-grouping frame
+
+A bordered container with a top-left title for grouping multiple independent
+sub-components into a logical boundary. Sits between `region` (single
+structural unit) and `section` (document-level card).
+
+```typ
+#group(body, label: none, fill: palettes.base.surface,
+  stroke: 0.5pt + palettes.base.border-soft, dash: none,
+  radius: 6pt, width: auto, inset: 10pt)
+```
+
+```typ
+#group(label: [业务层 Business], fill: palettes.categorical.at(1).lighten(40%))[
+  #region(fill: palettes.categorical.at(1))[Business: 自有平台]
+  #v(4pt)
+  #region(fill: palettes.categorical.at(1).lighten(10%))[Business: 外部平台同步]
+]
+```
+
+- `dash: "dashed"` marks a logical (non-physical) boundary.
+- Nestable; pick `fill` shades to convey hierarchy.
+
+### `stack` — Vertical stack
+
+A simple vertical stack for diagram fragments. Pass each stacked item as its
+own content block to keep item boundaries explicit and avoid repeated `#v(...)`
+calls or a one-column `grid`.
+
+```typ
+#align(center)[
+  #stack(
+    [#region(fill: palettes.cache.l1.lighten(40%), width: 120pt)[
+      #text(weight: "bold")[L1 Cache]
+    ]],
+    [#region(fill: palettes.cache.l2.lighten(40%), width: 160pt)[
+      #text(weight: "bold")[L2 Cache]
+    ]],
+    [#region(fill: palettes.cache.l3.lighten(40%), width: 200pt)[
+      #text(weight: "bold")[L3 Cache]
+    ]],
+  )
+]
 ```
 
 ### `divider` — Text separator
@@ -352,6 +455,48 @@ Color-coded items on a horizontal track for thread or pipeline visualization.
 )
 ```
 
+### `seq-lane` — Sequence diagram
+
+Declarative two-axis layout for "calls between participants" — the heavier
+counterpart to `lane`'s "states over time" track. Participants are columns
+(with header cards and dashed lifelines); steps cover the standard UML
+vocabulary built with the `seq-*` constructors:
+
+| Constructor | What it renders |
+|---|---|
+| `seq-call(from, to)[label]` | Sync call (solid + filled triangle). Self-loop when `from == to`. |
+| `seq-ret(from, to)[label]` | Return (dashed + open V head). |
+| `seq-note(over)[label]` | Sticky-note. `over` is one id or a 2-tuple to span columns. |
+| `seq-act(who)[label]` | Action block in one column. |
+| `seq-alt(condition, ..steps)` | Alt fragment. `seq-opt` / `seq-loop` / `seq-par` work the same. |
+
+```typ
+#seq-lane(
+  seq-call("client", "biz")[POST /order/create],
+  seq-note("biz")[校验库存与黑名单],
+  seq-alt([validation passed],
+    seq-call("biz", "ganon")[POST /lock],
+    seq-ret("ganon", "biz")[200 OK],
+    seq-call("biz", "db")[INSERT 事务],
+    seq-ret("db", "biz")[OK],
+  ),
+  seq-ret("biz", "client")[201 Created],
+)
+```
+
+- Participants are auto-derived from the step IDs in first-appearance order,
+  with default colors from `palettes.categorical`. Pass `participants: ((id:
+  "biz", name: [Business], fill: my-color), …)` to override display name or
+  color per id.
+- Activation rectangles (focus of control) are auto-derived from call/return
+  pairs and tinted to match each participant. `activate: false` disables, or
+  `activation-width: <length>` adjusts width.
+- Arrow heads differ by step type: filled triangle for `seq-call`, open V
+  for `seq-ret`.
+- Fragments nest naturally as nested function calls — no manual `start` /
+  `end` markers, no mismatch bugs.
+- Notes are rendered as folded sticky-note shapes.
+
 ### `section` — Titled card
 
 A titled card container for grouping related diagrams.
@@ -395,6 +540,38 @@ Fields scale proportionally by bit count. Designed for protocol headers and regi
 - `width`: Total visual width.
 - `fields`: Array of `(bits, label, fill)` dictionaries. Optional keys: `stroke`, `dash`.
 - `show-bits`: Show bit widths as subscript (default: `true`).
+
+### `flex-row` — Proportional column widths
+
+Distributes available width across cells by `flex` ratios (Typst `fr` units), so
+you don't have to hand-tune `width: NNpt` on every cell. Pass each item as a
+`(flex:, body:)` dictionary; the column's width is `flex / sum(flex) * row-width`.
+
+```typ
+#flex-row(width: auto, gap: 0pt, align: horizon, ..items)
+```
+
+```typ
+// Before — every column needs an explicit width
+#grid-row(label: [Catalog])[
+  #cell(fill: blue,  width: 90pt)[Category Tree]
+  #cell(fill: cyan,  width: 90pt)[Product Card]
+  #cell(fill: teal,  width: 180pt)[Search Index]
+]
+
+// After — flex-row distributes width by ratio
+#grid-row(label: [Catalog])[
+  #flex-row(
+    (flex: 1, body: cell(fill: blue,  width: 100%)[Category Tree]),
+    (flex: 1, body: cell(fill: cyan,  width: 100%)[Product Card]),
+    (flex: 2, body: cell(fill: teal,  width: 100%)[Search Index]),
+  )
+]
+```
+
+- Children with `width: auto` (the default) keep their intrinsic size inside
+  the assigned column. Set `width: 100%` on the child to fill the column.
+- `width: auto` makes the row fill its parent; pass an explicit length to fix it.
 
 ## Usage Patterns
 

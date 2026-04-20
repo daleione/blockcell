@@ -55,7 +55,8 @@
     surface-alt:    luma(252),  // section card background
     surface-strong: luma(220),  // cell default fill (darker swatch)
     border:         black,      // primary strokes (cell, wrap, lane items)
-    border-soft:    gray,       // container strokes (region, target, detail)
+    border-soft:    rgb("#8C939E"),  // container strokes (region, target, detail) — cool gray
+
     border-subtle:  luma(220),  // faint separator lines (lane, entry-list)
     text:           black,      // primary text fill
     text-muted:     luma(100),  // secondary labels
