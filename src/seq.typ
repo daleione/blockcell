@@ -28,7 +28,10 @@
 /// - `seq-ret(from, to)[label]`      response (dashed + open V head)
 /// - `seq-note(over)[label]`         sticky-note; `over` is one id or a
 ///                                   2-tuple `("a", "b")` to span columns
-/// - `seq-act(who)[label]`           action block in one column
+/// - `seq-act(who)[label]`           action block in one column; `who` must
+///                                   NOT be inside an activation at that
+///                                   step — use `seq-note` to annotate an
+///                                   already-active participant
 /// - `seq-alt(condition, ..steps)`   alt fragment with bracketed condition
 /// - `seq-opt(condition, ..steps)`   opt fragment
 /// - `seq-loop(condition, ..steps)`  loop fragment
@@ -246,6 +249,20 @@
   // True if column `col` has an activation rectangle covering step `i`.
   let is-active(col, i) = activations.any(a =>
     a.col == col and a.start <= i and i <= a.end)
+
+  // A `seq-act` placed inside an existing activation on the same participant
+  // is ambiguous (new discrete action vs. continuation of the in-flight call)
+  // and its wide box overlaps the narrow activation strip in a close fill
+  // family — the diagram reads as visual noise. Fail fast with a fix hint.
+  for (i, step) in render-steps.enumerate() {
+    if step.type == "action" and is-active(id-to-col.at(step.who), i) {
+      panic(
+        "seq-act on \"" + step.who + "\" is inside an activation on the same "
+        + "participant. Move it outside the surrounding call/return pair, or "
+        + "use seq-note for annotations on an already-active participant.",
+      )
+    }
+  }
 
   // Head renderers. UML conventions:
   //   filled triangle  ▶  — synchronous call
