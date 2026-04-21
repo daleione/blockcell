@@ -3,3 +3,6 @@
 # Build artifacts
 *.pdf
 *.png
+
+# Snapshot test reference images are tracked
+!tests/**/ref/*.png
