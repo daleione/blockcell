@@ -87,6 +87,10 @@
 /// ```
 ///
 /// - `route`: linear-mode arc side (`"above"` / `"below"`).
+/// - `height`: linear-mode arc peak depth, overriding the chain's default
+///   `jump-height`. Raise it to push a long jump deeper (clearing a loop
+///   label on the same side), or lower it to nest a short jump under a
+///   longer one.
 /// - `bend`: 2D-mode signed curvature ratio; positive = visual-left of A→B.
 /// - `label-pos`: 2D-mode parametric label position along the line
 ///   (default `0.5` = midpoint). Useful for dodging a state sitting near
@@ -95,7 +99,12 @@
 ///   `+perp` (visual-left of A→B), `-1` = `-perp`. Flip when the default
 ///   side points toward an adjacent state.
 /// - `style`: `"solid"` or `"dashed"`.
-#let jump(from, to, ..rest, route: auto, bend: auto, label-pos: 0.5, label-side: 1, style: "solid") = {
+#let jump(
+  from, to, ..rest,
+  route: auto, height: auto, bend: auto,
+  label-pos: 0.5, label-side: 1,
+  style: "solid",
+) = {
   let pos-args = rest.pos()
   let body = if pos-args.len() > 0 { pos-args.at(0) } else { none }
   (
@@ -104,6 +113,7 @@
     to: to,
     label: body,
     route: route,
+    height: height,
     bend: bend,
     label-pos: label-pos,
     label-side: label-side,
@@ -197,12 +207,27 @@
   let is-2d = states.any(s => s.pos != none)
 
   // Measure each state body and compute its circle diameter.
-  let metrics = states.map(s => {
+  //
+  // UML state diagrams conventionally draw every circle at the same size, so
+  // we pool the natural diameters of all auto-sized states and apply the max
+  // uniformly. States with an explicit `size:` opt out of the pool and keep
+  // whatever the caller asked for.
+  let natural-sizes = states.map(s => {
     let m = measure(s.body)
-    let natural-d = calc.max(m.width + 16pt, m.height + 16pt, min-size)
-    let d = if s.size == auto { natural-d } else { s.size }
-    (id: s.id, diameter: d, state: s)
+    calc.max(m.width + 16pt, m.height + 16pt, min-size)
   })
+  let uniform-d = (
+    for (i, s) in states.enumerate() {
+      if s.size == auto {
+        (natural-sizes.at(i),)
+      }
+    }
+  ).fold(0pt, (a, d) => calc.max(a, d))
+  let metrics = states.enumerate().map(((i, s)) => (
+    id: s.id,
+    diameter: if s.size == auto { uniform-d } else { s.size },
+    state: s,
+  ))
   let max-d = metrics.fold(0pt, (a, m) => calc.max(a, m.diameter))
 
   let id-to-idx = (:)
@@ -281,16 +306,21 @@
       initial-gap + initial-bullet-r * 2 + 6pt
     } else { 0pt }
 
+    let jump-effective-h(j) = if j.height == auto { jump-height } else { j.height }
     let above-reserve = {
       let h = 0pt
       if loops.any(l => l.route == "above") { h = calc.max(h, loop-height + 14pt) }
-      if jumps.any(j => j.route == "above") { h = calc.max(h, jump-height + 14pt) }
+      for j in jumps {
+        if j.route == "above" { h = calc.max(h, jump-effective-h(j) + 14pt) }
+      }
       h
     }
     let below-reserve = {
       let h = 0pt
       if loops.any(l => l.route == "below") { h = calc.max(h, loop-height + 14pt) }
-      if jumps.any(j => j.route == "below") { h = calc.max(h, jump-height + 14pt) }
+      for j in jumps {
+        if j.route == "below" { h = calc.max(h, jump-effective-h(j) + 14pt) }
+      }
       h
     }
 
@@ -562,6 +592,12 @@
   }
 
   // Linear-mode jump: over/under arc sharing the chain's y-axis.
+  //
+  // Anchors sit at 45° from the state's top/bottom, offset *toward* the
+  // other state. This keeps the jump's anchor off the top/bottom centre so
+  // it doesn't collide with a self-loop on the same state — the loop owns
+  // the centre ±6pt, the jump emerges from ~70 % of the radius to the side.
+  //
   // See `draw-loop` for the `phase` parameter convention.
   let draw-jump-linear(from-idx, to-idx, j, phase: "geom") = {
     let from-cx = centers.at(from-idx).at(0)
@@ -569,29 +605,38 @@
     let from-r = metrics.at(from-idx).diameter / 2
     let to-r = metrics.at(to-idx).diameter / 2
     let above = if j.route != auto { j.route == "above" } else { true }
-    let start-y = if above { y-center - from-r } else { y-center + from-r }
-    let end-y   = if above { y-center - to-r } else { y-center + to-r }
+
+    let s45 = calc.sin(45deg)  // = cos(45deg) ≈ 0.707
+    let sign-from = if to-cx > from-cx { 1 } else { -1 }
+    let sign-to = -sign-from
+    let vertical-sign = if above { -1 } else { 1 }
+    let start-x = from-cx + sign-from * from-r * s45
+    let start-y = y-center + vertical-sign * from-r * s45
+    let end-x = to-cx + sign-to * to-r * s45
+    let end-y = y-center + vertical-sign * to-r * s45
+
+    let jh = if j.height == auto { jump-height } else { j.height }
     let peak-y = if above {
-      calc.min(start-y, end-y) - jump-height
+      y-center - calc.max(from-r, to-r) - jh
     } else {
-      calc.max(start-y, end-y) + jump-height
+      y-center + calc.max(from-r, to-r) + jh
     }
-    let span = to-cx - from-cx
-    let cp1-x = from-cx + span * 0.25
-    let cp2-x = from-cx + span * 0.75
+    let span = end-x - start-x
+    let cp1-x = start-x + span * 0.25
+    let cp2-x = start-x + span * 0.75
     let dash = if j.style == "dashed" { "dashed" } else { none }
     let line-stroke = (paint: paint, thickness: 0.8pt, dash: dash)
     let c2 = (cp2-x, peak-y)
     if phase == "geom" {
       place(top + left,
         curve(stroke: line-stroke, fill: none,
-          curve.move((from-cx, start-y)),
-          curve.cubic((cp1-x, peak-y), c2, (to-cx, end-y)),
+          curve.move((start-x, start-y)),
+          curve.cubic((cp1-x, peak-y), c2, (end-x, end-y)),
         ))
-      place-head-along(to-cx, end-y, to-cx - c2.at(0), end-y - c2.at(1))
+      place-head-along(end-x, end-y, end-x - c2.at(0), end-y - c2.at(1))
     } else if phase == "label" and j.label != none {
       let label-y = if above { peak-y - 4pt } else { peak-y + 4pt }
-      place-centered-label((from-cx + to-cx) / 2, label-y, j.label)
+      place-centered-label((start-x + end-x) / 2, label-y, j.label)
     }
   }
 
