@@ -9,4 +9,4 @@ repository = "https://github.com/daleione/blockcell"
 categories = ["visualization", "layout", "components"]
 keywords = ["diagram", "memory", "layout", "block", "cell"]
 compiler = "0.14.2"
-exclude = ["docs/*", "examples/*"]
+exclude = ["docs/**", "examples/**"]
