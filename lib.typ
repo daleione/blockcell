@@ -47,6 +47,8 @@
 //   seq-lane       Sequence diagram; steps built with the `seq-*` constructors
 //                  (seq-call / seq-ret / seq-note / seq-act /
 //                   seq-alt / seq-opt / seq-loop / seq-par)
+//   state-chain    State-transition diagram (linear chain or 2D grid);
+//                  edges built with state / loop / jump / bi-jump
 //
 // Palettes (curated color sets):
 //   palettes.status       Semantic states (success/warning/danger/info/neutral)
@@ -62,5 +64,5 @@
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
 #import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
-#import "src/states.typ": state-chain, state, loop, jump
+#import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/palettes.typ": palettes
