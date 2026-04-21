@@ -186,7 +186,7 @@
   columns: (80pt, 1fr),
   row-gutter: 4pt,
   text(weight: "bold")[`fill`], [背景颜色],
-  text(weight: "bold")[`stroke`], [边框样式，接受 Typst 原生 stroke（如 `3pt + gold`）],
+  text(weight: "bold")[`stroke`], [边框样式，接受 Typst 原生 stroke（如 `3pt + red` 或 `3pt + rgb("#FFD700")`）],
   text(weight: "bold")[`dash`], [边框虚线：`none`、`"dashed"`、`"dotted"`],
   text(weight: "bold")[`expandable`], [显示 `← ⋯ →` 标记（表示可变大小）],
   text(weight: "bold")[`phantom`], [半透明 + 虚线边框（表示不存在 / 零大小）],
@@ -317,8 +317,8 @@
 在内容外层添加厚边框，用于双层边框效果。例如 Rust 的 `Cell<T>` 需要内层黑色细边 + 外层金色粗边：
 
 ```typst
-#wrap(stroke: 3pt + gold)[
-  #cell(fill: salmon)[`T`]   // 内层保留自己的黑色细边
+#wrap(stroke: 3pt + rgb("#FFD700"))[
+  #cell(fill: rgb("#FA8072"))[`T`]   // 内层保留自己的黑色细边
 ]
 ```
 
@@ -735,7 +735,7 @@
   (bits: 4,  label: [Ver],          fill: yellow),
   (bits: 4,  label: [IHL],          fill: yellow),
   (bits: 8,  label: [DSCP],         fill: purple),
-  (bits: 16, label: [Total Length], fill: cyan),
+  (bits: 16, label: [Total Length], fill: aqua),
 ))
 ```
 
@@ -774,7 +774,7 @@
 ```typst
 #flex-row(
   (flex: 1, body: cell(fill: blue)[Category Tree]),
-  (flex: 1, body: cell(fill: cyan)[Product Card]),
+  (flex: 1, body: cell(fill: aqua)[Product Card]),
   (flex: 2, body: cell(fill: teal)[Search Index]),  // 2× 宽
 )
 ```

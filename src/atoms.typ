@@ -28,12 +28,12 @@
 /// A colored rectangular cell — the atomic building block of all diagrams.
 ///
 /// ```typst
-/// #cell[A]                                    // default gray
-/// #cell(fill: salmon)[T]                      // colored
-/// #cell(fill: cyan, stroke: 3pt + gold)[len]  // thick border
-/// #cell(fill: salmon, expandable: true)[T]    // shows ← T →
-/// #cell(phantom: true)[]                      // faded, dashed
-/// #cell(fill: green, overlay: [S])[03]        // state marker
+/// #cell[A]                                             // default gray
+/// #cell(fill: rgb("#FA8072"))[T]                       // colored
+/// #cell(fill: aqua, stroke: 3pt + rgb("#FFD700"))[len] // thick border
+/// #cell(fill: rgb("#FA8072"), expandable: true)[T]     // shows ← T →
+/// #cell(phantom: true)[]                               // faded, dashed
+/// #cell(fill: green, overlay: [S])[03]                 // state marker
 /// ```
 #let cell(
   body,
@@ -149,8 +149,8 @@
 /// inner border on the cell + thick gold outer border from `.celled`).
 ///
 /// ```typst
-/// #wrap(stroke: 3pt + gold)[
-///   #cell(fill: salmon)[`T`]   // keeps its own thin black border
+/// #wrap(stroke: 3pt + rgb("#FFD700"))[
+///   #cell(fill: rgb("#FA8072"))[`T`]   // keeps its own thin black border
 /// ]
 /// ```
 #let wrap(body, stroke: 3pt + palettes.base.border, radius: 3pt, inset: 2pt) = {

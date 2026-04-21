@@ -84,7 +84,7 @@ The core building block. A rectangular box with a label, color, and optional dec
 ```
 
 - `fill`: Background color.
-- `stroke`: Border style. Accepts native Typst stroke (e.g. `3pt + gold`).
+- `stroke`: Border style. Accepts native Typst stroke (e.g. `3pt + red` or `3pt + rgb("#FFD700")`).
 - `dash`: Border dash pattern: `none`, `"dashed"`, `"dotted"`.
 - `expandable`: Shows `← ⋯ →` markers (indicates variable size).
 - `phantom`: Semi-transparent + dashed border (indicates absent / zero-size).
@@ -196,8 +196,8 @@ Adds a thick colored border around content for double-border effects (e.g. Rust'
 ![wrap examples: plain cell → wrapped cell, RefCell<T> effect.](docs/imgs/wrap.svg)
 
 ```typ
-#wrap(stroke: 3pt + gold)[
-  #cell(fill: salmon)[`T`]   // inner cell keeps its own thin black border
+#wrap(stroke: 3pt + rgb("#FFD700"))[
+  #cell(fill: rgb("#FA8072"))[`T`]   // inner cell keeps its own thin black border
 ]
 ```
 
@@ -532,7 +532,7 @@ Fields scale proportionally by bit count. Designed for protocol headers and regi
   (bits: 4,  label: [Ver],          fill: yellow),
   (bits: 4,  label: [IHL],          fill: yellow),
   (bits: 8,  label: [DSCP],         fill: purple),
-  (bits: 16, label: [Total Length], fill: cyan),
+  (bits: 16, label: [Total Length], fill: aqua),
 ))
 ```
 
@@ -555,7 +555,7 @@ you don't have to hand-tune `width: NNpt` on every cell. Pass each item as a
 // Before — every column needs an explicit width
 #grid-row(label: [Catalog])[
   #cell(fill: blue,  width: 90pt)[Category Tree]
-  #cell(fill: cyan,  width: 90pt)[Product Card]
+  #cell(fill: aqua,  width: 90pt)[Product Card]
   #cell(fill: teal,  width: 180pt)[Search Index]
 ]
 
@@ -563,7 +563,7 @@ you don't have to hand-tune `width: NNpt` on every cell. Pass each item as a
 #grid-row(label: [Catalog])[
   #flex-row(
     (flex: 1, body: cell(fill: blue,  width: 100%)[Category Tree]),
-    (flex: 1, body: cell(fill: cyan,  width: 100%)[Product Card]),
+    (flex: 1, body: cell(fill: aqua,  width: 100%)[Product Card]),
     (flex: 2, body: cell(fill: teal,  width: 100%)[Search Index]),
   )
 ]

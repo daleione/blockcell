@@ -41,7 +41,7 @@
 ///   fields: (my-ptr(), my-len(), my-cap()),
 ///   target-fill: blue.lighten(80%),
 ///   target-label: "(heap)",
-///   { cell(fill: salmon)[T]; cell(fill: salmon)[T] },
+///   { cell(fill: rgb("#FA8072"))[T]; cell(fill: rgb("#FA8072"))[T] },
 /// )
 /// ```
 #let linked-schema(
@@ -153,7 +153,7 @@
 ///   (bits: 4,  label: [Ver],  fill: yellow),
 ///   (bits: 4,  label: [IHL],  fill: yellow),
 ///   (bits: 8,  label: [DSCP], fill: purple),
-///   (bits: 16, label: [Total Length], fill: cyan),
+///   (bits: 16, label: [Total Length], fill: aqua),
 /// ))
 /// ```
 ///
@@ -189,7 +189,7 @@
 /// ```typst
 /// #flex-row(
 ///   (flex: 1, body: cell(fill: blue)[Category Tree]),
-///   (flex: 1, body: cell(fill: cyan)[Product Card]),
+///   (flex: 1, body: cell(fill: aqua)[Product Card]),
 ///   (flex: 2, body: cell(fill: teal)[Search Index]),  // 2× wider
 /// )
 /// ```
