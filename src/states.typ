@@ -55,21 +55,27 @@
   body: body,
 )
 
-/// A self-transition ("self-loop") on a named state.
+/// A self-transition ("self-loop") on a named state. Trailing content block
+/// (if any) is the label — may be omitted for unlabeled loops.
 ///
 /// ```typst
 /// #loop("active", route: "left")[renew]
+/// #loop("active")                       // unlabeled
 /// ```
 ///
 /// - `route`: `"above"` (default), `"below"`, `"left"`, `"right"`.
 /// - `style`: `"solid"` (default) or `"dashed"`.
-#let loop(id, body, route: "above", style: "solid") = (
-  type: "loop",
-  id: id,
-  label: body,
-  route: route,
-  style: style,
-)
+#let loop(id, ..rest, route: "above", style: "solid") = {
+  let pos-args = rest.pos()
+  let body = if pos-args.len() > 0 { pos-args.at(0) } else { none }
+  (
+    type: "loop",
+    id: id,
+    label: body,
+    route: route,
+    style: style,
+  )
+}
 
 /// A one-way transition between two states. Trailing content block (if any)
 /// is the edge label — may be omitted for unlabeled arrows.
@@ -101,7 +107,7 @@
 /// - `style`: `"solid"` or `"dashed"`.
 #let jump(
   from, to, ..rest,
-  route: auto, height: auto, bend: auto,
+  route: "above", height: auto, bend: 0,
   label-pos: 0.5, label-side: 1,
   style: "solid",
 ) = {
@@ -216,13 +222,10 @@
     let m = measure(s.body)
     calc.max(m.width + 16pt, m.height + 16pt, min-size)
   })
-  let uniform-d = (
-    for (i, s) in states.enumerate() {
-      if s.size == auto {
-        (natural-sizes.at(i),)
-      }
-    }
-  ).fold(0pt, (a, d) => calc.max(a, d))
+  let auto-natural = natural-sizes.zip(states)
+    .filter(((d, s)) => s.size == auto)
+    .map(((d, _)) => d)
+  let uniform-d = auto-natural.fold(0pt, calc.max)
   let metrics = states.enumerate().map(((i, s)) => (
     id: s.id,
     diameter: if s.size == auto { uniform-d } else { s.size },
@@ -267,10 +270,7 @@
     // Reserve extra margin so loops / bent edges don't clip at the canvas
     // edge. Bend magnitude is hard to predict, so we over-reserve slightly.
     let has-loop = loops.len() > 0
-    let has-bend = (
-      jumps.any(j => j.bend != auto and j.bend != 0)
-        or bi-jumps.any(b => b.bend != 0)
-    )
+    let has-bend = jumps.any(j => j.bend != 0) or bi-jumps.any(b => b.bend != 0)
     let extra = calc.max(
       if has-loop { loop-height + 14pt } else { 0pt },
       if has-bend { 28pt } else { 0pt },
@@ -333,12 +333,6 @@
   // ------------------------------------------------------------------------
   // Rendering primitives (shared by both modes).
   // ------------------------------------------------------------------------
-
-  let place-head-right(tip-x, tip-y) = {
-    place(top + left, dx: tip-x - head-size, dy: tip-y - head-size / 2,
-      polygon(fill: paint, stroke: none,
-        (0pt, 0pt), (head-size, head-size / 2), (0pt, head-size)))
-  }
 
   // Place a triangular arrow head with its tip at (tip-x, tip-y) aimed along
   // the direction vector (dir-x, dir-y). For curved transitions the tangent
@@ -413,6 +407,10 @@
   let draw-loop(cx, cy, r, route, label, style, phase: "geom") = {
     let dash = if style == "dashed" { "dashed" } else { none }
     let line-stroke = (paint: paint, thickness: 0.8pt, dash: dash)
+    // Offset of the loop's two anchor points from the state's edge centre
+    // along the perpendicular axis — lets the loop leave a little footprint
+    // (12pt wide) instead of a single point, and leaves room in the centre
+    // for a jump to anchor on the same side without colliding.
     let tang = 6pt
     let ext = loop-height
     let kick = tang * 4
@@ -422,7 +420,7 @@
     let c1 = (0pt, 0pt)
     let c2 = (0pt, 0pt)
     let label-anchor = (0pt, 0pt)
-    let label-side = "above"
+    let label-edge = "above"
 
     if route == "above" {
       let y-a = cy - r
@@ -432,7 +430,7 @@
       c1 = (cx - tang - kick, y-p)
       c2 = (cx + tang + kick, y-p)
       label-anchor = (cx, y-p)
-      label-side = "above"
+      label-edge = "above"
     } else if route == "below" {
       let y-a = cy + r
       let y-p = y-a + ext
@@ -441,7 +439,7 @@
       c1 = (cx - tang - kick, y-p)
       c2 = (cx + tang + kick, y-p)
       label-anchor = (cx, y-p)
-      label-side = "below"
+      label-edge = "below"
     } else if route == "left" {
       let x-a = cx - r
       let x-p = x-a - ext
@@ -450,7 +448,7 @@
       c1 = (x-p, cy - tang - kick)
       c2 = (x-p, cy + tang + kick)
       label-anchor = (x-p, cy)
-      label-side = "left"
+      label-edge = "left"
     } else {  // "right"
       let x-a = cx + r
       let x-p = x-a + ext
@@ -459,7 +457,7 @@
       c1 = (x-p, cy - tang - kick)
       c2 = (x-p, cy + tang + kick)
       label-anchor = (x-p, cy)
-      label-side = "right"
+      label-edge = "right"
     }
 
     if phase == "geom" {
@@ -473,118 +471,115 @@
       let m = measure(text(size: 0.7em, label))
       let lx = label-anchor.at(0)
       let ly = label-anchor.at(1)
-      if label-side == "above" { ly = ly - m.height / 2 - 4pt }
-      else if label-side == "below" { ly = ly + m.height / 2 + 4pt }
-      else if label-side == "left" { lx = lx - m.width / 2 - 4pt }
-      else if label-side == "right" { lx = lx + m.width / 2 + 4pt }
+      if label-edge == "above" { ly = ly - m.height / 2 - 4pt }
+      else if label-edge == "below" { ly = ly + m.height / 2 + 4pt }
+      else if label-edge == "left" { lx = lx - m.width / 2 - 4pt }
+      else if label-edge == "right" { lx = lx + m.width / 2 + 4pt }
       place-centered-label(lx, ly, label)
     }
   }
 
-  // 2D-mode edge between two circles at arbitrary centers.
+  // Shared 2D edge geometry: from circle A at (ax, ay) with radius ar to
+  // circle B at (bx, by) with radius br, with `bend-f` signed curvature.
+  //
   //   perp = rotate direction -90° (screen-clockwise) = (uy, -ux).
   //   So (1,0) → (0,-1) "up in screen", matching the bend convention
   //   (positive = visual-left when walking A→B).
-  // See `draw-loop` for the `phase` parameter convention.
-  let draw-edge-2d(ax, ay, ar, bx, by, br, bend-f, label, style,
-                   label-pos: 0.5, label-side: 1, phase: "geom") = {
+  //
+  // Returns a dict with start / end (clipped to each circle's edge), cubic
+  // control points c1 / c2, the perpendicular unit vector, the stroke, and
+  // the signed perpendicular offset of the control points from the direct
+  // line (used for label placement). Returns `none` when the two circles
+  // share a centre.
+  let compute-2d-geom(ax, ay, ar, bx, by, br, bend-f, style) = {
     let dxf = (bx - ax) / 1pt
     let dyf = (by - ay) / 1pt
     let len = calc.sqrt(dxf * dxf + dyf * dyf)
-    if len < 0.001 { return }
+    if len < 0.001 { return none }
     let ux = dxf / len
     let uy = dyf / len
     let perp-x = uy
     let perp-y = -ux
-
-    let start-x = ax + ar * ux
-    let start-y = ay + ar * uy
-    let end-x = bx - br * ux
-    let end-y = by - br * uy
-
     let offset = (len * bend-f) * 1pt
-    let c1-x = ax + (bx - ax) * 0.25 + perp-x * offset
-    let c1-y = ay + (by - ay) * 0.25 + perp-y * offset
-    let c2-x = ax + (bx - ax) * 0.75 + perp-x * offset
-    let c2-y = ay + (by - ay) * 0.75 + perp-y * offset
-
     let dash = if style == "dashed" { "dashed" } else { none }
-    let line-stroke = (paint: paint, thickness: 0.8pt, dash: dash)
+    (
+      start: (ax + ar * ux, ay + ar * uy),
+      end:   (bx - br * ux, by - br * uy),
+      c1: (
+        ax + (bx - ax) * 0.25 + perp-x * offset,
+        ay + (by - ay) * 0.25 + perp-y * offset,
+      ),
+      c2: (
+        ax + (bx - ax) * 0.75 + perp-x * offset,
+        ay + (by - ay) * 0.75 + perp-y * offset,
+      ),
+      perp: (perp-x, perp-y),
+      offset: offset,
+      stroke: (paint: paint, thickness: 0.8pt, dash: dash),
+    )
+  }
 
+  // One-way 2D jump. See `draw-loop` for the `phase` convention.
+  let draw-jump-2d(ax, ay, ar, bx, by, br, bend-f, label, style,
+                   label-pos: 0.5, label-side: 1, phase: "geom") = {
+    let g = compute-2d-geom(ax, ay, ar, bx, by, br, bend-f, style)
+    if g == none { return }
     if phase == "geom" {
       place(top + left,
-        curve(stroke: line-stroke, fill: none,
-          curve.move((start-x, start-y)),
-          curve.cubic((c1-x, c1-y), (c2-x, c2-y), (end-x, end-y))))
-      place-head-along(end-x, end-y, end-x - c2-x, end-y - c2-y)
+        curve(stroke: g.stroke, fill: none,
+          curve.move(g.start),
+          curve.cubic(g.c1, g.c2, g.end)))
+      place-head-along(g.end.at(0), g.end.at(1),
+        g.end.at(0) - g.c2.at(0), g.end.at(1) - g.c2.at(1))
     } else if phase == "label" and label != none {
       let m = measure(text(size: 0.7em, label))
       // Perpendicular half-extent of the label's bounding box — ensures wide
       // labels don't sit on top of the line even for bend = 0.
-      let half-ext = calc.abs(perp-x) * m.width / 2 + calc.abs(perp-y) * m.height / 2
+      let half-ext = (calc.abs(g.perp.at(0)) * m.width / 2
+        + calc.abs(g.perp.at(1)) * m.height / 2)
       let min-perp = half-ext + 4pt
       let base-offset = if bend-f >= 0 {
-        calc.max(offset, min-perp)
+        calc.max(g.offset, min-perp)
       } else {
-        -calc.max(-offset, min-perp)
+        -calc.max(-g.offset, min-perp)
       }
       let signed-offset = base-offset * label-side
-      let mid-x = ax + (bx - ax) * label-pos + perp-x * signed-offset
-      let mid-y = ay + (by - ay) * label-pos + perp-y * signed-offset
+      let mid-x = ax + (bx - ax) * label-pos + g.perp.at(0) * signed-offset
+      let mid-y = ay + (by - ay) * label-pos + g.perp.at(1) * signed-offset
       place-centered-label(mid-x, mid-y, label)
     }
   }
 
-  // Bidirectional edge: one line between two circles, arrow head on each
-  // end, two direction labels placed on opposite perpendicular sides so they
-  // visually mirror the arrow they describe.
-  // See `draw-loop` for the `phase` parameter convention.
+  // Bidirectional 2D edge: one line, arrow on each end, two direction labels
+  // by default placed on opposite perpendicular sides.
   let draw-bi-edge(ax, ay, ar, bx, by, br, forward, back, bend-f,
                    forward-side, back-side, style, phase: "geom") = {
-    let dxf = (bx - ax) / 1pt
-    let dyf = (by - ay) / 1pt
-    let len = calc.sqrt(dxf * dxf + dyf * dyf)
-    if len < 0.001 { return }
-    let ux = dxf / len
-    let uy = dyf / len
-    let perp-x = uy
-    let perp-y = -ux
-
-    let start-x = ax + ar * ux
-    let start-y = ay + ar * uy
-    let end-x = bx - br * ux
-    let end-y = by - br * uy
-
-    let offset = (len * bend-f) * 1pt
-    let c1-x = ax + (bx - ax) * 0.25 + perp-x * offset
-    let c1-y = ay + (by - ay) * 0.25 + perp-y * offset
-    let c2-x = ax + (bx - ax) * 0.75 + perp-x * offset
-    let c2-y = ay + (by - ay) * 0.75 + perp-y * offset
-
-    let dash = if style == "dashed" { "dashed" } else { none }
-    let line-stroke = (paint: paint, thickness: 0.8pt, dash: dash)
-
+    let g = compute-2d-geom(ax, ay, ar, bx, by, br, bend-f, style)
+    if g == none { return }
     if phase == "geom" {
       place(top + left,
-        curve(stroke: line-stroke, fill: none,
-          curve.move((start-x, start-y)),
-          curve.cubic((c1-x, c1-y), (c2-x, c2-y), (end-x, end-y))))
-      // Arrow head at B end (tangent of bezier at end = end - c2)
-      place-head-along(end-x, end-y, end-x - c2-x, end-y - c2-y)
-      // Arrow head at A end (tangent at start of bezier = start - c1)
-      place-head-along(start-x, start-y, start-x - c1-x, start-y - c1-y)
+        curve(stroke: g.stroke, fill: none,
+          curve.move(g.start),
+          curve.cubic(g.c1, g.c2, g.end)))
+      // Arrow head at B end (tangent at end of cubic = end - c2).
+      place-head-along(g.end.at(0), g.end.at(1),
+        g.end.at(0) - g.c2.at(0), g.end.at(1) - g.c2.at(1))
+      // Arrow head at A end (tangent at start of cubic = start - c1).
+      place-head-along(g.start.at(0), g.start.at(1),
+        g.start.at(0) - g.c1.at(0), g.start.at(1) - g.c1.at(1))
     } else if phase == "label" {
-      // Labels: forward near B end on +perp side, back near A end on -perp side.
-      // Perpendicular distance uses the label's own projected half-extent so it
-      // doesn't sit on the line even for long / diagonal labels.
+      // Labels are placed at the label's own t along the direct line (not
+      // along the curve) — perpendicular distance uses the label's projected
+      // half-extent so long / diagonal labels don't sit on the line.
       let place-dir-label(label, t, side) = {
         if label == none { return }
         let m = measure(text(size: 0.7em, label))
-        let half-ext = calc.abs(perp-x) * m.width / 2 + calc.abs(perp-y) * m.height / 2
-        let pos-x = ax + (bx - ax) * t
-        let pos-y = ay + (by - ay) * t
+        let half-ext = (calc.abs(g.perp.at(0)) * m.width / 2
+          + calc.abs(g.perp.at(1)) * m.height / 2)
         let off = (half-ext + 4pt) * side
-        place-centered-label(pos-x + perp-x * off, pos-y + perp-y * off, label)
+        let pos-x = ax + (bx - ax) * t + g.perp.at(0) * off
+        let pos-y = ay + (by - ay) * t + g.perp.at(1) * off
+        place-centered-label(pos-x, pos-y, label)
       }
       place-dir-label(forward, 0.68, forward-side)
       place-dir-label(back,    0.32, back-side)
@@ -604,7 +599,7 @@
     let to-cx = centers.at(to-idx).at(0)
     let from-r = metrics.at(from-idx).diameter / 2
     let to-r = metrics.at(to-idx).diameter / 2
-    let above = if j.route != auto { j.route == "above" } else { true }
+    let above = j.route == "above"
 
     let s45 = calc.sin(45deg)  // = cos(45deg) ≈ 0.707
     let sign-from = if to-cx > from-cx { 1 } else { -1 }
@@ -649,68 +644,42 @@
   //      stays legible instead of being hidden by the fill.
   // ------------------------------------------------------------------------
 
-  // Pass-agnostic iteration over every edge: re-used for geometry and labels
-  // so the position math stays in one place.
-  let for-each-edge(action) = {
-    for l in loops {
-      let idx = id-to-idx.at(l.id)
-      let cx = centers.at(idx).at(0)
-      let cy = centers.at(idx).at(1)
-      let r = metrics.at(idx).diameter / 2
-      action("loop", (cx: cx, cy: cy, r: r, item: l))
-    }
-    for j in jumps {
-      let from-idx = id-to-idx.at(j.from)
-      let to-idx = id-to-idx.at(j.to)
-      if is-2d {
-        action("jump-2d", (
-          ax: centers.at(from-idx).at(0),
-          ay: centers.at(from-idx).at(1),
-          bx: centers.at(to-idx).at(0),
-          by: centers.at(to-idx).at(1),
-          ar: metrics.at(from-idx).diameter / 2,
-          br: metrics.at(to-idx).diameter / 2,
-          item: j,
-        ))
-      } else {
-        action("jump-linear", (from-idx: from-idx, to-idx: to-idx, item: j))
-      }
-    }
-    for b in bi-jumps {
-      let from-idx = id-to-idx.at(b.from)
-      let to-idx = id-to-idx.at(b.to)
-      action("bi-jump", (
-        ax: centers.at(from-idx).at(0),
-        ay: centers.at(from-idx).at(1),
-        bx: centers.at(to-idx).at(0),
-        by: centers.at(to-idx).at(1),
-        ar: metrics.at(from-idx).diameter / 2,
-        br: metrics.at(to-idx).diameter / 2,
-        item: b,
-      ))
-    }
+  // Resolve a state `id` to its position and radius.
+  let resolve(id) = {
+    let idx = id-to-idx.at(id)
+    let c = centers.at(idx)
+    (idx: idx, cx: c.at(0), cy: c.at(1), r: metrics.at(idx).diameter / 2)
   }
 
-  let run-edge-pass(phase) = for-each-edge((kind, ctx) => {
-    if kind == "loop" {
-      draw-loop(ctx.cx, ctx.cy, ctx.r, ctx.item.route, ctx.item.label,
-        ctx.item.style, phase: phase)
-    } else if kind == "jump-2d" {
-      let bend-f = if ctx.item.bend == auto { 0 } else { ctx.item.bend }
-      draw-edge-2d(ctx.ax, ctx.ay, ctx.ar, ctx.bx, ctx.by, ctx.br,
-        bend-f, ctx.item.label, ctx.item.style,
-        label-pos: ctx.item.label-pos,
-        label-side: ctx.item.label-side,
-        phase: phase)
-    } else if kind == "jump-linear" {
-      draw-jump-linear(ctx.from-idx, ctx.to-idx, ctx.item, phase: phase)
-    } else if kind == "bi-jump" {
-      draw-bi-edge(ctx.ax, ctx.ay, ctx.ar, ctx.bx, ctx.by, ctx.br,
-        ctx.item.forward, ctx.item.back, ctx.item.bend,
-        ctx.item.forward-side, ctx.item.back-side,
-        ctx.item.style, phase: phase)
+  // Render every edge in the given phase. Called twice — "geom" (lines +
+  // arrow heads, painted under the states) and "label" (text, painted on
+  // top of the states so it never disappears inside a crossed circle).
+  let paint-edges(phase) = {
+    for l in loops {
+      let s = resolve(l.id)
+      draw-loop(s.cx, s.cy, s.r, l.route, l.label, l.style, phase: phase)
     }
-  })
+    for j in jumps {
+      let a = resolve(j.from)
+      let b = resolve(j.to)
+      if is-2d {
+        draw-jump-2d(a.cx, a.cy, a.r, b.cx, b.cy, b.r,
+          j.bend, j.label, j.style,
+          label-pos: j.label-pos, label-side: j.label-side,
+          phase: phase)
+      } else {
+        draw-jump-linear(a.idx, b.idx, j, phase: phase)
+      }
+    }
+    for bi in bi-jumps {
+      let a = resolve(bi.from)
+      let b = resolve(bi.to)
+      draw-bi-edge(a.cx, a.cy, a.r, b.cx, b.cy, b.r,
+        bi.forward, bi.back, bi.bend,
+        bi.forward-side, bi.back-side,
+        bi.style, phase: phase)
+    }
+  }
 
   // Chain auto-arrow (linear mode) — kept inline because it's tightly coupled
   // to the shared y-center and the "label from destination state" rule.
@@ -727,7 +696,7 @@
         place(top + left, dy: y-center,
           line(start: (x-start, 0pt), end: (x-end - head-size, 0pt),
                stroke: stroke))
-        place-head-right(x-end, y-center)
+        place-head-along(x-end, y-center, 1pt, 0pt)
       } else if phase == "label" {
         let lbl = curr.state.edge-label
         if lbl != none {
@@ -747,7 +716,7 @@
       }
     }
     chain-arrows("geom")
-    run-edge-pass("geom")
+    paint-edges("geom")
 
     // Pass 2 — states on top of geometry.
     for (i, m) in metrics.enumerate() {
@@ -760,6 +729,6 @@
 
     // Pass 3 — labels on top of states.
     chain-arrows("label")
-    run-edge-pass("label")
+    paint-edges("label")
   })
 }
