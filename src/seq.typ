@@ -362,31 +362,39 @@
     })
   }
 
-  // Sticky-note: an auto-height bordered box centered vertically in the row,
-  // with a small folded-corner triangle anchored to the actual outer
-  // top-right corner. `place(top + right)` inside the box would otherwise
-  // land at the inner content area's corner, so we push back out by the
-  // inset amounts via `dx` / `dy`.
+  // Sticky-note: a pentagon whose top-right corner is clipped diagonally so
+  // the silhouette itself reads as folded. A darker triangle snapped against
+  // the diagonal fills the interior slice and stands in for the folded-back
+  // side of the paper. `layout` resolves the ratio width to a concrete length
+  // so the polygon math is in absolute units, and `measure` sizes the note to
+  // its label the way a `box` with insets would auto-size.
   let render-note(label, fill: rgb("#FFF9C4"), stroke-paint: rgb("#A88B00")) = {
     let inset-x = 10pt
     let inset-y = 3pt
     let fold = 6pt
     let stroke = 0.5pt + stroke-paint
-    align(horizon, box(
-      width: 100%,
-      fill: fill,
-      stroke: stroke,
-      radius: 1pt,
-      inset: (x: inset-x, y: inset-y),
-      {
-        align(center + horizon, text(size: 0.75em, label))
-        // Upper-right corner triangle, slightly darker, drawn on top so the
-        // diagonal reads as a fold line.
-        place(top + right, dx: inset-x, dy: -inset-y,
+    let content = align(center + horizon, text(size: 0.75em, label))
+    align(horizon, layout(size => context {
+      let w = size.width
+      let content-h = measure(block(width: w - 2 * inset-x, content)).height
+      let h = content-h + 2 * inset-y
+      box(width: w, height: h, {
+        place(top + left,
+          polygon(fill: fill, stroke: stroke,
+            (0pt, 0pt),
+            (w - fold, 0pt),
+            (w, fold),
+            (w, h),
+            (0pt, h)))
+        place(top + left, dx: w - fold,
           polygon(fill: fill.darken(14%), stroke: stroke,
-            (0pt, 0pt), (fold, 0pt), (fold, fold)))
-      },
-    ))
+            (0pt, 0pt),
+            (fold, fold),
+            (0pt, fold)))
+        place(top + left, dx: inset-x, dy: inset-y,
+          block(width: w - 2 * inset-x, content))
+      })
+    }))
   }
 
   let header-cells = participants.map(p =>
