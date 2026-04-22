@@ -217,9 +217,11 @@
   // UML state diagrams conventionally draw every circle at the same size, so
   // we pool the natural diameters of all auto-sized states and apply the max
   // uniformly. States with an explicit `size:` opt out of the pool and keep
-  // whatever the caller asked for.
+  // whatever the caller asked for. Measure at the render text size (0.85em,
+  // matching `render-state`) — otherwise long labels like "ESTABLISHED" size
+  // their circles to the 1em width and the whole diagram balloons.
   let natural-sizes = states.map(s => {
-    let m = measure(s.body)
+    let m = measure(text(size: 0.85em, s.body))
     calc.max(m.width + 16pt, m.height + 16pt, min-size)
   })
   let auto-natural = natural-sizes.zip(states)
@@ -366,6 +368,16 @@
       else if s.initial { palettes.pastel.green }
       else if s.accept { palettes.pastel.yellow }
       else { palettes.pastel.blue }
+    // Fit text to circle: default to 0.85em, but shrink proportionally when
+    // an explicit `size:` is smaller than the label's natural footprint so
+    // long-labelled states don't silently overflow. Never scale *up* — a
+    // bigger circle is a design choice, not a cue to grow text.
+    let nat = measure(text(size: 0.85em, s.body))
+    let needed = calc.max(nat.width, nat.height)
+    let available = d - 12pt
+    let label-size = if needed > available and needed > 0pt {
+      0.85em * (available / needed)
+    } else { 0.85em }
     box(width: d, height: d, {
       place(top + left,
         circle(width: d, fill: fill, stroke: stroke))
@@ -376,7 +388,7 @@
       place(center + horizon,
         block(width: d - 12pt,
           align(center + horizon,
-            text(size: 0.85em, s.body))))
+            text(size: label-size, s.body))))
     })
   }
 
