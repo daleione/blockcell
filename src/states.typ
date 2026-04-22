@@ -706,7 +706,12 @@
     }
   }
 
-  block(width: canvas-w, height: canvas-h, {
+  // `breakable: false` so a tall 2D canvas never gets split across a page —
+  // `place` children position by absolute coords inside the block, and Typst
+  // will silently render the overflow past the page boundary if the block is
+  // allowed to break. Keeping the whole diagram together lets Typst push it to
+  // the next page when it doesn't fit.
+  block(width: canvas-w, height: canvas-h, breakable: false, {
     // Pass 1 — geometry.
     for (i, m) in metrics.enumerate() {
       if m.state.initial {

@@ -414,7 +414,7 @@ billing retry、grace period、revoke、expired —— 给每个 `state` 加上
 
 ```typ
 #state-chain(
-  col-gap: 115pt, row-gap: 115pt,
+  col-gap: 95pt, row-gap: 100pt,
   state("active",  pos: (0, 0), initial: true)[active],
   state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing retry],
   state("grace",   pos: (1, 0.8), fill: palettes.pastel.green)[grace period],
@@ -437,7 +437,7 @@ billing retry、grace period、revoke、expired —— 给每个 `state` 加上
 
 #align(center)[
   #state-chain(
-    col-gap: 115pt, row-gap: 115pt,
+    col-gap: 95pt, row-gap: 100pt,
 
     state("active",  pos: (0, 0), initial: true)[active],
     state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing \ retry],
