@@ -13,6 +13,10 @@
 #import "containers.typ": *
 #import "palettes.typ": palettes
 
+// Breathing space added to a measured label's natural width when
+// `label-width: auto`, so the label doesn't touch the body gutter.
+#let _label-auto-pad = 2pt
+
 /// A top-level diagram container with optional title and description.
 ///
 /// Wraps content as an inline box so multiple schemas flow horizontally.
@@ -65,13 +69,33 @@
 /// A labeled row of cells for tabular, register, or cache diagrams.
 ///
 /// Row label is vertically centered with the content.
-#let grid-row(label: none, label-width: 80pt, body) = {
+///
+/// - `label-width`: width of the label column. `auto` (default) measures the
+///   label and hugs its natural width — ideal for a single labeled row. For
+///   multiple stacked rows that should align vertically (classic tabular
+///   case), pass an explicit length that fits the widest label.
+/// - `label-align`: horizontal alignment of the label inside its column.
+///   Pass only a horizontal component (`left`, `right`, `center`); the vertical
+///   part is managed internally. `right` (default) pushes the label against the
+///   body; `left` pins it to the outer edge.
+#let grid-row(
+  label: none,
+  label-width: auto,
+  label-align: right,
+  body,
+) = context {
   set par(spacing: 4pt)
+  let rendered-label = if label != none {
+    text(size: 0.75em, fill: palettes.base.text-muted, label)
+  } else { [] }
+  let w = if label-width == auto {
+    if label == none { 0pt } else { measure(rendered-label).width + _label-auto-pad }
+  } else { label-width }
   grid(
-    columns: (label-width, 1fr),
-    align: (right + horizon, left + horizon),
+    columns: (w, 1fr),
+    align: (label-align + horizon, left + horizon),
     gutter: 6pt,
-    if label != none { text(size: 0.75em, fill: palettes.base.text-muted, label) } else { [] },
+    rendered-label,
     body,
   )
 }
@@ -199,10 +223,11 @@
 /// `width: 100%` on the child.
 ///
 /// - `width`: Total row width. `auto` (default) fills the parent.
-/// - `gap`: Column gutter.
+/// - `gap`: Column gutter. Defaults to `4pt` so adjacent tiles don't touch;
+///   pass `0pt` for flush rows.
 /// - `align`: Cross-axis alignment (default `horizon`).
 /// - Items: positional `(flex:, body:)` dictionaries.
-#let flex-row(width: auto, gap: 0pt, align: horizon, ..items) = {
+#let flex-row(width: auto, gap: 4pt, align: horizon, ..items) = {
   let entries = items.pos()
   let cols = entries.map(e => e.flex * 1fr)
   let bodies = entries.map(e => e.body)
@@ -285,4 +310,112 @@
       body
     },
   )
+}
+
+/// A horizontal layer row: a bold colored label on the left + content on
+/// the right. Stack several `tier`s vertically to form classic "layered
+/// architecture" diagrams (e.g. client → service → data).
+///
+/// Structurally mirrors `grid-row` — same label-width / label-align semantics —
+/// but styles the label bold + colored (not muted) and aligns the body to the
+/// top (not center), so a multi-line architectural panel sits flush with its
+/// layer name.
+///
+/// ```typst
+/// #tier(label: [Client], accent: palettes.categorical.at(0).darken(30%))[
+///   #group(...)[#cell[Web] #cell[Mobile]]
+/// ]
+/// #tier(label: [Data], accent: palettes.categorical.at(4).darken(30%))[
+///   #group(...)[#cell[Users DB] #cell[Orders DB]]
+/// ]
+/// ```
+///
+/// - `label`: Tier name (rendered bold in `accent` color).
+/// - `accent`: Color for the label — typically one hue per tier to tint
+///   the whole row visually.
+/// - `label-width`: Width reserved for the label column. `auto` (default)
+///   hugs the label's natural width. When stacking tiers whose labels differ
+///   in length, pass an explicit length so every body starts at the same x.
+/// - `label-align`: Horizontal alignment of the label inside its column
+///   (`left` / `right` / `center` — vertical part is managed internally).
+/// - `gap`: Gutter between label and body.
+#let tier(
+  body,
+  label: none,
+  accent: palettes.base.text,
+  label-width: auto,
+  label-align: right,
+  gap: 6pt,
+) = context {
+  let rendered-label = if label != none {
+    text(weight: "bold", fill: accent, label)
+  } else { [] }
+  let w = if label-width == auto {
+    if label == none { 0pt } else { measure(rendered-label).width + _label-auto-pad }
+  } else { label-width }
+  grid(
+    columns: (w, 1fr),
+    column-gutter: gap,
+    align: (label-align + horizon, left + top),
+    rendered-label,
+    body,
+  )
+}
+
+/// A row of side-by-side children stretched to the tallest child's height.
+///
+/// Solves the common "architectural columns with uneven content length"
+/// pain point — e.g. a five-item panel next to a two-item panel, where
+/// you want the short one to extend its frame to match.
+///
+/// Children are either rigid content (participates in natural-height
+/// measurement) or a factory `h => content` (receives the measured target
+/// height — typically passed through as `height:` on a `group` / `box`).
+///
+/// ```typst
+/// #match-row(
+///   width-ratio: (1, 1, 1),
+///   gap: 8pt,
+///   core-panel,          // rigid — measured
+///   apps-panel,          // rigid — measured
+///   h => service-col(    // factory — stretched to measured height
+///     [Legacy], items, faded: true, height: h,
+///   ),
+/// )
+/// ```
+///
+/// - `width-ratio`: Array of column weights (e.g. `(3, 1)` or `(1, 1, 1)`).
+///   Defaults to equal-width columns.
+/// - `gap`: Column gutter. Defaults to `4pt` (same as `flex-row`); pass `0pt`
+///   for flush columns.
+/// - `align`: Cell alignment (default `top`).
+#let match-row(
+  width-ratio: none,
+  gap: 4pt,
+  align: top,
+  ..items,
+) = {
+  let children = items.pos()
+  let n = children.len()
+  if n == 0 { return }
+  let ratios = if width-ratio == none { (1,) * n } else { width-ratio }
+  let total-ratio = ratios.sum()
+
+  layout(size => {
+    let usable = size.width - gap * (n - 1)
+    let widths = ratios.map(r => usable * r / total-ratio)
+
+    // Measure natural heights; factories contribute 0 (they stretch to fit).
+    let h = calc.max(0pt, ..children.enumerate().map(((i, c)) => {
+      if type(c) == function { 0pt }
+      else { measure(box(width: widths.at(i), c)).height }
+    }))
+
+    grid(
+      columns: widths,
+      column-gutter: gap,
+      align: align,
+      ..children.map(c => if type(c) == function { c(h) } else { c }),
+    )
+  })
 }

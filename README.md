@@ -67,7 +67,7 @@ The API is organized into three composable layers:
 | ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Layer 1 — Atoms**      | Individual visual elements | `cell` `tag` `note` `label` `badge` `sub-label` `span-label` `wrap` `brace` `edge` `flow-node`                       |
 | **Layer 2 — Containers** | Grouping and structure     | `region` `target` `connector` `divider` `detail` `entry-list` `stack` `group`                                        |
-| **Layer 3 — Composites** | Complete diagram patterns  | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row` `flex-row` `seq-lane`                         |
+| **Layer 3 — Composites** | Complete diagram patterns  | `schema` `linked-schema` `grid-row` `lane` `section` `legend` `bit-row` `flex-row` `tier` `match-row` `seq-lane`     |
 | **Palettes**             | Curated color sets         | `palettes.base` `palettes.status` `palettes.pastel` `palettes.categorical` `palettes.sequential` (+ domain examples) |
 
 ## Layer 1 — Atoms

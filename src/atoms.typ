@@ -34,7 +34,13 @@
 /// #cell(fill: rgb("#FA8072"), expandable: true)[T]     // shows ← T →
 /// #cell(phantom: true)[]                               // faded, dashed
 /// #cell(fill: green, overlay: [S])[03]                 // state marker
+/// #cell(subtitle: [(heap)])[Vec]                       // two-line card
 /// ```
+///
+/// - `subtitle`: When set, renders `body` as the title and `subtitle` as a
+///   smaller muted second line below it, vertically centered. Lets rows of
+///   cells display "name + qualifier" (common in architecture diagrams)
+///   while keeping single- and two-line cells aligned inside a `flex-row`.
 #let cell(
   body,
   fill: palettes.base.surface-strong,
@@ -47,6 +53,7 @@
   expandable: false,
   phantom: false,
   overlay: none,
+  subtitle: none,
   baseline: 30%,
 ) = {
   let actual-fill = if phantom { fill.transparentize(60%) } else { fill }
@@ -58,7 +65,7 @@
     radius: radius, inset: inset, baseline: baseline,
     {
       set text(fill: palettes.base.text, hyphenate: false)
-      set align(center)
+      set align(if subtitle == none { center } else { center + horizon })
       set par(justify: false)
       if expandable {
         text(size: 0.7em, sym.arrow.l)
@@ -68,6 +75,10 @@
         text(size: 0.7em, sym.arrow.r)
       } else {
         body
+      }
+      if subtitle != none {
+        linebreak()
+        text(size: 0.75em, fill: palettes.base.text-muted, subtitle)
       }
       if overlay != none {
         place(top + right,

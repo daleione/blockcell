@@ -39,6 +39,8 @@
 //   bit-row        Proportional bit-field row for protocol/register layouts
 //   flex-row       Row of cells with fr-based proportional widths
 //   flow-col       Vertical flow-chart column with auto-inserted down-arrows
+//   tier           Labeled layer row for layered-architecture diagrams
+//   match-row      Side-by-side row with children stretched to equal heights
 //   branch         Diamond decision: Yes continues down, No branches right
 //   branch-merge   Diamond with Yes / No columns that rejoin below
 //   switch         N-way branch (diamond fans out to cases, rejoining below);
@@ -61,7 +63,7 @@
 
 #import "src/atoms.typ": cell, tag, note, label, badge, sub-label, span-label, wrap, brace, edge, flow-node, process, decision, terminal, junction
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
-#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col
+#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
 #import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump

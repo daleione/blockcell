@@ -14,6 +14,10 @@
 #let mc = cell.with(width: 32pt, height: 22pt, inset: 3pt)
 #let data-cell(v, c: C.data) = mc(fill: c)[#text(weight: "bold")[#v]]
 
+// Shared label column widths so stacked rows line up tabularly.
+#let mesi-row = grid-row.with(label-width: 52pt)
+#let fs-row = grid-row.with(label-width: 78pt)
+
 = Cache Hierarchy
 
 Modern CPUs use a multi-level cache hierarchy to bridge the speed gap
@@ -89,16 +93,16 @@ between the processor and main memory.
   *1. Both CPUs read — lines become Shared*
   #v(4pt)
 
-  #grid-row(label: [Memory])[
+  #mesi-row(label: [Memory])[
     #data-cell[`03`] #data-cell[`21`] #data-cell[`7F`] #data-cell[`A0`]
   ]
-  #grid-row(label: [CPU 0 L1])[
+  #mesi-row(label: [CPU 0 L1])[
     #mc(fill: C.shared, overlay: [S])[`03`]
     #mc(fill: C.shared, overlay: [S])[`21`]
     #mc(fill: C.shared, overlay: [S])[`7F`]
     #mc(fill: C.shared, overlay: [S])[`A0`]
   ]
-  #grid-row(label: [CPU 1 L1])[
+  #mesi-row(label: [CPU 1 L1])[
     #mc(fill: C.shared, overlay: [S])[`03`]
     #mc(fill: C.shared, overlay: [S])[`21`]
     #mc(fill: C.shared, overlay: [S])[`7F`]
@@ -110,17 +114,17 @@ between the processor and main memory.
   *2. CPU 0 writes `0xFF` — line Modified, CPU 1 invalidated*
   #v(4pt)
 
-  #grid-row(label: [Memory])[
+  #mesi-row(label: [Memory])[
     #data-cell[`03`] #data-cell[`21`] #data-cell[`7F`] #data-cell[`A0`]
     #h(8pt) #text(fill: luma(140))[(stale)]
   ]
-  #grid-row(label: [CPU 0 L1])[
+  #mesi-row(label: [CPU 0 L1])[
     #mc(fill: C.modified, overlay: [M])[`03`]
     #mc(fill: rgb("#E65100"), overlay: [M])[#text(fill: white)[`FF`]]
     #mc(fill: C.modified, overlay: [M])[`7F`]
     #mc(fill: C.modified, overlay: [M])[`A0`]
   ]
-  #grid-row(label: [CPU 1 L1])[
+  #mesi-row(label: [CPU 1 L1])[
     #mc(fill: C.invalid, dash: "dashed", overlay: [I])[]
     #mc(fill: C.invalid, dash: "dashed", overlay: [I])[]
     #mc(fill: C.invalid, dash: "dashed", overlay: [I])[]
@@ -132,17 +136,17 @@ between the processor and main memory.
   *3. CPU 1 reads — triggers write-back, both Shared again*
   #v(4pt)
 
-  #grid-row(label: [Memory])[
+  #mesi-row(label: [Memory])[
     #data-cell[`03`] #data-cell(c: C.modified)[`FF`] #data-cell[`7F`] #data-cell[`A0`]
     #h(8pt) #text(fill: luma(140))[(updated)]
   ]
-  #grid-row(label: [CPU 0 L1])[
+  #mesi-row(label: [CPU 0 L1])[
     #mc(fill: C.shared, overlay: [S])[`03`]
     #mc(fill: C.shared, overlay: [S])[`FF`]
     #mc(fill: C.shared, overlay: [S])[`7F`]
     #mc(fill: C.shared, overlay: [S])[`A0`]
   ]
-  #grid-row(label: [CPU 1 L1])[
+  #mesi-row(label: [CPU 1 L1])[
     #mc(fill: C.shared, overlay: [S])[`03`]
     #mc(fill: C.shared, overlay: [S])[`FF`]
     #mc(fill: C.shared, overlay: [S])[`7F`]
@@ -216,7 +220,7 @@ between the processor and main memory.
 
   #v(8pt)
 
-  #grid-row(label: [Cache Line])[
+  #fs-row(label: [Cache Line])[
     #mc(fill: rgb("#EF9A9A"), width: 55pt)[`x` (CPU0)]
     #mc(fill: rgb("#90CAF9"), width: 55pt)[`y` (CPU1)]
     #mc(fill: luma(230))[...]
@@ -226,12 +230,12 @@ between the processor and main memory.
 
   #v(6pt)
 
-  #grid-row(label: [CPU0 writes x])[
+  #fs-row(label: [CPU0 writes x])[
     #mc(fill: C.modified, overlay: [M], width: 55pt)[`x'`]
     #mc(fill: C.modified, overlay: [M], width: 55pt)[`y`]
     #h(8pt) #badge[Invalidates CPU1!]
   ]
-  #grid-row(label: [CPU1 writes y])[
+  #fs-row(label: [CPU1 writes y])[
     #mc(fill: C.modified, overlay: [M], width: 55pt)[`x'`]
     #mc(fill: C.modified, overlay: [M], width: 55pt)[`y'`]
     #h(8pt) #badge[Invalidates CPU0!]

@@ -40,6 +40,7 @@ schema、bit-row 等）都是 `cell` 的堆叠与包裹。
   ("expandable", ("bool",)),
   ("phantom",    ("bool",)),
   ("overlay",    ("none", "content")),
+  ("subtitle",   ("none", "content")),
   ("baseline",   ("ratio",)),
   returns: "content",
 )
@@ -70,6 +71,61 @@ schema、bit-row 等）都是 `cell` 的堆叠与包裹。
 #param-detail("overlay", ("none", "content"), default: raw("none", lang: none))[
   右上角叠加小号标记，常用于标注缓存行状态（M / E / S / I）等。
 ]
+
+#param-detail("subtitle", ("none", "content"), default: raw("none", lang: none))[
+  在 body 下方渲染一行小号灰色副标，整体垂直居中。适合 "主标题 + 限定词"
+  的 tile（如 `Users` + `(MySQL)`），让同一行里的单行与双行 tile 在
+  `flex-row` 中对齐。
+]
+
+#section-label[Example — subtitle]
+
+`subtitle` 一旦传入，`cell` 会自动切换到 `center + horizon` 对齐。所以把一行
+cell 塞进 `flex-row`、让其中几个带 `subtitle` 时，有副标的双行 tile 与单行
+tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 会贴底、双行 tile
+贴顶，视觉上崩掉。
+
+#example-pair(
+  ```typ
+  #flex-row(
+    (flex: 1, body: cell(
+      fill: palettes.pastel.blue,
+      width: 100%,
+      height: 36pt,
+    )[Users]),
+    (flex: 1, body: cell(
+      subtitle: [(MySQL)],
+      fill: palettes.pastel.blue,
+      width: 100%,
+      height: 36pt,
+    )[Orders]),
+    (flex: 1, body: cell(
+      subtitle: [(vector)],
+      fill: palettes.pastel.blue,
+      width: 100%,
+      height: 36pt,
+    )[Memory]),
+  )
+  ```,
+  [
+    #flex-row(
+      (flex: 1, body: cell(
+        fill: palettes.pastel.blue, width: 100%, height: 36pt,
+      )[Users]),
+      (flex: 1, body: cell(
+        subtitle: [(MySQL)],
+        fill: palettes.pastel.blue, width: 100%, height: 36pt,
+      )[Orders]),
+      (flex: 1, body: cell(
+        subtitle: [(vector)],
+        fill: palettes.pastel.blue, width: 100%, height: 36pt,
+      )[Memory]),
+    )
+  ],
+)
+
+同一 `height` 是关键 —— `subtitle` 只控制对齐，不自动拉伸。不固定 `height`
+时，单行 tile 自然短、双行 tile 自然长，两种高度挤在一行里。
 
 #section-label[Idioms]
 

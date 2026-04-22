@@ -135,6 +135,10 @@
 /// - `label`: Top-left title content. Omit to draw a bare frame.
 /// - `dash`: `"dashed"` for logical groupings (non-physical boundary).
 /// - `width`: Frame width. `auto` lets the box size to its content.
+/// - `height`: Frame height. Pass an explicit length to equalize side-by-side
+///   groups with uneven content. (`100%` does *not* resolve against an
+///   auto-sized grid row — use `match-row` to measure the taller sibling
+///   and pass its height through a factory.)
 #let group(
   body,
   label: none,
@@ -143,11 +147,13 @@
   dash: none,
   radius: 5pt,
   width: auto,
+  height: auto,
   inset: 10pt,
   content-align: left,
 ) = {
   box(
     width: width,
+    height: height,
     fill: fill,
     stroke: _stroke-with-dash(stroke, dash),
     radius: radius,

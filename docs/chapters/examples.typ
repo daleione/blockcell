@@ -78,6 +78,9 @@
 #let K = palettes.cache
 #let mc = cell.with(width: 28pt, height: 20pt, inset: 2pt)
 
+// Share a fixed label width so the three rows align tabularly.
+#let mrow = grid-row.with(label-width: 40pt)
+
 #section[MESI Protocol][
   #legend(
     (label: [#strong[M]odified],  fill: K.modified),
@@ -86,17 +89,17 @@
     (label: [#strong[I]nvalid],   fill: K.invalid),
   )
   #v(8pt)
-  #grid-row(label: [Memory])[
+  #mrow(label: [Memory])[
     #mc(fill: K.data)[`03`] #mc(fill: K.data)[`FF`]
     #mc(fill: K.data)[`7F`] #mc(fill: K.data)[`A0`]
   ]
-  #grid-row(label: [CPU 0])[
+  #mrow(label: [CPU 0])[
     #mc(fill: K.shared, overlay: [S])[`03`]
     #mc(fill: K.shared, overlay: [S])[`FF`]
     #mc(fill: K.shared, overlay: [S])[`7F`]
     #mc(fill: K.shared, overlay: [S])[`A0`]
   ]
-  #grid-row(label: [CPU 1])[
+  #mrow(label: [CPU 1])[
     #mc(fill: K.shared, overlay: [S])[`03`]
     #mc(fill: K.shared, overlay: [S])[`FF`]
     #mc(fill: K.shared, overlay: [S])[`7F`]
