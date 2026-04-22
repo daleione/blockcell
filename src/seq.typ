@@ -525,24 +525,30 @@
     for frag in fragments {
       let y-top = frag.start * row-h
       let y-bot = (frag.end + 1) * row-h - row-gap
-      let h = y-bot - y-top
+      let frame-h = y-bot - y-top
       place(top + left, dy: y-top,
-        box(width: 100%, height: h,
+        box(width: 100%, height: frame-h,
             stroke: (paint: palettes.base.border-soft,
                      thickness: 0.6pt, dash: "dashed")))
-      // Corner tag: small filled box overlapping the top-left of the frame.
+      // Corner tag: a single filled label in the top-left bundling the
+      // operator name and — if present — the UML guard condition. Merging
+      // them into one box matches PlantUML/Mermaid convention so "alt [ok]"
+      // reads as one semantic unit instead of two disconnected pieces
+      // floating on the top border. Brackets are kept because they're the
+      // UML guard notation.
       place(top + left, dy: y-top,
         box(fill: palettes.base.surface,
             stroke: 0.6pt + palettes.base.border-soft,
             inset: (x: 4pt, y: 1pt),
             radius: (bottom-right: 3pt),
-            text(size: 0.55em, weight: "bold", upper(frag.kind))))
-      // Condition label sits next to the corner tag, in brackets.
-      if frag.label != none {
-        place(top + left, dy: y-top + 1pt, dx: 36pt,
-          text(size: 0.6em, fill: palettes.base.text-muted,
-               [\[#frag.label\]]))
-      }
+            {
+              text(size: 0.55em, weight: "bold", upper(frag.kind))
+              if frag.label != none {
+                h(4pt)
+                text(size: 0.55em, fill: palettes.base.text-muted,
+                  [\[#frag.label\]])
+              }
+            }))
     }
   })
 
