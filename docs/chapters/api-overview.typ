@@ -72,6 +72,17 @@
       #h(6pt) → 详见 "状态转换图" 章节
     ]
   ]
+  #v(6pt)
+  #region(fill: rgb("#E8F5E9"), width: 490pt)[
+    #text(weight: "bold")[层级树图 — 专题章节]
+    #v(2pt)
+    #text(size: 0.85em)[
+      `tree`
+      #h(4pt) `node` (`shape: "rect" / "circle" / "stadium"`)
+      #h(4pt) `edge-style: "line" / "elbow"`
+      #h(6pt) → 详见 "层级树图" 章节
+    ]
+  ]
 ]
 
 #v(8pt)

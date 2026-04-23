@@ -51,6 +51,9 @@
 //                   seq-alt / seq-opt / seq-loop / seq-par)
 //   state-chain    State-transition diagram (linear chain or 2D grid);
 //                  edges built with state / loop / jump / bi-jump
+//   tree           Recursive top-down hierarchy (BST, heap, trie, directory,
+//                  JSON); nodes built with `node(...)`, subtrees by nesting
+//                  `tree(...)` calls as children
 //
 // Palettes (curated color sets):
 //   palettes.status       Semantic states (success/warning/danger/info/neutral)
@@ -67,4 +70,5 @@
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
 #import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
+#import "src/tree.typ": tree, node
 #import "src/palettes.typ": palettes
