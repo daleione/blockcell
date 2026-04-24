@@ -190,18 +190,26 @@
 /// ```
 ///
 /// - `gap`: linear-mode horizontal gap between adjacent circles.
-/// - `col-gap` / `row-gap`: 2D-mode grid cell size (pt per unit).
+/// - `col-gap` / `row-gap`: 2D-mode grid cell size (per unit).
 /// - `loop-height` / `jump-height`: vertical rise of linear-mode overlays.
-/// - `min-size`: minimum state diameter (states grow to fit their text).
+/// - `min-size`: minimum state diameter (states grow to fit their text). All
+///   length defaults are em-based, so the diagram scales with the surrounding
+///   document's `text.size`.
 #let state-chain(
   ..items,
-  gap: 60pt,
-  col-gap: 90pt,
-  row-gap: 100pt,
-  loop-height: 28pt,
-  jump-height: 48pt,
-  min-size: 44pt,
+  gap: 6em,
+  col-gap: 9em,
+  row-gap: 10em,
+  loop-height: 2.8em,
+  jump-height: 4.8em,
+  min-size: 4.4em,
 ) = context {
+  let gap = gap.to-absolute()
+  let col-gap = col-gap.to-absolute()
+  let row-gap = row-gap.to-absolute()
+  let loop-height = loop-height.to-absolute()
+  let jump-height = jump-height.to-absolute()
+  let min-size = min-size.to-absolute()
   let all = items.pos()
   let states = all.filter(x => x.type == "state")
   let loops = all.filter(x => x.type == "loop")
@@ -220,9 +228,10 @@
   // whatever the caller asked for. Measure at the render text size (0.85em,
   // matching `render-state`) — otherwise long labels like "ESTABLISHED" size
   // their circles to the 1em width and the whole diagram balloons.
+  let label-pad = 1.6em.to-absolute()
   let natural-sizes = states.map(s => {
     let m = measure(text(size: 0.85em, s.body))
-    calc.max(m.width + 16pt, m.height + 16pt, min-size)
+    calc.max(m.width + label-pad, m.height + label-pad, min-size)
   })
   let auto-natural = natural-sizes.zip(states)
     .filter(((d, s)) => s.size == auto)
@@ -240,11 +249,18 @@
 
   let stroke = 0.8pt + palettes.base.border
   let paint = std.stroke(stroke).paint
-  let head-size = 6pt
+  let head-size = 0.6em.to-absolute()
   let initial-paint = palettes.base.text-muted
   let initial-stroke = 0.8pt + initial-paint
-  let initial-bullet-r = 4pt
-  let initial-gap = 26pt
+  let initial-bullet-r = 0.4em.to-absolute()
+  let initial-gap = 2.6em.to-absolute()
+  // Breathing space around loop / bend overlays so they don't clip the canvas.
+  let overlay-pad = 1.4em.to-absolute()
+  let bend-pad = 2.8em.to-absolute()
+  // Gap between the initial-marker arrow tip and the first circle's edge.
+  let initial-extra-pad = 0.6em.to-absolute()
+  // Gap between the arrow label and the arc's peak.
+  let arc-label-gap = 0.4em.to-absolute()
 
   // ------------------------------------------------------------------------
   // Layout: compute each state's (cx, cy) plus total canvas size.
@@ -274,12 +290,12 @@
     let has-loop = loops.len() > 0
     let has-bend = jumps.any(j => j.bend != 0) or bi-jumps.any(b => b.bend != 0)
     let extra = calc.max(
-      if has-loop { loop-height + 14pt } else { 0pt },
-      if has-bend { 28pt } else { 0pt },
+      if has-loop { loop-height + overlay-pad } else { 0pt },
+      if has-bend { bend-pad } else { 0pt },
     )
     let has-initial = metrics.any(m => m.state.initial)
     let initial-extra = if has-initial {
-      initial-gap + initial-bullet-r * 2 + 6pt
+      initial-gap + initial-bullet-r * 2 + initial-extra-pad
     } else { 0pt }
 
     let pad-top = max-d / 2 + extra
@@ -305,23 +321,23 @@
 
     let first-initial = metrics.at(0).state.initial
     let left-pad = if first-initial {
-      initial-gap + initial-bullet-r * 2 + 6pt
+      initial-gap + initial-bullet-r * 2 + initial-extra-pad
     } else { 0pt }
 
     let jump-effective-h(j) = if j.height == auto { jump-height } else { j.height }
     let above-reserve = {
       let h = 0pt
-      if loops.any(l => l.route == "above") { h = calc.max(h, loop-height + 14pt) }
+      if loops.any(l => l.route == "above") { h = calc.max(h, loop-height + overlay-pad) }
       for j in jumps {
-        if j.route == "above" { h = calc.max(h, jump-effective-h(j) + 14pt) }
+        if j.route == "above" { h = calc.max(h, jump-effective-h(j) + overlay-pad) }
       }
       h
     }
     let below-reserve = {
       let h = 0pt
-      if loops.any(l => l.route == "below") { h = calc.max(h, loop-height + 14pt) }
+      if loops.any(l => l.route == "below") { h = calc.max(h, loop-height + overlay-pad) }
       for j in jumps {
-        if j.route == "below" { h = calc.max(h, jump-effective-h(j) + 14pt) }
+        if j.route == "below" { h = calc.max(h, jump-effective-h(j) + overlay-pad) }
       }
       h
     }
@@ -374,7 +390,8 @@
     // bigger circle is a design choice, not a cue to grow text.
     let nat = measure(text(size: 0.85em, s.body))
     let needed = calc.max(nat.width, nat.height)
-    let available = d - 12pt
+    let inner-pad = 1.2em.to-absolute()
+    let available = d - inner-pad
     let label-size = if needed > available and needed > 0pt {
       0.85em * (available / needed)
     } else { 0.85em }
@@ -382,11 +399,12 @@
       place(top + left,
         circle(width: d, fill: fill, stroke: stroke))
       if s.accept {
-        place(top + left, dx: 3pt, dy: 3pt,
-          circle(width: d - 6pt, stroke: 0.6pt + palettes.base.border))
+        let double-gap = 0.3em.to-absolute()
+        place(top + left, dx: double-gap, dy: double-gap,
+          circle(width: d - 2 * double-gap, stroke: 0.6pt + palettes.base.border))
       }
       place(center + horizon,
-        block(width: d - 12pt,
+        block(width: d - inner-pad,
           align(center + horizon,
             text(size: label-size, s.body))))
     })
@@ -421,9 +439,9 @@
     let line-stroke = (paint: paint, thickness: 0.8pt, dash: dash)
     // Offset of the loop's two anchor points from the state's edge centre
     // along the perpendicular axis — lets the loop leave a little footprint
-    // (12pt wide) instead of a single point, and leaves room in the centre
-    // for a jump to anchor on the same side without colliding.
-    let tang = 6pt
+    // instead of a single point, and leaves room in the centre for a jump
+    // to anchor on the same side without colliding.
+    let tang = 0.6em.to-absolute()
     let ext = loop-height
     let kick = tang * 4
 
@@ -483,10 +501,10 @@
       let m = measure(text(size: 0.7em, label))
       let lx = label-anchor.at(0)
       let ly = label-anchor.at(1)
-      if label-edge == "above" { ly = ly - m.height / 2 - 4pt }
-      else if label-edge == "below" { ly = ly + m.height / 2 + 4pt }
-      else if label-edge == "left" { lx = lx - m.width / 2 - 4pt }
-      else if label-edge == "right" { lx = lx + m.width / 2 + 4pt }
+      if label-edge == "above" { ly = ly - m.height / 2 - arc-label-gap }
+      else if label-edge == "below" { ly = ly + m.height / 2 + arc-label-gap }
+      else if label-edge == "left" { lx = lx - m.width / 2 - arc-label-gap }
+      else if label-edge == "right" { lx = lx + m.width / 2 + arc-label-gap }
       place-centered-label(lx, ly, label)
     }
   }
@@ -549,7 +567,7 @@
       // labels don't sit on top of the line even for bend = 0.
       let half-ext = (calc.abs(g.perp.at(0)) * m.width / 2
         + calc.abs(g.perp.at(1)) * m.height / 2)
-      let min-perp = half-ext + 4pt
+      let min-perp = half-ext + arc-label-gap
       let base-offset = if bend-f >= 0 {
         calc.max(g.offset, min-perp)
       } else {
@@ -588,7 +606,7 @@
         let m = measure(text(size: 0.7em, label))
         let half-ext = (calc.abs(g.perp.at(0)) * m.width / 2
           + calc.abs(g.perp.at(1)) * m.height / 2)
-        let off = (half-ext + 4pt) * side
+        let off = (half-ext + arc-label-gap) * side
         let pos-x = ax + (bx - ax) * t + g.perp.at(0) * off
         let pos-y = ay + (by - ay) * t + g.perp.at(1) * off
         place-centered-label(pos-x, pos-y, label)
@@ -642,7 +660,7 @@
         ))
       place-head-along(end-x, end-y, end-x - c2.at(0), end-y - c2.at(1))
     } else if phase == "label" and j.label != none {
-      let label-y = if above { peak-y - 4pt } else { peak-y + 4pt }
+      let label-y = if above { peak-y - arc-label-gap } else { peak-y + arc-label-gap }
       place-centered-label((start-x + end-x) / 2, label-y, j.label)
     }
   }
@@ -712,7 +730,7 @@
       } else if phase == "label" {
         let lbl = curr.state.edge-label
         if lbl != none {
-          place-centered-label((x-start + x-end) / 2, y-center - 10pt, lbl)
+          place-centered-label((x-start + x-end) / 2, y-center - 1em.to-absolute(), lbl)
         }
       }
     }

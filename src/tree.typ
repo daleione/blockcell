@@ -3,11 +3,11 @@
 // ============================================================================
 //
 // node   A tree-flavored node: rect/circle/stadium with pastel blue default,
-//        natural-height box (no flow-chart 28pt uniformity), and a 28pt
-//        diameter floor on auto-sized circles so BST / heap siblings come
-//        out uniform. Rendered inline rather than via `flow-node` because
-//        flow-node's defaults (fixed height, 2pt radius) serve flow-col's
-//        visual alignment needs, not tree's per-label fit.
+//        natural-height box (no flow-chart fixed-height uniformity), and a
+//        2.8em diameter floor on auto-sized circles so BST / heap siblings
+//        come out uniform. Rendered inline rather than via `flow-node`
+//        because flow-node's defaults (fixed height, 2pt radius) serve
+//        flow-col's visual alignment needs, not tree's per-label fit.
 // tree   Renders a hierarchical tree. First positional = root, remaining
 //        positionals = children. Every slot is plain content — `node(...)`,
 //        a nested `tree(...)`, a `cell`, a `flow-node`, a `process`, even
@@ -46,30 +46,31 @@
 /// - `shape`: `"rect"` (default), `"circle"`, or `"stadium"`.
 /// - `fill`: defaults to `palettes.pastel.blue`.
 /// - `size`: for circle, the diameter; for rect/stadium, the width.
-///   `auto` fits the body; circles additionally floor at 28pt so BST /
+///   `auto` fits the body; circles additionally floor at `2.8em` so BST /
 ///   heap siblings line up without manual sizing.
 /// - `stroke` / `radius` / `inset`: standard box knobs, tree-friendly
-///   defaults (natural-height box, 3pt radius, compact 8×4 inset).
+///   defaults (natural-height box, 3pt radius, compact 0.8em×0.4em inset).
 #let node(
   body,
   shape: "rect",
   fill: palettes.pastel.blue,
   stroke: 0.8pt + palettes.base.border,
   radius: 3pt,
-  inset: (x: 8pt, y: 4pt),
+  inset: (x: 0.8em, y: 0.4em),
   size: auto,
 ) = {
   if shape == "circle" {
     let render(d) = box(
       width: d, height: d, fill: fill, stroke: stroke,
-      radius: 50%, inset: 6pt, baseline: 40%,
+      radius: 50%, inset: 0.6em, baseline: 40%,
       align(center + horizon, body),
     )
     if size == auto {
       context {
+        let em = 1em.to-absolute()
         let m = measure(body)
-        // 28pt floor so single-/double-digit BST labels come out uniform.
-        render(calc.max(calc.max(m.width, m.height) + 14pt, 28pt))
+        // 2.8em floor so single-/double-digit BST labels come out uniform.
+        render(calc.max(calc.max(m.width, m.height) + 1.4 * em, 2.8 * em))
       }
     } else {
       render(size)
@@ -121,11 +122,13 @@
 #let tree(
   root,
   ..children,
-  x-gap: 16pt,
-  y-gap: 22pt,
+  x-gap: 1.6em,
+  y-gap: 2.2em,
   edge-style: auto,
   edge-stroke: 0.8pt + palettes.base.border,
 ) = context {
+  let x-gap = x-gap.to-absolute()
+  let y-gap = y-gap.to-absolute()
   // Resolve edge style: explicit arg wins; otherwise inherit from an enclosing
   // tree (or the initial "elbow" default at the top level). Push the resolved
   // value into state before we render nested tree content so descendants pick

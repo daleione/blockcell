@@ -49,7 +49,7 @@
   stroke: 0.8pt + palettes.base.border,
   dash: none,
   radius: 0pt,
-  inset: (x: 4pt, y: 2pt),
+  inset: (x: 0.4em, y: 0.2em),
   expandable: false,
   phantom: false,
   overlay: none,
@@ -128,7 +128,7 @@
     fill: colors.fill,
     stroke: (paint: colors.stroke, thickness: 0.8pt),
     radius: 2pt,
-    inset: (x: 3pt, y: 1pt),
+    inset: (x: 0.3em, y: 0.1em),
     baseline: 30%,
     text(size: 0.6em, weight: "bold", fill: colors.stroke.darken(40%), body),
   )
@@ -164,7 +164,7 @@
 ///   #cell(fill: rgb("#FA8072"))[`T`]   // keeps its own thin black border
 /// ]
 /// ```
-#let wrap(body, stroke: 3pt + palettes.base.border, radius: 3pt, inset: 2pt) = {
+#let wrap(body, stroke: 3pt + palettes.base.border, radius: 3pt, inset: 0.2em) = {
   box(
     stroke: stroke, radius: radius, inset: inset,
     baseline: 30%, body,
@@ -186,28 +186,35 @@
 /// #edge(direction: "down", label: [Yes])
 /// ```
 ///
-/// - `direction`: `"right"` (default), `"left"`, `"down"`, or `"up"`.
+/// - `direction`: `auto` (default — `"right"` in LTR, `"left"` in RTL),
+///   `"right"`, `"left"`, `"down"`, or `"up"`.
 /// - `style`: `"solid"` (default), `"dashed"`, or `"dotted"`.
 /// - `head`: `"arrow"` (default, solid triangle) or `"none"`.
 /// - `length`: Total extent along the direction axis (default depends on label).
 #let edge(
   label: none,
-  direction: "right",
+  direction: auto,
   style: "solid",
   head: "arrow",
   stroke: 0.8pt + palettes.base.border,
   length: auto,
 ) = context {
-  let head-size = 6pt
+  let direction = if direction == auto {
+    if text.dir == rtl { "left" } else { "right" }
+  } else { direction }
+  let em = 1em.to-absolute()
+  let head-size = 0.6 * em
   let line-stroke = _stroke-with-dash(stroke, if style == "solid" { none } else { style })
   let arrow-color = std.stroke(stroke).paint
   let horizontal = direction == "right" or direction == "left"
 
   if horizontal {
+    let min-len = 3.2 * em
+    let label-pad = 1.4 * em
     let actual-length = if length == auto {
-      if label == none { 28pt } else {
+      if label == none { 2.8 * em } else {
         let lbl-w = measure(text(size: 0.6em, label)).width
-        calc.max(32pt, lbl-w + 14pt)
+        calc.max(min-len, lbl-w + label-pad)
       }
     } else { length }
 
@@ -219,7 +226,7 @@
         (head-size, 0pt), (0pt, head-size / 2), (head-size, head-size))
     }
 
-    box(width: actual-length, height: 14pt, baseline: 30%, {
+    box(width: actual-length, height: 1.4 * em, baseline: 30%, {
       if label != none {
         place(top + center,
           text(size: 0.6em, fill: palettes.base.text-muted, label))
@@ -235,12 +242,12 @@
       text(size: 0.6em, fill: palettes.base.text-muted, label)
     }
     let label-w = if label == none { 0pt } else { measure(label-content).width }
-    let label-gap = if label == none { 0pt } else { 5pt }
+    let label-gap = if label == none { 0pt } else { 0.5 * em }
 
     let actual-length = if length == auto {
-      if label == none { 24pt } else {
+      if label == none { 2.4 * em } else {
         let lbl-h = measure(label-content).height
-        calc.max(28pt, lbl-h + 14pt)
+        calc.max(2.8 * em, lbl-h + 1.4 * em)
       }
     } else { length }
 
@@ -305,7 +312,7 @@
   stroke: 0.8pt + palettes.base.border,
   width: auto,
   height: auto,
-  inset: (x: 10pt, y: 6pt),
+  inset: (x: 1em, y: 0.6em),
   status: none,
   edge-label: none,
 ) = {
@@ -316,7 +323,7 @@
     (c.fill, 0.8pt + c.stroke)
   }
 
-  let default-h = 28pt
+  let default-h = 2.8em
   let rendered = if shape == "rect" {
     box(
       width: width, height: if height == auto { default-h } else { height },
@@ -332,7 +339,7 @@
       { set align(center + horizon); body },
     )
   } else if shape == "circle" {
-    let sz = if width == auto and height == auto { 32pt } else { width }
+    let sz = if width == auto and height == auto { 3.2em } else { width }
     box(
       width: sz, height: if height == auto { sz } else { height },
       fill: f, stroke: s,
@@ -341,10 +348,11 @@
     )
   } else if shape == "diamond" {
     // Auto-width: measure body and pad generously so the diamond's inscribed
-    // rectangle (~70% of width) still comfortably fits the text. Floor at 80pt.
+    // rectangle (~70% of width) still comfortably fits the text.
     context {
+      let em = 1em.to-absolute()
       let w = if width == auto {
-        calc.max(measure(text(size: 0.9em, body)).width * 1.8 + 16pt, 80pt)
+        calc.max(measure(text(size: 0.9em, body)).width * 1.8 + 1.6 * em, 8 * em)
       } else { width }
       let h = if height == auto { default-h } else { height }
       box(width: w, height: h, baseline: 40%, {
@@ -385,7 +393,7 @@
 
 /// Small circular node. Typically used as a cross-page junction / connector
 /// point (a labeled circle like ➀ that continues elsewhere).
-#let junction(body, size: 32pt, fill: palettes.pastel.cyan, ..args) = flow-node(
+#let junction(body, size: 3.2em, fill: palettes.pastel.cyan, ..args) = flow-node(
   body, shape: "circle", width: size, height: size, fill: fill, ..args,
 )
 
@@ -396,7 +404,7 @@
 /// ```typst
 /// #brace(width: 120pt)[capacity]
 /// ```
-#let brace(body, width: 100pt) = {
+#let brace(body, width: 10em) = {
   block(width: width, {
     set align(center)
     // Top: the brace line
@@ -406,12 +414,12 @@
         columns: (1fr, auto, 1fr),
         align: horizon,
         line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
-        text(size: 0.7em, fill: palettes.base.text-subtle, h(2pt) + sym.arrow.b + h(2pt)),
+        text(size: 0.7em, fill: palettes.base.text-subtle, h(0.2em) + sym.arrow.b + h(0.2em)),
         line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
       )
     })
     // Bottom: the label
-    v(1pt)
+    v(0.1em)
     text(size: 0.65em, fill: palettes.base.text-muted, body)
   })
 }

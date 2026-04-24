@@ -37,20 +37,20 @@
 /// - `no`: Content drawn to the right (connected by a right-arrow). `none`
 ///   omits the no branch entirely.
 /// - `yes-label` / `no-label`: Labels on the connector arrows.
-/// - `diamond-width`: Horizontal diagonal of the diamond (default 120pt).
+/// - `diamond-width`: Horizontal diagonal of the diamond (default `12em`).
 #let branch(
   cond,
   yes: none,
   no: none,
   yes-label: [Yes],
   no-label: [No],
-  diamond-width: 120pt,
+  diamond-width: 12em,
 ) = context {
   let diamond-node = decision(cond, width: diamond-width)
   let no-cell = if no == none { box() } else {
     box({
       edge(direction: "right", label: no-label)
-      h(2pt)
+      h(0.2em)
       no
     })
   }
@@ -86,9 +86,10 @@
   cond,
   cases,
   merge: true,
-  diamond-width: 120pt,
-  col-gap: 40pt,
+  diamond-width: 12em,
+  col-gap: 4em,
 ) = context {
+  let col-gap = col-gap.to-absolute()
   let diamond-node = decision(cond, width: diamond-width)
   let diamond-m = measure(diamond-node)
   if cases.len() == 0 { return diamond-node }
@@ -111,11 +112,11 @@
 
   let stroke = 0.8pt + palettes.base.border
   let paint = std.stroke(stroke).paint
-  let head-size = 6pt
-  let junction-gap = 10pt
-  let arrow-len = 24pt
+  let head-size = 0.6em.to-absolute()
+  let junction-gap = 1em.to-absolute()
+  let arrow-len = 2.4em.to-absolute()
   let sub-h = col-heights.fold(0pt, (a, b) => calc.max(a, b))
-  let merge-gap = 10pt
+  let merge-gap = 1em.to-absolute()
 
   let y-diamond-bot = diamond-m.height
   let y-junction = y-diamond-bot + junction-gap
@@ -125,7 +126,8 @@
 
   // Block exits at the merge line; the enclosing `flow-col` draws the
   // continuation arrow down to the next node (same convention as `branch`).
-  let total-h = if merge { y-merge-line + 1pt } else { y-sub-bot }
+  let total-h = if merge { y-merge-line + 0.1em.to-absolute() } else { y-sub-bot }
+  let label-gap = 0.3em.to-absolute()
 
   let head-down = polygon(fill: paint, stroke: none,
     (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
@@ -153,8 +155,8 @@
         head-down)
 
       place(top + left,
-        dx: cx + head-size / 2 + 3pt,
-        dy: y-junction + (arrow-len - head-size) / 2 - 3pt,
+        dx: cx + head-size / 2 + label-gap,
+        dy: y-junction + (arrow-len - head-size) / 2 - label-gap,
         text(size: 0.6em, fill: palettes.base.text-muted, c.label))
 
       place(top + left, dx: cx - body-w / 2, dy: y-sub-top, c.body)
@@ -244,8 +246,8 @@
   cond,
   ..cases,
   merge: true,
-  diamond-width: 140pt,
-  col-gap: 24pt,
+  diamond-width: 14em,
+  col-gap: 2.4em,
 ) = _n-way-branch(cond, cases.pos(),
   merge: merge, diamond-width: diamond-width, col-gap: col-gap)
 
@@ -281,20 +283,21 @@
 #let flow-loop(
   body,
   back-label: [retry],
-  arm: 80pt,
+  arm: 8em,
 ) = context {
   let body-m = measure(body)
   let bw = body-m.width
   let bh = body-m.height
+  let arm = arm.to-absolute()
 
   let stroke = 0.8pt + palettes.base.border
   let paint = std.stroke(stroke).paint
-  let head-size = 6pt
+  let head-size = 0.6em.to-absolute()
 
   // Vertical segments between the horizontal turns and the body: long enough
   // to visually read as an approach/descent, not just an arrow head.
-  let approach-len = 14pt
-  let descent-len = 14pt
+  let approach-len = 1.4em.to-absolute()
+  let descent-len = 1.4em.to-absolute()
 
   // Keep body-cx at the block's horizontal center so the block drops into an
   // outer `flow-col` without misalignment. When the body is wider than
@@ -311,7 +314,8 @@
   let y-body-top = y-top-arm + approach-len + head-size
   let y-body-bot = y-body-top + bh
   let y-bot-arm = y-body-bot + descent-len
-  let total-h = y-bot-arm + 2pt
+  let total-h = y-bot-arm + 0.2em.to-absolute()
+  let label-offset = 0.4em.to-absolute()
 
   let head-down = polygon(fill: paint, stroke: none,
     (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
@@ -338,7 +342,7 @@
       head-down)
 
     if back-label != none {
-      place(top + left, dx: back-x + 4pt, dy: (y-top-arm + y-bot-arm) / 2 - 4pt,
+      place(top + left, dx: back-x + label-offset, dy: (y-top-arm + y-bot-arm) / 2 - label-offset,
         text(size: 0.6em, fill: palettes.base.text-muted, back-label))
     }
   })

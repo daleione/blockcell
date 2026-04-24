@@ -90,16 +90,20 @@
 /// head to visually distinguish them from synchronous calls.
 #let seq-lane(
   width: auto,
-  step-height: 30pt,
-  header-height: 26pt,
-  column-gap: 10pt,
-  row-gap: 4pt,
+  step-height: 3em,
+  header-height: 2.6em,
+  column-gap: 1em,
+  row-gap: 0.4em,
   activate: true,
-  activation-width: 8pt,
+  activation-width: 0.8em,
   participants: none,
   ..steps,
-) = {
-  let head-size = 6pt
+) = context {
+  let em = 1em.to-absolute()
+  let head-size = 0.6 * em
+  let step-height = step-height.to-absolute()
+  let row-gap = row-gap.to-absolute()
+  let activation-width = activation-width.to-absolute()
   let total-width = if width == auto { 100% } else { width }
   let row-h = step-height + row-gap
 
@@ -318,7 +322,7 @@
     let line-len = 100% - 2 * inset - left-extra - right-extra
     block(width: 100%, height: 100%, {
       if label != none {
-        place(horizon + center, dy: -6pt,
+        place(horizon + center, dy: -0.6 * em,
           text(size: 0.65em, fill: palettes.base.text-muted, label))
       }
       place(horizon + left, dx: inset + left-extra,
@@ -338,7 +342,7 @@
                       dash: if style == "solid" { none } else { "dashed" })
     let act-shift = if active { activation-width / 2 } else { 0pt }
     let start-x = 50% + act-shift
-    let loop-w = 22pt
+    let loop-w = 2.2 * em
     let y-top = step-height * 0.3
     let y-bot = step-height * 0.7
     block(width: 100%, height: 100%, {
@@ -356,7 +360,7 @@
         render-head(head, stroke-paint, "left"))
       // Label sits to the right of the loop, vertically centered
       if label != none {
-        place(horizon + left, dx: start-x + loop-w + 4pt,
+        place(horizon + left, dx: start-x + loop-w + 0.4 * em,
           text(size: 0.65em, fill: palettes.base.text-muted, label))
       }
     })
@@ -369,9 +373,9 @@
   // so the polygon math is in absolute units, and `measure` sizes the note to
   // its label the way a `box` with insets would auto-size.
   let render-note(label, fill: rgb("#FFF9C4"), stroke-paint: rgb("#A88B00")) = {
-    let inset-x = 10pt
-    let inset-y = 3pt
-    let fold = 6pt
+    let inset-x = 1 * em
+    let inset-y = 0.3 * em
+    let fold = 0.6 * em
     let stroke = 0.5pt + stroke-paint
     let content = align(center + horizon, text(size: 0.75em, label))
     align(horizon, layout(size => context {
@@ -401,7 +405,7 @@
     box(
       width: 100%, height: 100%,
       fill: p.fill, stroke: 0.8pt + palettes.base.border,
-      radius: 3pt, inset: (x: 6pt, y: 4pt),
+      radius: 3pt, inset: (x: 0.6em, y: 0.4em),
       align(center + horizon, text(weight: "bold", size: 0.9em, p.name)),
     )
   )
@@ -434,7 +438,7 @@
             box(width: 100%, height: 100%,
                 fill: action-fill,
                 stroke: 0.5pt + palettes.base.border-soft,
-                radius: 2pt, inset: (x: 4pt, y: 3pt),
+                radius: 2pt, inset: (x: 0.4em, y: 0.3em),
                 align(center + horizon,
                   text(size: 0.85em, step.label)))
           )
@@ -539,12 +543,12 @@
       place(top + left, dy: y-top,
         box(fill: palettes.base.surface,
             stroke: 0.6pt + palettes.base.border-soft,
-            inset: (x: 4pt, y: 1pt),
+            inset: (x: 0.4em, y: 0.1em),
             radius: (bottom-right: 3pt),
             {
               text(size: 0.55em, weight: "bold", upper(frag.kind))
               if frag.label != none {
-                h(4pt)
+                h(0.4em)
                 text(size: 0.55em, fill: palettes.base.text-muted,
                   [\[#frag.label\]])
               }

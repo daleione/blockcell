@@ -45,12 +45,12 @@
 
   box(
     width: width, fill: actual-fill, stroke: effective-stroke,
-    radius: radius, inset: 5pt, baseline: 30%,
+    radius: radius, inset: 0.5em, baseline: 30%,
     {
       set align(content-align)
       body
       if label != none {
-        place(bottom + right, dx: 2pt, dy: 4pt,
+        place(bottom + right, dx: 0.2em, dy: 0.4em,
           text(size: 0.55em, fill: palettes.base.text-subtle, label))
       }
     },
@@ -75,8 +75,8 @@
 )
 
 /// A vertical connecting line between a region and its target.
-#let connector(length: 8pt, stroke: 1pt + palettes.base.border-soft) = {
-  block(width: 100%, above: 2pt, below: 0pt,
+#let connector(length: 0.8em, stroke: 1pt + palettes.base.border-soft) = {
+  block(width: 100%, above: 0.2em, below: 0pt,
     align(center, line(angle: 90deg, length: length, stroke: stroke)),
   )
 }
@@ -91,7 +91,7 @@
   block(
     width: 100%, fill: fill,
     stroke: (paint: palettes.base.border-soft, thickness: 1pt),
-    radius: (bottom: 3pt), inset: (x: 6pt, y: 3pt), above: -1pt,
+    radius: (bottom: 3pt), inset: (x: 0.6em, y: 0.3em), above: -0.1em,
     { set text(size: 0.75em); set align(center); body },
   )
 }
@@ -110,7 +110,7 @@
         stroke: if i < entries.len() - 1 {
           (bottom: (paint: palettes.base.border-subtle, thickness: 0.5pt))
         },
-        inset: 2pt, entry,
+        inset: 0.2em, entry,
       )
     }
   })
@@ -148,7 +148,7 @@
   radius: 5pt,
   width: auto,
   height: auto,
-  inset: 10pt,
+  inset: 1em,
   content-align: left,
 ) = {
   box(
@@ -162,13 +162,13 @@
     {
       set align(content-align)
       if label != none {
-        block(width: 100%, below: 6pt,
+        block(width: 100%, below: 0.6em,
           align(left,
             box(
               fill: fill.darken(12%),
               stroke: 0.6pt + fill.darken(45%),
               radius: 3pt,
-              inset: (x: 6pt, y: 2pt),
+              inset: (x: 0.6em, y: 0.2em),
               text(size: 0.78em, weight: "bold", fill: palettes.base.text, label),
             )))
       }
@@ -189,7 +189,7 @@
 ///   [#detail[64 bytes]],
 /// )
 /// ```
-#let stack(..items, gap: 4pt, align: left) = {
+#let stack(..items, gap: 0.4em, align: left) = {
   let entries = items.pos()
   grid(
     columns: 1,

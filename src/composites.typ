@@ -13,25 +13,21 @@
 #import "containers.typ": *
 #import "palettes.typ": palettes
 
-// Breathing space added to a measured label's natural width when
-// `label-width: auto`, so the label doesn't touch the body gutter.
-#let _label-auto-pad = 2pt
-
 /// A top-level diagram container with optional title and description.
 ///
 /// Wraps content as an inline box so multiple schemas flow horizontally.
 #let schema(title: none, desc: none, width: auto, body) = {
   box(
     width: width,
-    inset: (bottom: 12pt, right: 16pt),
+    inset: (bottom: 1.2em, right: 1.6em),
     baseline: 0%,
     {
       if title != none {
-        block(below: 3pt, text(weight: "bold", title))
+        block(below: 0.3em, text(weight: "bold", title))
       }
       { set align(center); body }
       if desc != none {
-        block(above: 3pt, text(size: 0.7em, fill: palettes.base.text-muted, desc))
+        block(above: 0.3em, text(size: 0.7em, fill: palettes.base.text-muted, desc))
       }
     },
   )
@@ -76,25 +72,32 @@
 ///   case), pass an explicit length that fits the widest label.
 /// - `label-align`: horizontal alignment of the label inside its column.
 ///   Pass only a horizontal component (`left`, `right`, `center`); the vertical
-///   part is managed internally. `right` (default) pushes the label against the
-///   body; `left` pins it to the outer edge.
+///   part is managed internally. `auto` (default) pushes the label against the
+///   body (`right` in LTR, `left` in RTL); pass `left`/`right` to override.
 #let grid-row(
   label: none,
   label-width: auto,
-  label-align: right,
+  label-align: auto,
   body,
 ) = context {
-  set par(spacing: 4pt)
+  set par(spacing: 0.4em)
+  let label-align = if label-align == auto {
+    if text.dir == rtl { left } else { right }
+  } else { label-align }
+  let body-align = if text.dir == rtl { right } else { left }
+  // Breathing space added to a measured label's natural width when
+  // `label-width: auto`, so the label doesn't touch the body gutter.
+  let label-pad = 0.2em.to-absolute()
   let rendered-label = if label != none {
     text(size: 0.75em, fill: palettes.base.text-muted, label)
   } else { [] }
   let w = if label-width == auto {
-    if label == none { 0pt } else { measure(rendered-label).width + _label-auto-pad }
+    if label == none { 0pt } else { measure(rendered-label).width + label-pad }
   } else { label-width }
   grid(
     columns: (w, 1fr),
-    align: (label-align + horizon, left + horizon),
-    gutter: 6pt,
+    align: (label-align + horizon, body-align + horizon),
+    gutter: 0.6em,
     rendered-label,
     body,
   )
@@ -112,22 +115,22 @@
 /// )
 /// ```
 #let lane(name: none, items: ()) = {
-  block(width: 100%, inset: (y: 4pt), {
+  block(width: 100%, inset: (y: 0.4em), {
     place(horizon, line(length: 100%, stroke: (paint: palettes.base.border-subtle, thickness: 1pt)))
     for item in items {
-      h(8pt)
+      h(0.8em)
       box(
         fill: item.fill,
         stroke: (paint: palettes.base.border, thickness: 0.5pt),
         radius: 2pt,
-        inset: (x: 4pt, y: 2pt),
+        inset: (x: 0.4em, y: 0.2em),
         baseline: 30%,
         text(size: 0.75em, fill: palettes.base.text, item.label),
       )
     }
-    v(4pt)
+    v(0.4em)
     if name != none {
-      v(1pt)
+      v(0.1em)
       text(size: 0.65em, fill: palettes.base.text-subtle, name)
     }
   })
@@ -145,22 +148,22 @@
 ///
 /// - `items`: Array of dictionaries with `label` and `fill` keys.
 /// - `columns`: Number of columns. Default: `auto` (one row).
-/// - `swatch-size`: Size of the color swatch. Default: `10pt`.
-#let legend(..items, columns: auto, swatch-size: 10pt) = {
+/// - `swatch-size`: Size of the color swatch. Default: `1em`.
+#let legend(..items, columns: auto, swatch-size: 1em) = {
   let entries = items.pos()
   let cols = if columns == auto { entries.len() } else { columns }
 
   grid(
     columns: cols,
-    column-gutter: 14pt,
-    row-gutter: 6pt,
+    column-gutter: 1.4em,
+    row-gutter: 0.6em,
     ..entries.map(item => {
       box(baseline: 20%, {
         box(
           fill: item.fill, width: swatch-size, height: swatch-size,
           stroke: 0.5pt + palettes.base.border, radius: 2pt,
         )
-        h(4pt)
+        h(0.4em)
         text(size: 0.8em, item.label)
       })
     }),
@@ -223,11 +226,11 @@
 /// `width: 100%` on the child.
 ///
 /// - `width`: Total row width. `auto` (default) fills the parent.
-/// - `gap`: Column gutter. Defaults to `4pt` so adjacent tiles don't touch;
+/// - `gap`: Column gutter. Defaults to `0.4em` so adjacent tiles don't touch;
 ///   pass `0pt` for flush rows.
 /// - `align`: Cross-axis alignment (default `horizon`).
 /// - Items: positional `(flex:, body:)` dictionaries.
-#let flex-row(width: auto, gap: 4pt, align: horizon, ..items) = {
+#let flex-row(width: auto, gap: 0.4em, align: horizon, ..items) = {
   let entries = items.pos()
   let cols = entries.map(e => e.flex * 1fr)
   let bodies = entries.map(e => e.body)
@@ -302,11 +305,11 @@
 /// A titled section card for grouping related diagrams.
 #let section(title, fill: palettes.base.surface-alt, stroke: 0.5pt + palettes.base.border-soft, body) = {
   block(
-    width: 100%, inset: 14pt, fill: fill,
-    radius: 4pt, stroke: stroke, above: 14pt,
+    width: 100%, inset: 1.4em, fill: fill,
+    radius: 4pt, stroke: stroke, above: 1.4em,
     {
       text(size: 1.2em, weight: "bold", title)
-      v(8pt)
+      v(0.8em)
       body
     },
   )
@@ -344,19 +347,24 @@
   label: none,
   accent: palettes.base.text,
   label-width: auto,
-  label-align: right,
-  gap: 6pt,
+  label-align: auto,
+  gap: 0.6em,
 ) = context {
+  let label-align = if label-align == auto {
+    if text.dir == rtl { left } else { right }
+  } else { label-align }
+  let body-align = if text.dir == rtl { right } else { left }
+  let label-pad = 0.2em.to-absolute()
   let rendered-label = if label != none {
     text(weight: "bold", fill: accent, label)
   } else { [] }
   let w = if label-width == auto {
-    if label == none { 0pt } else { measure(rendered-label).width + _label-auto-pad }
+    if label == none { 0pt } else { measure(rendered-label).width + label-pad }
   } else { label-width }
   grid(
     columns: (w, 1fr),
     column-gutter: gap,
-    align: (label-align + horizon, left + top),
+    align: (label-align + horizon, body-align + top),
     rendered-label,
     body,
   )
@@ -386,12 +394,12 @@
 ///
 /// - `width-ratio`: Array of column weights (e.g. `(3, 1)` or `(1, 1, 1)`).
 ///   Defaults to equal-width columns.
-/// - `gap`: Column gutter. Defaults to `4pt` (same as `flex-row`); pass `0pt`
+/// - `gap`: Column gutter. Defaults to `0.4em` (same as `flex-row`); pass `0pt`
 ///   for flush columns.
 /// - `align`: Cell alignment (default `top`).
 #let match-row(
   width-ratio: none,
-  gap: 4pt,
+  gap: 0.4em,
   align: top,
   ..items,
 ) = {
