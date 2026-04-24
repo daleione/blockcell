@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  compile:
+    name: compile (typst ${{ matrix.typst }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        typst: ["0.14.2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: typst-community/setup-typst@v4
+        with:
+          typst-version: ${{ matrix.typst }}
+
+      - name: Typst version
+        run: typst --version
+
+      - name: Compile tests
+        run: |
+          shopt -s globstar nullglob
+          status=0
+          for f in tests/**/test.typ; do
+            echo "::group::compile $f"
+            if ! typst compile --root . --format png --ppi 144 "$f" "/tmp/$(echo "$f" | tr / _).png"; then
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Compile examples
+        run: |
+          shopt -s nullglob
+          status=0
+          for f in examples/*.typ; do
+            echo "::group::compile $f"
+            if ! typst compile --root . "$f" "/tmp/$(basename "$f" .typ).pdf"; then
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Compile docs/manual.typ
+        run: typst compile --root . docs/manual.typ /tmp/manual.pdf
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for TODO/FIXME/HACK/WIP in src/
+        run: |
+          if grep -RInE '\b(TODO|FIXME|HACK|WIP)\b' src/; then
+            echo "::error::found TODO/FIXME/HACK/WIP markers in src/"
+            exit 1
+          fi
+
+      - name: Verify typst.toml version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          toml_version="$(grep -E '^version\s*=' typst.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          if [[ "$tag" != "$toml_version" ]]; then
+            echo "::error::tag $tag does not match typst.toml version $toml_version"
+            exit 1
+          fi
