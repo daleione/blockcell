@@ -566,6 +566,6 @@
       ))
   })
 
-  block(width: total-width,
+  block(width: total-width, breakable: false,
     stack(dir: ttb, spacing: 0pt, header-row, body-overlay))
 }
