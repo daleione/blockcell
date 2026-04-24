@@ -454,10 +454,37 @@ CSS 样式就是"内层单元格黑色细边 + 外层金色粗边"。
 
 === `brace`
 
-在一组元素下方画水平花括号 `⌣`，并在中间标注文字。适合标记"这段是
-capacity"、"这段是 padding"之类的范围。
+用花括号把一段内容“括起来”并附上说明文字，视觉上接近数学里的
+`\underbrace` / `\overbrace`：中间的突起朝向标签，两端向外展开。
+它特别适合表达“这一整段属于同一语义”，例如：
 
-#section-label[Example]
+- 这一排 `cell` 是同一个 header
+- 这几列 bit-field 共同组成某个字段
+- 这一段空间表示 capacity / padding / metadata
+
+`brace` 本身不参与布局计算，只负责画出括号和标签；你需要用 `width`
+或 `height` 告诉它“要跨多长”。
+
+四种 `direction` 分别对应四种常见标注方式：
+
+- `"down"`（默认）：横向括号画在内容下方，标签也在下方。最适合给
+  一排 `cell`、`bit-row` 或横向字段范围做说明。
+- `"up"`：横向括号画在内容上方，标签在上方。适合上侧留白更多、或想把
+  说明放到图上方时使用。
+- `"right"`：纵向括号贴在内容右侧，标签继续放在右边。适合给一列元素、
+  竖向分组或侧边注释做标记。
+- `"left"`：纵向括号贴在内容左侧，标签放在左边。适合与右侧主内容错开，
+  或在左侧建立分组层次。
+
+尺寸控制规则很简单：
+
+- 横向模式（`"down"` / `"up"`）主要看 `width`
+- 纵向模式（`"left"` / `"right"`）主要看 `height`
+
+两者默认都是 `10em`。实际使用时，通常把它设成目标内容的实际宽度或高度，
+这样括号两端就会和被标注的内容自然对齐。
+
+#section-label[Example — 横向，标签在下]
 
 #example-pair(
   ```typ
@@ -465,7 +492,7 @@ capacity"、"这段是 padding"之类的范围。
   #cell(fill: rgb("#FA8072"))[T]
   #cell(fill: rgb("#FA8072"))[T]
   #note[…]
-  #brace(width: 160pt)[capacity]
+  #brace(span: 160pt)[capacity]
   ```,
   [
     #box(width: 160pt)[
@@ -473,7 +500,7 @@ capacity"、"这段是 padding"之类的范围。
       #cell(fill: rgb("#FA8072"))[`T`]
       #cell(fill: rgb("#FA8072"))[`T`]
       #note[…]
-      #brace(width: 160pt)[capacity]
+      #brace(span: 160pt)[capacity]
     ]
   ],
 )
@@ -481,7 +508,26 @@ capacity"、"这段是 padding"之类的范围。
 #section-label[Parameters]
 
 #params-box("brace",
-  ("body",  ("content",)),
-  ("width", ("length",)),
+  ("body",      ("content",)),
+  ("span",      ("length",)),
+  ("direction", ("str",)),
   returns: "content",
 )
+
+#param-detail("span", ("length",), default: raw("10em", lang: none))[
+  花括号的跨度，与方向无关：
+  - `direction: "down"` / `"up"` 时表示横向跨越的宽度
+  - `direction: "left"` / `"right"` 时表示纵向跨越的高度
+
+  实际使用时，通常把它设成被标注内容的实际宽度或高度，这样括号两端就会
+  与目标内容自然对齐。
+]
+
+#param-detail("direction", ("str",), default: raw("\"down\"", lang: none))[
+  花括号朝向——决定花括号是横还是竖、标签落在哪一侧；中间的突起
+  恰好指向标签方向。
+  - `"down"`：横向，花括号的突起朝下，标签在花括号下方。
+  - `"up"`：横向，突起朝上，标签在花括号上方。
+  - `"right"`：纵向，突起朝右，标签在花括号右侧。
+  - `"left"`：纵向，突起朝左，标签在花括号左侧。
+]

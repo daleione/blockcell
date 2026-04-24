@@ -7,5 +7,5 @@
   #cell(fill: rgb("#FA8072"))[`T`]
   #cell(fill: rgb("#FA8072"))[`T`]
   #note[…]
-  #brace(width: 160pt)[capacity]
+  #brace(span: 160pt)[capacity]
 ]

@@ -397,29 +397,123 @@
   body, shape: "circle", width: size, height: size, fill: fill, ..args,
 )
 
-/// A horizontal brace with a centered label below.
+/// A brace marking a horizontal or vertical span, with a centered label.
 ///
-/// Draws a curly brace `⏟` spanning the given width with a label underneath.
+/// `direction` controls orientation and which side the label sits on:
+/// - `"down"` (default): horizontal brace, label below.
+/// - `"up"`: horizontal brace, label above.
+/// - `"right"`: vertical brace, label on the right.
+/// - `"left"`: vertical brace, label on the left.
+///
+/// `width` sets the span of horizontal braces; `height` sets the span of
+/// vertical braces. The label is always centered along the brace axis.
 ///
 /// ```typst
-/// #brace(width: 120pt)[capacity]
+/// #brace(span: 160pt)[capacity]
+/// #brace(direction: "up", span: 160pt)[header]
+/// #brace(direction: "right", span: 80pt)[payload]
 /// ```
-#let brace(body, width: 10em) = {
-  block(width: width, {
-    set align(center)
-    // Top: the brace line
-    block(width: 100%, {
-      set align(center)
-      grid(
-        columns: (1fr, auto, 1fr),
-        align: horizon,
-        line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
-        text(size: 0.7em, fill: palettes.base.text-subtle, h(0.2em) + sym.arrow.b + h(0.2em)),
-        line(length: 100%, stroke: 0.6pt + palettes.base.text-subtle),
-      )
+// Draws a curly brace as a single stroked path. `axis` is the span length,
+// `depth` is the arm body's transverse reach, `cusp` is how far the center
+// tip protrudes toward the label. The arm tips flare AWAY from the label
+// (opposite the cusp) so the shape reads as a real `{`/`}` S-curve, not a
+// simple arch. `orient` picks which axis the span runs along and which side
+// the cusp points toward ("down" / "up" / "right" / "left").
+#let _brace-path(axis, depth, cusp, orient, stroke) = {
+  let L = axis
+  let D = depth
+  let C = cusp
+
+  // Normalized (t, d) space: t ∈ [0, L] along the span, d transverse.
+  // d = -0.9D: arm tips (outer flare, opposite the cusp/label side)
+  // d = 0:     arm baseline
+  // d = C:     cusp (toward the label)
+  let pts = (
+    (0pt, -D * 0.9),
+    // end curl → arm
+    ((0.015 * L, -D * 0.45), (0.04 * L, 0pt), (0.08 * L, 0pt)),
+    // arm → approach cusp
+    ((0.30 * L, 0pt), (0.45 * L, 0pt), (0.48 * L, D * 0.25)),
+    // descent to cusp
+    ((0.49 * L, D * 0.55), (0.5 * L, C * 0.7), (0.5 * L, C)),
+    // rise out of cusp
+    ((0.5 * L, C * 0.7), (0.51 * L, D * 0.55), (0.52 * L, D * 0.25)),
+    // approach end
+    ((0.55 * L, 0pt), (0.7 * L, 0pt), (0.92 * L, 0pt)),
+    // arm → end curl
+    ((0.96 * L, 0pt), (0.985 * L, -D * 0.45), (L, -D * 0.9)),
+  )
+
+  // Project (t, d) into box coordinates. Bounding box is (L, 0.9D + C) for
+  // horizontal orientations and (0.9D + C, L) for vertical.
+  let tip = D * 0.9
+  let project = (t, d) => {
+    if orient == "down" { (t, d + tip) }
+    else if orient == "up" { (t, C - d) }
+    else if orient == "right" { (d + tip, t) }
+    else { (C - d, t) }
+  }
+  let p = (xy) => project(xy.at(0), xy.at(1))
+
+  let segs = (curve.move(p(pts.at(0))),)
+  for i in range(1, pts.len()) {
+    let (c1, c2, end) = pts.at(i)
+    segs.push(curve.cubic(p(c1), p(c2), p(end)))
+  }
+  curve(stroke: stroke, fill: none, ..segs)
+}
+
+#let brace(
+  body,
+  span: 10em,
+  direction: "down",
+) = {
+  assert(
+    direction in ("up", "down", "left", "right"),
+    message: "brace: direction must be one of \"up\", \"down\", \"left\", \"right\"",
+  )
+
+  let stroke = 0.7pt + palettes.base.text-subtle
+  let label-content = text(size: 0.7em, fill: palettes.base.text-muted, body)
+  // Depth = arm reach (tips flare 0.9·depth opposite the cusp);
+  // cusp = inward protrusion toward the label.
+  let depth = 0.28em
+  let cusp = 0.55em
+  let transverse = depth * 0.9 + cusp
+
+  // Extra breathing room on the brace-tip side (toward the content being
+  // marked); the label side stays tight.
+  let tip-gap = 0.45em
+  let label-gap = 0.1em
+
+  if direction == "down" or direction == "up" {
+    let brace = box(
+      width: span, height: transverse,
+      _brace-path(span, depth, cusp, direction, stroke),
+    )
+    let label = box(width: span, align(center, label-content))
+    let (above, below) = if direction == "down" { (tip-gap, label-gap) } else { (label-gap, tip-gap) }
+    block(width: span, above: above, below: below, {
+      set par(spacing: 0.2em)
+      if direction == "down" {
+        brace; v(0.05em); label
+      } else {
+        label; v(0.05em); brace
+      }
     })
-    // Bottom: the label
-    v(0.1em)
-    text(size: 0.65em, fill: palettes.base.text-muted, body)
-  })
+  } else {
+    let brace = box(
+      width: transverse, height: span,
+      _brace-path(span, depth, cusp, direction, stroke),
+    )
+    let label = box(height: span, align(horizon, label-content))
+    let cells = if direction == "right" { (brace, label) } else { (label, brace) }
+    block(height: span, above: label-gap, below: label-gap, grid(
+      columns: (auto, auto),
+      rows: 100%,
+      column-gutter: 0.3em,
+      align: horizon,
+      ..cells,
+    ))
+  }
 }

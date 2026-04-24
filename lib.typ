@@ -14,7 +14,8 @@
 //   sub-label    Subscript-style size annotation (2/4/8, 4B, …)
 //   span-label   Horizontal extent label (← capacity →)
 //   wrap         Decorative border wrapper (double-border effects)
-//   brace        Horizontal brace with centered label below
+//   brace        Horizontal or vertical brace with a centered label
+//                (direction: up / down / left / right)
 //   edge         Horizontal directed connector with optional label/arrow
 //   flow-node    Flowchart node (rect / diamond / stadium / circle)
 //                + semantic aliases process / decision / terminal / junction

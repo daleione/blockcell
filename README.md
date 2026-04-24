@@ -248,14 +248,29 @@ flows. Three aliases ship for the standard semantics: `process` (rect),
   text otherwise distorts the shape.
 - `stadium` (pill) auto-sizes to content; ideal for start/end terminals.
 
-### `brace` — Horizontal brace
+### `brace` — Range marker
 
-Marks a range of elements with a brace and label below.
+Marks a range of elements with a curly brace and a centered label on the
+opposite side.
 
 ![brace example.](docs/imgs/brace.svg)
 
 ```typ
-#brace(width: 160pt)[capacity]
+#brace(body, span: 10em, direction: "down")
+```
+
+- `direction`: orientation and which side the label sits on.
+  - `"down"` (default): horizontal brace, label below.
+  - `"up"`: horizontal brace, label above.
+  - `"right"`: vertical brace, label on the right.
+  - `"left"`: vertical brace, label on the left.
+- `span`: brace 的跨度；横向时表现为宽度，纵向时表现为高度。
+
+```typ
+#brace(span: 160pt)[capacity]
+#brace(direction: "up",    span: 160pt)[header]
+#brace(direction: "right", span: 80pt)[payload]
+#brace(direction: "left",  span: 80pt)[prefix]
 ```
 
 ## Layer 2 — Containers
@@ -462,13 +477,13 @@ counterpart to `lane`'s "states over time" track. Participants are columns
 (with header cards and dashed lifelines); steps cover the standard UML
 vocabulary built with the `seq-*` constructors:
 
-| Constructor | What it renders |
-|---|---|
-| `seq-call(from, to)[label]` | Sync call (solid + filled triangle). Self-loop when `from == to`. |
-| `seq-ret(from, to)[label]` | Return (dashed + open V head). |
-| `seq-note(over)[label]` | Sticky-note. `over` is one id or a 2-tuple to span columns. |
-| `seq-act(who)[label]` | Action block in one column. |
-| `seq-alt(condition, ..steps)` | Alt fragment. `seq-opt` / `seq-loop` / `seq-par` work the same. |
+| Constructor                   | What it renders                                                   |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `seq-call(from, to)[label]`   | Sync call (solid + filled triangle). Self-loop when `from == to`. |
+| `seq-ret(from, to)[label]`    | Return (dashed + open V head).                                    |
+| `seq-note(over)[label]`       | Sticky-note. `over` is one id or a 2-tuple to span columns.       |
+| `seq-act(who)[label]`         | Action block in one column.                                       |
+| `seq-alt(condition, ..steps)` | Alt fragment. `seq-opt` / `seq-loop` / `seq-par` work the same.   |
 
 ```typ
 #seq-lane(
@@ -486,7 +501,7 @@ vocabulary built with the `seq-*` constructors:
 
 - Participants are auto-derived from the step IDs in first-appearance order,
   with default colors from `palettes.categorical`. Pass `participants: ((id:
-  "biz", name: [Business], fill: my-color), …)` to override display name or
+"biz", name: [Business], fill: my-color), …)` to override display name or
   color per id.
 - Activation rectangles (focus of control) are auto-derived from call/return
   pairs and tinted to match each participant. `activate: false` disables, or

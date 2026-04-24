@@ -10,4 +10,4 @@
 #v(6pt)
 
 // brace marks a horizontal span with a centered caption.
-#brace(width: 160pt)[capacity]
+#brace(span: 160pt)[capacity]
