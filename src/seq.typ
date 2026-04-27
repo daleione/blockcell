@@ -245,34 +245,120 @@
 
   let body-height = step-height * render-steps.len() + row-gap * calc.max(render-steps.len() - 1, 0)
 
-  // Auto-derive activation ranges from call/return pairs. A `call` opens an
-  // activation on BOTH the sender (initiator gets a rectangle too) and the
-  // destination, if not already open. A `return` closes the sender's
-  // activation. Any still-open activation at the end extends to the last step.
+  // Auto-derive activation ranges from call/return pairs.
+  //
+  // Two kinds of activation:
+  //   depth 0  — the "base" activation opened by a cross-participant call
+  //              and closed by the corresponding return.  Centered on the
+  //              lifeline, exactly like before.
+  //   depth 1+ — a "nested" activation opened by a self-call while the
+  //              participant is already active.  Each self-call gets its OWN
+  //              short rectangle, offset to the right of the base rect.
+  //              Multiple sequential self-calls each get depth 1 (they don't
+  //              stack horizontally); truly recursive self-calls (self-call
+  //              inside a self-call before its return) get depth 2, 3, etc.
   let activations = ()
+  // Per-step lookup: for a self-call at render-step i on participant id,
+  // stores the nesting depth so the self-loop renderer knows how far right
+  // to draw.
+  let self-step-depth = (:)
   if activate {
-    let open = (:)  // participant id -> step idx where activation started
+    // Base activation tracking (depth 0): one entry per participant,
+    // tracking whether it currently has an open base activation.
+    let base-open = (:)  // id -> start step index (or none)
+
+    // Self-call nesting tracking: a stack per participant of open self-call
+    // start indices.  Stack length = current nesting depth above the base.
+    let self-stack = (:)  // id -> array of start step indices
+
     for (i, step) in render-steps.enumerate() {
       if step.type == "call" {
-        if not (step.from in open) { open.insert(step.from, i) }
-        if not (step.to in open) { open.insert(step.to, i) }
+        if step.from == step.to {
+          // Self-call: open a nested activation rectangle.
+          let stack = self-stack.at(step.from, default: ())
+          let depth = stack.len() + 1  // depth 1 for first self-call
+          self-step-depth.insert(str(i) + ":" + step.from, depth)
+          stack.push(i)
+          self-stack.insert(step.from, stack)
+        } else {
+          // Cross-participant call: open base activation on sender if needed.
+          if base-open.at(step.from, default: none) == none {
+            base-open.insert(step.from, i)
+          }
+          // Open base activation on receiver if needed.
+          if base-open.at(step.to, default: none) == none {
+            base-open.insert(step.to, i)
+          }
+        }
       } else if step.type == "return" {
-        if step.from in open {
-          activations.push((col: id-to-col.at(step.from),
-                            start: open.at(step.from), end: i))
-          let _ = open.remove(step.from)
+        // Check if this closes a self-call first.
+        let stack = self-stack.at(step.from, default: ())
+        if stack.len() > 0 {
+          let start = stack.pop()
+          let depth = stack.len() + 1
+          activations.push((
+            col: id-to-col.at(step.from),
+            start: start,
+            end: i,
+            depth: depth,
+          ))
+          self-stack.insert(step.from, stack)
+        } else {
+          // Closes a base activation.
+          let start = base-open.at(step.from, default: none)
+          if start != none {
+            activations.push((
+              col: id-to-col.at(step.from),
+              start: start,
+              end: i,
+              depth: 0,
+            ))
+            base-open.insert(step.from, none)
+          }
         }
       }
     }
-    for (id, start) in open {
-      activations.push((col: id-to-col.at(id),
-                        start: start, end: render-steps.len() - 1))
+    // Close any still-open self-call activations.
+    for (id, stack) in self-stack {
+      let remaining = stack
+      while remaining.len() > 0 {
+        let start = remaining.pop()
+        let depth = remaining.len() + 1
+        activations.push((
+          col: id-to-col.at(id),
+          start: start,
+          end: render-steps.len() - 1,
+          depth: depth,
+        ))
+      }
+    }
+    // Close any still-open base activations.
+    for (id, start) in base-open {
+      if start != none {
+        activations.push((
+          col: id-to-col.at(id),
+          start: start,
+          end: render-steps.len() - 1,
+          depth: 0,
+        ))
+      }
     }
   }
 
   // True if column `col` has an activation rectangle covering step `i`.
   let is-active(col, i) = activations.any(a =>
     a.col == col and a.start <= i and i <= a.end)
+
+  // Innermost activation depth covering step `i` in column `col`.
+  let active-depth(col, i) = {
+    let depth = -1
+    for a in activations {
+      if a.col == col and a.start <= i and i <= a.end {
+        depth = calc.max(depth, a.depth)
+      }
+    }
+    depth
+  }
 
   // A `seq-act` placed inside an existing activation on the same participant
   // is ambiguous (new discrete action vs. continuation of the in-flight call)
@@ -301,19 +387,24 @@
     polygon(fill: paint, stroke: none,
       (head-size, 0pt), (0pt, head-size / 2), (head-size, head-size))
   }
-  let head-v(paint, dir) = {
-    let s = (paint: paint, thickness: metrics.stroke-normal, dash: none)
-    if dir == "right" {
-      curve(stroke: s,
-        curve.move((0pt, 0pt)),
-        curve.line((head-size, head-size / 2)),
-        curve.line((0pt, head-size)))
-    } else {
-      curve(stroke: s,
-        curve.move((head-size, 0pt)),
-        curve.line((0pt, head-size / 2)),
-        curve.line((head-size, head-size)))
-    }
+  let head-v(paint, dir) = if dir == "right" {
+    box(width: head-size, height: head-size, {
+      place(top + left,
+        line(start: (0pt, 0pt), end: (head-size, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal)))
+      place(top + left,
+        line(start: (0pt, head-size), end: (head-size, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal)))
+    })
+  } else {
+    box(width: head-size, height: head-size, {
+      place(top + left,
+        line(start: (head-size, 0pt), end: (0pt, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal)))
+      place(top + left,
+        line(start: (head-size, head-size), end: (0pt, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal)))
+    })
   }
   let render-head(kind, paint, dir) = if kind == "v" {
     head-v(paint, dir)
@@ -353,34 +444,75 @@
     })
   }
 
-  // Self-message loop: a small U-shape on the right of the lifeline /
-  // activation, going right → down → left back to the column with an
-  // arrowhead pointing left into the participant.
-  let self-loop(label: none, style: "solid", head: "filled",
-                stroke-paint: palettes.base.border, active: false) = {
-    let line-stroke = (paint: stroke-paint, thickness: metrics.stroke-normal,
-                      dash: if style == "solid" { none } else { "dashed" })
-    let act-shift = if active { activation-width / 2 } else { 0pt }
-    let start-x = 50% + act-shift
-    let loop-w = 2.2 * em
-    let y-top = step-height * 0.3
-    let y-bot = step-height * 0.7
+  // Nested activation offset: how far right each nesting level shifts.
+  // The offset rect overlaps the base rect by half its width (standard UML).
+  let nested-offset = activation-width / 2
+
+  // Self-call arrow: a U-shape from the right edge of the current activation
+  // level, going right → down → left to the LEFT edge of the new offset
+  // activation rect.  Only used for `type: "call"` with `from == to`.
+  let self-call-arrow(label: none,
+                      stroke-paint: palettes.base.border, depth: 1) = {
+    let line-stroke = (paint: stroke-paint, thickness: metrics.stroke-normal)
+    // Right edge of the parent rect (departure point).
+    let from-x = 50% + activation-width / 2 + (depth - 1) * nested-offset
+    // Right edge of the new offset rect (arrival point).
+    let target-x = 50% + activation-width / 2 + depth * nested-offset
+    let loop-w = 2 * em
+    let y-start = step-height * 0.25
+    let y-end   = step-height * 0.75
     block(width: 100%, height: 100%, {
-      // Top horizontal segment (right →)
-      place(top + left, dx: start-x, dy: y-top,
+      // Horizontal out →
+      place(top + left, dx: from-x, dy: y-start,
         line(length: loop-w, stroke: line-stroke))
-      // Right vertical segment (down)
-      place(top + left, dx: start-x + loop-w, dy: y-top,
-        line(angle: 90deg, length: y-bot - y-top, stroke: line-stroke))
-      // Bottom horizontal segment (← back, stops at arrowhead)
-      place(top + left, dx: start-x + head-size, dy: y-bot,
-        line(length: loop-w - head-size, stroke: line-stroke))
-      // Left-pointing arrowhead at start-x, bottom line height
-      place(top + left, dx: start-x, dy: y-bot - head-size / 2,
-        render-head(head, stroke-paint, "left"))
-      // Label sits to the right of the loop, vertically centered
+      // Vertical down
+      place(top + left, dx: from-x + loop-w, dy: y-start,
+        line(angle: 90deg, length: y-end - y-start, stroke: line-stroke))
+      // Horizontal back ← to the offset rect left edge + arrowhead
+      place(top + left, dx: target-x + head-size, dy: y-end,
+        line(length: from-x + loop-w - target-x - head-size, stroke: line-stroke))
+      // Filled arrowhead pointing left at the offset rect left edge
+      place(top + left, dx: target-x, dy: y-end - head-size / 2,
+        head-filled(stroke-paint, "left"))
+      // Label to the right of the loop
       if label != none {
-        place(horizon + left, dx: start-x + loop-w + 0.4 * em,
+        place(horizon + left, dx: from-x + loop-w + 0.4 * em,
+          text(size: 0.65em, fill: palettes.base.text-muted, label))
+      }
+    })
+  }
+
+  // Self-return arrow: a U-shape mirror of the self-call arrow.
+  // Departs from the offset rect RIGHT edge, goes right → down → left,
+  // arriving at the parent activation rect RIGHT edge with a dashed open-V
+  // arrowhead.  This mirrors the call U-shape and is clearly visible.
+  let self-return-arrow(label: none,
+                        stroke-paint: palettes.base.border, depth: 1) = {
+    let line-stroke = (paint: stroke-paint, thickness: metrics.stroke-normal,
+                      dash: "dashed")
+    // Right edge of the offset rect at this depth (departure point).
+    let depart-x = 50% + activation-width / 2 + depth * nested-offset
+    // Right edge of the parent rect (arrival point for arrowhead).
+    let arrive-x = 50% + activation-width / 2 + (depth - 1) * nested-offset
+    let loop-w = 2 * em
+    let y-start = step-height * 0.25
+    let y-end   = step-height * 0.75
+    block(width: 100%, height: 100%, {
+      // Horizontal out → from offset rect right edge
+      place(top + left, dx: depart-x, dy: y-start,
+        line(length: loop-w, stroke: line-stroke))
+      // Vertical down
+      place(top + left, dx: depart-x + loop-w, dy: y-start,
+        line(angle: 90deg, length: y-end - y-start, stroke: line-stroke))
+      // Horizontal back ← to parent right edge + arrowhead
+      place(top + left, dx: arrive-x + head-size, dy: y-end,
+        line(length: depart-x + loop-w - arrive-x - head-size, stroke: line-stroke))
+      // Open-V arrowhead pointing left at parent right edge
+      place(top + left, dx: arrive-x, dy: y-end - head-size / 2,
+        head-v(stroke-paint, "left"))
+      // Label to the right of the loop
+      if label != none {
+        place(horizon + left, dx: depart-x + loop-w + 0.4 * em,
           text(size: 0.65em, fill: palettes.base.text-muted, label))
       }
     })
@@ -475,12 +607,30 @@
       let stroke-paint = step.at("stroke", default: palettes.base.border)
 
       if from-col == to-col {
-        // Self-message: single-column U-shaped loop on the lifeline's right.
+        // Self-message: either a U-shaped call or a short return line.
         let col = from-col
+        let depth = self-step-depth.at(str(step-idx) + ":" + step.from, default: 1)
         for i in range(col) { step-cells.push([]) }
-        step-cells.push(self-loop(
-          label: label, style: style, head: head, stroke-paint: stroke-paint,
-          active: is-active(col, step-idx)))
+        if step.type == "call" {
+          step-cells.push(self-call-arrow(
+            label: label, stroke-paint: stroke-paint, depth: depth))
+        } else {
+          // self-return: find the depth of the activation being closed.
+          // The return closes the innermost open self-call, so its depth
+          // is one more than the remaining stack length after popping.
+          // We look up the matching activation to get its depth.
+          let ret-depth = {
+            let d = 1
+            for a in activations {
+              if a.col == col and a.end == step-idx and a.depth > 0 {
+                d = a.depth
+              }
+            }
+            d
+          }
+          step-cells.push(self-return-arrow(
+            label: label, stroke-paint: stroke-paint, depth: ret-depth))
+        }
         for i in range(col + 1, n) { step-cells.push([]) }
       } else {
         let lo = calc.min(from-col, to-col)
@@ -510,23 +660,40 @@
                       thickness: metrics.stroke-thin, dash: "dashed"))))
   )
 
-  // Activation rectangles: per column, stack one or more narrow boxes at the
-  // step y-positions where that participant is actively executing. Each box
-  // spans from the mid-y of the entering call to the mid-y of the exiting
-  // return (where arrows visually attach to the lifeline).
+  // Activation rectangles.
+  //
+  // depth 0 — "base" activation, centered on the lifeline.
+  // depth d (d ≥ 1) — nested self-call activation, shifted right by
+  //   d × nested-offset from the base position.  With nested-offset =
+  //   activation-width / 2 the offset rect overlaps the parent by half
+  //   its width, which is the standard UML convention.
   let activation-cells = range(n).map(col-i => {
     let col-acts = activations.filter(a => a.col == col-i)
     if col-acts.len() == 0 { return [] }
     let p-fill = participants.at(col-i).fill
     let act-fill = p-fill.lighten(35%)
     let act-stroke = metrics.stroke-thin + p-fill.darken(20%)
-    align(center, box(width: activation-width, height: body-height, {
-      for act in col-acts {
-        let y-top = act.start * row-h + step-height / 2
-        let h = (act.end - act.start) * row-h
-        place(top + left, dy: y-top,
+    align(center, box(width: 100%, height: body-height, {
+      // Draw depth 0 first (behind), then higher depths on top.
+      let sorted = col-acts.sorted(key: a => a.depth)
+      for act in sorted {
+        let (y-top, h) = if act.depth == 0 {
+          // Base activation: centered vertically on the call/return steps.
+          let yt = act.start * row-h + step-height / 2
+          (yt, (act.end - act.start) * row-h)
+        } else {
+          // Nested self-call activation: top aligns with the self-call
+          // arrow arrival point, bottom aligns with the self-return arrow
+          // departure point.
+          let yt = act.start * row-h + step-height * 0.75
+          let yb = act.end * row-h + step-height * 0.5
+          (yt, yb - yt)
+        }
+        let x = 50% - activation-width / 2 + act.depth * nested-offset
+        let fill = p-fill.lighten(calc.max(0%, 35% - act.depth * 20%))
+        place(top + left, dx: x, dy: y-top,
           box(width: activation-width, height: h,
-              fill: act-fill, stroke: act-stroke))
+              fill: fill, stroke: act-stroke))
       }
     }))
   })
