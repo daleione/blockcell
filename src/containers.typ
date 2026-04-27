@@ -12,7 +12,7 @@
 // ============================================================================
 
 #import "palettes.typ": palettes
-#import "atoms.typ": _stroke-with-dash
+#import "internal/stroke.typ": with-stroke-dash
 
 /// A bordered container that groups cells into a visual unit.
 ///
@@ -39,7 +39,7 @@
   let effective-stroke = if danger {
     (paint: red, thickness: 2pt)
   } else {
-    _stroke-with-dash(stroke, effective-dash)
+    with-stroke-dash(stroke, effective-dash)
   }
   let actual-fill = if faded { fill.transparentize(60%) } else { fill }
 
@@ -155,7 +155,7 @@
     width: width,
     height: height,
     fill: fill,
-    stroke: _stroke-with-dash(stroke, dash),
+    stroke: with-stroke-dash(stroke, dash),
     radius: radius,
     inset: inset,
     baseline: 30%,

@@ -12,18 +12,8 @@
 // ============================================================================
 
 #import "palettes.typ": palettes
-
-/// Merge a dash pattern into an existing stroke, preserving paint and thickness.
-/// Returns the stroke unchanged when `dash` is `none`.
-#let _stroke-with-dash(stroke, dash) = {
-  if dash == none { return stroke }
-  if type(stroke) == dictionary {
-    (..stroke, dash: dash)
-  } else {
-    let s = std.stroke(stroke)
-    (paint: s.paint, thickness: s.thickness, dash: dash)
-  }
-}
+#import "internal/metrics.typ": metrics
+#import "internal/stroke.typ": with-stroke-dash
 
 /// A colored rectangular cell — the atomic building block of all diagrams.
 ///
@@ -46,7 +36,7 @@
   fill: palettes.base.surface-strong,
   width: auto,
   height: auto,
-  stroke: 0.8pt + palettes.base.border,
+  stroke: metrics.stroke-normal + palettes.base.border,
   dash: none,
   radius: 0pt,
   inset: (x: 0.4em, y: 0.2em),
@@ -61,7 +51,7 @@
 
   box(
     width: width, height: height, fill: actual-fill,
-    stroke: _stroke-with-dash(stroke, actual-dash),
+    stroke: with-stroke-dash(stroke, actual-dash),
     radius: radius, inset: inset, baseline: baseline,
     {
       set text(fill: palettes.base.text, hyphenate: false)
@@ -196,15 +186,15 @@
   direction: auto,
   style: "solid",
   head: "arrow",
-  stroke: 0.8pt + palettes.base.border,
+  stroke: metrics.stroke-normal + palettes.base.border,
   length: auto,
 ) = context {
   let direction = if direction == auto {
     if text.dir == rtl { "left" } else { "right" }
   } else { direction }
   let em = 1em.to-absolute()
-  let head-size = 0.6 * em
-  let line-stroke = _stroke-with-dash(stroke, if style == "solid" { none } else { style })
+  let head-size = metrics.head-size.to-absolute()
+  let line-stroke = with-stroke-dash(stroke, if style == "solid" { none } else { style })
   let arrow-color = std.stroke(stroke).paint
   let horizontal = direction == "right" or direction == "left"
 
@@ -309,7 +299,7 @@
   body,
   shape: "rect",
   fill: palettes.base.surface,
-  stroke: 0.8pt + palettes.base.border,
+  stroke: metrics.stroke-normal + palettes.base.border,
   width: auto,
   height: auto,
   inset: (x: 1em, y: 0.6em),

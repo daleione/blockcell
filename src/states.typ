@@ -30,6 +30,7 @@
 // ============================================================================
 
 #import "palettes.typ": palettes
+#import "internal/metrics.typ": metrics
 
 /// A state node. `id` cross-references it from `loop` / `jump`. The trailing
 /// content block is the visible label. Passing `pos: (col, row)` switches the
@@ -154,17 +155,25 @@
   bend: 0,
   forward-side: 1, back-side: -1,
   style: "solid",
-) = (
-  type: "bi-jump",
-  from: from,
-  to: to,
-  forward: forward,
-  back: back,
-  bend: bend,
-  forward-side: forward-side,
-  back-side: back-side,
-  style: style,
-)
+) = {
+  if forward == none and back == none {
+    panic(
+      "bi-jump requires at least one direction label: `forward` or `back` must be provided.",
+    )
+  }
+
+  (
+    type: "bi-jump",
+    from: from,
+    to: to,
+    forward: forward,
+    back: back,
+    bend: bend,
+    forward-side: forward-side,
+    back-side: back-side,
+    style: style,
+  )
+}
 
 /// Render a state-transition diagram.
 ///
@@ -202,7 +211,7 @@
   row-gap: 10em,
   loop-height: 2.8em,
   jump-height: 4.8em,
-  min-size: 4.4em,
+  min-size: metrics.state-min-size,
 ) = context {
   let gap = gap.to-absolute()
   let col-gap = col-gap.to-absolute()

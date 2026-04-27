@@ -17,6 +17,7 @@
 // ============================================================================
 
 #import "palettes.typ": palettes
+#import "internal/metrics.typ": metrics
 
 /// Constructors for `seq-lane` steps. Each returns a tagged dict that the
 /// renderer understands. Use trailing-content-block syntax for labels:
@@ -100,10 +101,14 @@
   ..steps,
 ) = context {
   let em = 1em.to-absolute()
-  let head-size = 0.6 * em
+  let head-size = metrics.head-size.to-absolute()
   let step-height = step-height.to-absolute()
   let row-gap = row-gap.to-absolute()
-  let activation-width = activation-width.to-absolute()
+  let activation-width = if activation-width == metrics.activation-width {
+    metrics.activation-width.to-absolute()
+  } else {
+    activation-width.to-absolute()
+  }
   let total-width = if width == auto { 100% } else { width }
   let row-h = step-height + row-gap
 
@@ -156,7 +161,22 @@
   let user-overrides = (:)
   let user-order = ()
   if participants != none {
+    let used-ids = auto-ids.fold((:), (acc, id) => {
+      acc.insert(id, true)
+      acc
+    })
+    let seen-user-ids = (:)
     for p in participants {
+      if not ("id" in p) {
+        panic("seq-lane participants entries must include `id`.")
+      }
+      if p.id in seen-user-ids {
+        panic("seq-lane participants contains duplicate id `" + p.id + "`.")
+      }
+      seen-user-ids.insert(p.id, true)
+      if not (p.id in used-ids) {
+        panic("seq-lane participants contains unused id `" + p.id + "`. Remove it or reference it from a step.")
+      }
       user-overrides.insert(p.id, p)
       user-order.push(p.id)
     }
@@ -282,7 +302,7 @@
       (head-size, 0pt), (0pt, head-size / 2), (head-size, head-size))
   }
   let head-v(paint, dir) = {
-    let s = (paint: paint, thickness: 0.8pt, dash: none)
+    let s = (paint: paint, thickness: metrics.stroke-normal, dash: none)
     if dir == "right" {
       curve(stroke: s,
         curve.move((0pt, 0pt)),
@@ -313,7 +333,7 @@
                    head: "filled",
                    stroke-paint: palettes.base.border, span: 2,
                    lo-active: false, hi-active: false) = {
-    let line-stroke = (paint: stroke-paint, thickness: 0.8pt,
+    let line-stroke = (paint: stroke-paint, thickness: metrics.stroke-normal,
                       dash: if style == "solid" { none } else { "dashed" })
     let inset = 50% / span - (span - 1) * column-gap / (2 * span)
     let act-shift = activation-width / 2
@@ -338,7 +358,7 @@
   // arrowhead pointing left into the participant.
   let self-loop(label: none, style: "solid", head: "filled",
                 stroke-paint: palettes.base.border, active: false) = {
-    let line-stroke = (paint: stroke-paint, thickness: 0.8pt,
+    let line-stroke = (paint: stroke-paint, thickness: metrics.stroke-normal,
                       dash: if style == "solid" { none } else { "dashed" })
     let act-shift = if active { activation-width / 2 } else { 0pt }
     let start-x = 50% + act-shift
@@ -487,7 +507,7 @@
       align(center,
         line(angle: 90deg, length: body-height,
              stroke: (paint: palettes.base.border-subtle,
-                      thickness: 0.6pt, dash: "dashed"))))
+                      thickness: metrics.stroke-thin, dash: "dashed"))))
   )
 
   // Activation rectangles: per column, stack one or more narrow boxes at the
@@ -499,7 +519,7 @@
     if col-acts.len() == 0 { return [] }
     let p-fill = participants.at(col-i).fill
     let act-fill = p-fill.lighten(35%)
-    let act-stroke = 0.6pt + p-fill.darken(20%)
+    let act-stroke = metrics.stroke-thin + p-fill.darken(20%)
     align(center, box(width: activation-width, height: body-height, {
       for act in col-acts {
         let y-top = act.start * row-h + step-height / 2
@@ -533,7 +553,7 @@
       place(top + left, dy: y-top,
         box(width: 100%, height: frame-h,
             stroke: (paint: palettes.base.border-soft,
-                     thickness: 0.6pt, dash: "dashed")))
+                     thickness: metrics.stroke-thin, dash: "dashed")))
       // Corner tag: a single filled label in the top-left bundling the
       // operator name and — if present — the UML guard condition. Merging
       // them into one box matches PlantUML/Mermaid convention so "alt [ok]"
@@ -542,7 +562,7 @@
       // UML guard notation.
       place(top + left, dy: y-top,
         box(fill: palettes.base.surface,
-            stroke: 0.6pt + palettes.base.border-soft,
+            stroke: metrics.stroke-thin + palettes.base.border-soft,
             inset: (x: 0.4em, y: 0.1em),
             radius: (bottom-right: 3pt),
             {

@@ -12,6 +12,7 @@
 #import "atoms.typ": *
 #import "containers.typ": *
 #import "palettes.typ": palettes
+#import "internal/metrics.typ": metrics
 
 /// A top-level diagram container with optional title and description.
 ///
@@ -115,13 +116,25 @@
 /// )
 /// ```
 #let lane(name: none, items: ()) = {
+  for item in items {
+    if not ("label" in item) {
+      panic("lane: each item must include `label`.")
+    }
+    if not ("fill" in item) {
+      panic("lane: each item must include `fill`.")
+    }
+  }
+
   block(width: 100%, inset: (y: 0.4em), {
-    place(horizon, line(length: 100%, stroke: (paint: palettes.base.border-subtle, thickness: 1pt)))
+    place(horizon, line(length: 100%, stroke: (
+      paint: palettes.base.border-subtle,
+      thickness: metrics.lane-track-stroke,
+    )))
     for item in items {
       h(0.8em)
       box(
         fill: item.fill,
-        stroke: (paint: palettes.base.border, thickness: 0.5pt),
+        stroke: (paint: palettes.base.border, thickness: metrics.stroke-thin),
         radius: 2pt,
         inset: (x: 0.4em, y: 0.2em),
         baseline: 30%,
@@ -190,6 +203,14 @@
 ///   Optional keys: `stroke`, `dash`.
 /// - `show-bits`: If `true`, show bit widths as subscript. Default: `true`.
 #let bit-row(total: 32, width: 400pt, fields: (), show-bits: true) = {
+  let bits-sum = fields.fold(0, (acc, f) => acc + f.bits)
+  if bits-sum != total {
+    panic(
+      "bit-row: expected sum(fields.bits) == total, got sum(fields.bits) = "
+      + str(bits-sum) + " and total = " + str(total) + ".",
+    )
+  }
+
   box(baseline: 30%, {
     for f in fields {
       cell(
@@ -199,7 +220,7 @@
         },
         fill: f.fill,
         width: width * f.bits / total,
-        stroke: f.at("stroke", default: 0.8pt + palettes.base.border),
+        stroke: f.at("stroke", default: metrics.stroke-normal + palettes.base.border),
         dash: f.at("dash", default: none),
       )
     }
@@ -232,6 +253,18 @@
 /// - Items: positional `(flex:, body:)` dictionaries.
 #let flex-row(width: auto, gap: 0.4em, align: horizon, ..items) = {
   let entries = items.pos()
+  for (i, entry) in entries.enumerate() {
+    if not ("flex" in entry) {
+      panic("flex-row: item " + str(i + 1) + " must include `flex`.")
+    }
+    if entry.flex <= 0 {
+      panic("flex-row: item " + str(i + 1) + " must have `flex > 0`.")
+    }
+    if not ("body" in entry) {
+      panic("flex-row: item " + str(i + 1) + " must include `body`.")
+    }
+  }
+
   let cols = entries.map(e => e.flex * 1fr)
   let bodies = entries.map(e => e.body)
   let actual-width = if width == auto { 100% } else { width }
