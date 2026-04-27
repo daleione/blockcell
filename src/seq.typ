@@ -281,7 +281,25 @@
           stack.push(i)
           self-stack.insert(step.from, stack)
         } else {
-          // Cross-participant call: open base activation on sender if needed.
+          // Cross-participant call: auto-close any open self-call activations
+          // on the sender.  A self-call is a synchronous internal operation —
+          // it must complete before the participant can send a message to
+          // someone else.  This lets users omit the explicit seq-ret for
+          // simple self-calls like "validate input".
+          let sender-stack = self-stack.at(step.from, default: ())
+          while sender-stack.len() > 0 {
+            let start = sender-stack.pop()
+            let depth = sender-stack.len() + 1
+            activations.push((
+              col: id-to-col.at(step.from),
+              start: start,
+              end: i - 1,
+              depth: depth,
+            ))
+          }
+          self-stack.insert(step.from, sender-stack)
+
+          // Open base activation on sender if needed.
           if base-open.at(step.from, default: none) == none {
             base-open.insert(step.from, i)
           }
