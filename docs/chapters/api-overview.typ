@@ -83,6 +83,22 @@
       #h(6pt) → 详见 "层级树图" 章节
     ]
   ]
+  #v(6pt)
+  #region(fill: rgb("#E0F2F1"), width: 490pt)[
+    #text(weight: "bold")[时序图 — 专题章节]
+    #v(2pt)
+    #text(size: 0.85em)[
+      `seq-lane` + `seq-call` / `seq-ret` / `seq-note` / `seq-act` /
+        `seq-ref`
+      #h(4pt) `seq-alt` + `seq-else` / `seq-opt` / `seq-loop` / `seq-par`
+      #h(4pt) `seq-divider` / `seq-delay` / `seq-space`
+      #h(4pt) `seq-create` / `seq-destroy`
+      #h(4pt) `seq-autonumber*`
+      #h(4pt) `boxes:` swim lane
+      #h(4pt) `seq-puml` PlantUML 兼容层
+      #h(6pt) → 详见 "时序图" 章节
+    ]
+  ]
 ]
 
 #v(8pt)

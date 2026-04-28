@@ -81,12 +81,16 @@
 /// - `seq-opt(condition, ..steps)`   opt fragment
 /// - `seq-loop(condition, ..steps)`  loop fragment
 /// - `seq-par(condition, ..steps)`   par fragment
-#let seq-call(from, to, body) = (
-  type: "call", from: from, to: to, label: body,
-)
-#let seq-ret(from, to, body) = (
-  type: "return", from: from, to: to, label: body,
-)
+#let seq-call(from, to, body, stroke: none) = {
+  let s = (type: "call", from: from, to: to, label: body)
+  if stroke != none { s.insert("stroke", stroke) }
+  s
+}
+#let seq-ret(from, to, body, stroke: none) = {
+  let s = (type: "return", from: from, to: to, label: body)
+  if stroke != none { s.insert("stroke", stroke) }
+  s
+}
 #let seq-note(over, body) = (
   type: "note", over: over, label: body,
 )
@@ -105,7 +109,7 @@
 #let seq-create(who) = (
   type: "create", who: who,
 )
-#let seq-delay(body: none) = (
+#let seq-delay(body) = (
   type: "delay", label: body,
 )
 #let seq-space() = (

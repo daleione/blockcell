@@ -58,6 +58,8 @@
 #pagebreak(weak: true)
 #include "chapters/tree.typ"
 #pagebreak(weak: true)
+#include "chapters/seq.typ"
+#pagebreak(weak: true)
 #include "chapters/patterns.typ"
 #pagebreak(weak: true)
 #include "chapters/examples.typ"

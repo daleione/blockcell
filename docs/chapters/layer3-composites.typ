@@ -232,110 +232,11 @@
 
 === `seq-lane`
 
-声明式 UML 时序图。与 `lane`（状态随时间走）互补 —— `seq-lane` 表达
-"参与者之间互相调用"。覆盖完整 UML 词汇：跨列消息、自调用、控制焦点、
-组合片段（alt / opt / loop / par）、便签。
+声明式 UML 时序图。`seq-lane` 表达"参与者之间互相调用"，覆盖完整 UML
+词汇：跨列消息、自调用、激活、组合片段（alt / opt / loop / par）、便签、
+分隔符、生命周期、自动编号、参与者分组、PlantUML 兼容层（`seq-puml`）……
 
-#section-label[Example]
-
-#example-pair(
-  ```typ
-  #seq-lane(
-    seq-call("c", "biz")[POST /order],
-    seq-note("biz")[校验库存],
-    seq-alt([ok],
-      seq-call("biz", "db")[INSERT],
-      seq-ret("db", "biz")[OK],
-    ),
-    seq-ret("biz", "c")[201],
-  )
-  ```,
-  [
-    #seq-lane(
-      width: 100%,
-      seq-call("c", "biz")[POST /order],
-      seq-note("biz")[校验库存],
-      seq-alt([ok],
-        seq-call("biz", "db")[INSERT],
-        seq-ret("db", "biz")[OK],
-      ),
-      seq-ret("biz", "c")[201],
-    )
-  ],
-)
-
-#section-label[Step 构造函数]
-
-#grid(
-  columns: (170pt, 1fr),
-  row-gutter: 5pt,
-  text(weight: "bold")[`seq-call(from, to)[..]`],
-  [同步消息（实线 + 实心三角箭头）；`from == to` 时自动渲染为自调用 U 形回环。],
-  text(weight: "bold")[`seq-ret(from, to)[..]`],
-  [回调（虚线 + 开口 V 形箭头）。],
-  text(weight: "bold")[`seq-note(over)[..]`],
-  [便签（折角矩形）；`over` 取单个 id 或 `("a","b")` 跨多列。],
-  text(weight: "bold")[`seq-act(who)[..]`],
-  [单参与者列内的工作块；`who` 不能正处于激活区间内 —— 否则 panic
-   （改用 `seq-note` 作注解）。],
-  text(weight: "bold")[`seq-alt(cond, ..)`],
-  [可选分支组合片段；首参为条件（方括号内容），其余为嵌套 step。],
-  text(weight: "bold")[`seq-opt` / `seq-loop` / `seq-par`],
-  [同上，分别对应 opt / loop / par 片段语义。],
-)
-
-#section-label[Parameters]
-
-#params-box("seq-lane",
-  ("..steps",          ("content",)),
-  ("width",            ("auto", "length")),
-  ("step-height",      ("length",)),
-  ("header-height",    ("length",)),
-  ("column-gap",       ("length",)),
-  ("row-gap",          ("length",)),
-  ("activate",         ("bool",)),
-  ("activation-width", ("length",)),
-  ("participants",     ("none", "array")),
-  returns: "content",
-)
-
-#param-detail("participants", ("none", "array"),
-  default: raw("none", lang: none))[
-  显式锁定参与者顺序与显示名。每项是 `(id: "biz", name: [Business],
-  fill: color)` 字典。未传时按 step id 首次出现顺序自动推导，颜色循环使用
-  `palettes.categorical`。
-]
-
-#param-detail("activate", ("bool",), default: raw("true", lang: none))[
-  是否自动绘制激活矩形（"正在执行"的窄竖条）。`seq-call` 开启，匹配的
-  `seq-ret` 关闭。
-]
-
-#section-label[More]
-
-完整登录流程示例：
-
-#align(center)[
-  #seq-lane(
-    width: 100%,
-    participants: (
-      (id: "browser", name: [Browser]),
-      (id: "api",     name: [API]),
-      (id: "auth",    name: [Auth]),
-      (id: "db",      name: [DB]),
-    ),
-    seq-call("browser", "api")[POST /login],
-    seq-call("api", "api")[validate input],
-    seq-alt([credentials provided],
-      seq-call("api", "auth")[authenticate],
-      seq-call("auth", "db")[SELECT user],
-      seq-ret("db", "auth")[user row],
-      seq-note("auth")[bcrypt compare],
-      seq-ret("auth", "api")[session token],
-    ),
-    seq-ret("api", "browser")[200 + Set-Cookie],
-  )
-]
+完整介绍与示例参见 *"时序图"* 专题章节。
 
 === `section`
 
