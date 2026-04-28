@@ -70,7 +70,7 @@
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
-#import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-delay, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
+#import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-ref, seq-divider, seq-else, seq-destroy, seq-create, seq-delay, seq-space, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/seq-puml.typ": seq-puml
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/tree.typ": tree, node

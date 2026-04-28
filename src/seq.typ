@@ -14,8 +14,13 @@
 //   seq-else     branch separator inside seq-alt; subsequent siblings render
 //                under the new bracketed condition
 //   seq-destroy  terminates a participant's lifeline at this row with an ×
+//   seq-create   delays a participant's header rendering to this row; the
+//                top header is omitted and the lifeline starts below
 //   seq-delay    "time passes" gap; vertical dots on every lifeline + an
 //                optional pill label centered across the row
+//   seq-space    blank row used as a layout spacer
+//   seq-ref      reference / external interaction frame; rectangular box
+//                with a "ref" corner tag, rendered above one or more lifelines
 //   seq-autonumber*       inline auto-numbering control (start/stop/resume)
 //   seq-alt      alt fragment (dashed frame, bracketed condition)
 //   seq-opt      opt fragment
@@ -50,9 +55,20 @@
 ///                                   with an × marker at this row; closes any
 ///                                   open activation, no further messages
 ///                                   should reference the participant
+/// - `seq-create(who)`               delay the participant's header to this
+///                                   row instead of the top — the lifeline
+///                                   starts below the inline header, modeling
+///                                   "this participant is born here"
 /// - `seq-delay()` / `seq-delay[…]`  "time passes" marker: vertical dots on
 ///                                   every lifeline + an optional centered
 ///                                   pill label
+/// - `seq-space()`                   blank row used purely for layout — adds
+///                                   a step-height worth of vertical air,
+///                                   lifelines pass through unchanged
+/// - `seq-ref(over)[label]`          reference frame: rectangular box with
+///                                   a `ref` corner tag, used to point at an
+///                                   external diagram for the interaction
+///                                   between the listed participants
 /// - `seq-autonumber(start, step)`   inline: (re)start auto-numbering at the
 ///                                   given start (default 1) with given step
 ///                                   (default 1); subsequent call/return
@@ -86,8 +102,17 @@
 #let seq-destroy(who) = (
   type: "destroy", who: who,
 )
+#let seq-create(who) = (
+  type: "create", who: who,
+)
 #let seq-delay(body: none) = (
   type: "delay", label: body,
+)
+#let seq-space() = (
+  type: "space",
+)
+#let seq-ref(over, body) = (
+  type: "ref", over: over, label: body,
 )
 #let seq-autonumber(start: 1, step: 1) = (
   type: "autonumber", action: "start", start: start, step: step,
@@ -148,12 +173,14 @@
   activation-width: 0.8em,
   autonumber: false,
   participants: none,
+  boxes: none,
   ..steps,
 ) = context {
   let em = 1em.to-absolute()
   let head-size = metrics.head-size.to-absolute()
   let step-height = step-height.to-absolute()
   let row-gap = row-gap.to-absolute()
+  let column-gap = column-gap.to-absolute()
   let activation-width = if activation-width == metrics.activation-width {
     metrics.activation-width.to-absolute()
   } else {
@@ -184,15 +211,19 @@
   // palette. User-supplied `participants` overrides per-id (matched on `id`)
   // and takes ordering precedence; any ids not in the user list get appended
   // in step-discovery order.
+  // Boundary endpoints — virtual anchors for `[->`/`->]` style arrows that
+  // connect to the figure's left/right edge instead of a real participant.
+  let is-edge(id) = id == "[" or id == "]"
+
   let cat = palettes.categorical
   let auto-ids = ()
   let auto-seen = (:)
   for step in raw-steps {
     let candidates = ()
     let f = step.at("from", default: none)
-    if f != none { candidates.push(f) }
+    if f != none and not is-edge(f) { candidates.push(f) }
     let t = step.at("to", default: none)
-    if t != none { candidates.push(t) }
+    if t != none and not is-edge(t) { candidates.push(t) }
     let w = step.at("who", default: none)
     if w != none { candidates.push(w) }
     let over = step.at("over", default: none)
@@ -343,9 +374,15 @@
   // Map participant id → render-step index where it is destroyed. Beyond that
   // row, the lifeline does not render and any open activations are clamped.
   let destroy-row = (:)
+  // Map participant id → render-step index where its header is rendered
+  // inline (instead of at the top header row); the lifeline starts below.
+  let create-row = (:)
   for (i, step) in render-steps.enumerate() {
     if step.type == "destroy" and not (step.who in destroy-row) {
       destroy-row.insert(step.who, i)
+    }
+    if step.type == "create" and not (step.who in create-row) {
+      create-row.insert(step.who, i)
     }
   }
 
@@ -377,7 +414,15 @@
 
     for (i, step) in render-steps.enumerate() {
       if step.type == "call" {
-        if step.from == step.to {
+        // Boundary arrows don't carry an activation on their virtual edge
+        // endpoint — only the real participant side participates in the
+        // activation stack.
+        if is-edge(step.from) or is-edge(step.to) {
+          let real = if is-edge(step.from) { step.to } else { step.from }
+          if base-open.at(real, default: none) == none {
+            base-open.insert(real, i)
+          }
+        } else if step.from == step.to {
           // Self-call: open a nested activation rectangle.
           let stack = self-stack.at(step.from, default: ())
           let depth = stack.len() + 1  // depth 1 for first self-call
@@ -413,6 +458,21 @@
           }
         }
       } else if step.type == "return" {
+        if is-edge(step.from) or is-edge(step.to) {
+          // Boundary return: close the real participant's base activation.
+          let real = if is-edge(step.from) { step.to } else { step.from }
+          let start = base-open.at(real, default: none)
+          if start != none {
+            activations.push((
+              col: id-to-col.at(real),
+              start: start,
+              end: i,
+              depth: 0,
+            ))
+            base-open.insert(real, none)
+          }
+          continue
+        }
         // Check if this closes a self-call first.
         let stack = self-stack.at(step.from, default: ())
         if stack.len() > 0 {
@@ -700,14 +760,48 @@
     }))
   }
 
-  let header-cells = participants.map(p =>
-    box(
-      width: 100%, height: 100%,
-      fill: p.fill, stroke: 0.8pt + palettes.base.border,
-      radius: 3pt, inset: (x: 0.6em, y: 0.4em),
-      align(center + horizon, text(weight: "bold", size: 0.9em, p.name)),
-    )
+  // UML interaction-reference frame ("ref"): a plain bordered rectangle
+  // (no folded corner — it's a delegation marker, not a sticky note) with a
+  // small `ref` corner tag in the top-left. Sized like a note via measure.
+  let render-ref(label) = {
+    let inset-x = 1 * em
+    let inset-y = 0.4 * em
+    let stroke-paint = palettes.base.border-soft
+    let stroke = metrics.stroke-thin + stroke-paint
+    let fill = palettes.base.surface
+    let content = align(center + horizon, text(size: 0.75em, label))
+    align(horizon, layout(size => context {
+      let w = size.width
+      let content-h = measure(block(width: w - 2 * inset-x, content)).height
+      let h = content-h + 2 * inset-y
+      box(width: w, height: h, {
+        place(top + left,
+          rect(width: w, height: h, fill: fill, stroke: stroke))
+        place(top + left, dx: inset-x, dy: inset-y,
+          block(width: w - 2 * inset-x, content))
+        place(top + left,
+          box(fill: fill, stroke: stroke,
+              inset: (x: 0.4em, y: 0.05em),
+              radius: (bottom-right: 3pt),
+              text(size: 0.55em, weight: "bold", "ref")))
+      })
+    }))
+  }
+
+  let render-header(p) = box(
+    width: 100%, height: 100%,
+    fill: p.fill, stroke: 0.8pt + palettes.base.border,
+    radius: 3pt, inset: (x: 0.6em, y: 0.4em),
+    align(center + horizon, text(weight: "bold", size: 0.9em, p.name)),
   )
+  let header-cells = participants.map(p => {
+    if p.id in create-row {
+      // Header is drawn inline at the create row; reserve space at the top.
+      box(width: 100%, height: 100%)
+    } else {
+      render-header(p)
+    }
+  })
 
   // Phase divider: full-width horizontal line (drawn double-stroke for
   // scene-break feel) with the label centered on top in a surface-filled
@@ -785,6 +879,20 @@
       step-cells.push(grid.cell(colspan: span,
         render-note(label, fill: fill, stroke-paint: stroke-paint)))
       for i in range(hi + 1, n) { step-cells.push([]) }
+    } else if step.type == "ref" {
+      let over = step.over
+      let label = step.at("label", default: none)
+      let cols = if type(over) == str {
+        (id-to-col.at(over),)
+      } else {
+        over.map(id => id-to-col.at(id))
+      }
+      let lo = calc.min(..cols)
+      let hi = calc.max(..cols)
+      let span = hi - lo + 1
+      for i in range(lo) { step-cells.push([]) }
+      step-cells.push(grid.cell(colspan: span, render-ref(label)))
+      for i in range(hi + 1, n) { step-cells.push([]) }
     } else if step.type == "divider" {
       let label = step.at("label", default: none)
       step-cells.push(grid.cell(colspan: n, render-divider(label)))
@@ -794,6 +902,25 @@
     } else if step.type == "delay" {
       let label = step.at("label", default: none)
       step-cells.push(grid.cell(colspan: n, render-delay(label)))
+    } else if step.type == "space" {
+      step-cells.push(grid.cell(colspan: n, []))
+    } else if step.type == "create" {
+      let col = id-to-col.at(step.who)
+      let p = participants.at(col)
+      for i in range(n) {
+        if i == col {
+          step-cells.push(
+            block(width: 100%, height: 100%,
+              align(center + horizon,
+                box(fill: p.fill,
+                    stroke: 0.8pt + palettes.base.border,
+                    radius: 3pt,
+                    inset: (x: 0.6em, y: 0.3em),
+                    text(weight: "bold", size: 0.85em, p.name)))))
+        } else {
+          step-cells.push([])
+        }
+      }
     } else if step.type == "destroy" {
       let col = id-to-col.at(step.who)
       for i in range(n) {
@@ -834,8 +961,6 @@
         }
       }
     } else if step.type == "call" or step.type == "return" {
-      let from-col = id-to-col.at(step.from)
-      let to-col = id-to-col.at(step.to)
       let style = if step.type == "return" { "dashed" } else { "solid" }
       let head = if step.type == "return" { "v" } else { "filled" }
       let raw-label = step.at("label", default: none)
@@ -850,6 +975,67 @@
         raw-label
       }
       let stroke-paint = step.at("stroke", default: palettes.base.border)
+
+      if is-edge(step.from) or is-edge(step.to) {
+        // Boundary arrow — line spans from a figure edge to a participant
+        // column center (or the reverse). Layout-resolved so column centers
+        // align with the same 1fr columns used by the outer grid.
+        let real-id = if is-edge(step.from) { step.to } else { step.from }
+        let real-col = id-to-col.at(real-id)
+        let from-edge = is-edge(step.from)
+        let real-active = is-active(real-col, step-idx)
+        step-cells.push(grid.cell(colspan: n,
+          layout(size => block(width: 100%, height: 100%, {
+            let w = size.width
+            let col-w = (w - (n - 1) * column-gap) / n
+            let real-cx = real-col * (col-w + column-gap) + col-w / 2
+            let act-shift = activation-width / 2
+
+            let direction = if from-edge {
+              if step.from == "[" { "right" } else { "left" }
+            } else {
+              if step.to == "]" { "right" } else { "left" }
+            }
+            let edge-x = if (from-edge and step.from == "[") or (not from-edge and step.to == "[") {
+              0pt
+            } else {
+              w
+            }
+            // Inset from the participant side so the line attaches to the
+            // activation strip's outer edge rather than the lifeline center.
+            let real-edge-x = if real-active {
+              if real-cx < edge-x { real-cx + act-shift }
+              else { real-cx - act-shift }
+            } else { real-cx }
+
+            let lo-x = calc.min(edge-x, real-edge-x)
+            let hi-x = calc.max(edge-x, real-edge-x)
+            let line-stroke = (paint: stroke-paint,
+                               thickness: metrics.stroke-normal,
+                               dash: if style == "solid" { none } else { "dashed" })
+
+            if label != none {
+              place(horizon + left, dx: lo-x, dy: -0.6 * em,
+                block(width: hi-x - lo-x, align(center + horizon,
+                  text(size: 0.65em, fill: palettes.base.text-muted, label))))
+            }
+            place(horizon + left, dx: lo-x,
+              line(length: hi-x - lo-x, stroke: line-stroke))
+            // Arrowhead at the "to" end.
+            let to-x = if from-edge { real-edge-x } else { edge-x }
+            let head-x = if direction == "right" {
+              to-x - head-size
+            } else {
+              to-x
+            }
+            place(horizon + left, dx: head-x,
+              render-head(head, stroke-paint, direction))
+          }))))
+        continue
+      }
+
+      let from-col = id-to-col.at(step.from)
+      let to-col = id-to-col.at(step.to)
 
       if from-col == to-col {
         // Self-message: either a U-shaped call or a short return line.
@@ -901,13 +1087,19 @@
                          thickness: metrics.stroke-thin, dash: "dashed")
   let lifeline-cells = range(n).map(col-i => {
     let id = participants.at(col-i).id
-    let len = if id in destroy-row {
+    let start-y = if id in create-row {
+      create-row.at(id) * row-h + step-height / 2
+    } else {
+      0pt
+    }
+    let end-y = if id in destroy-row {
       destroy-row.at(id) * row-h + step-height / 2
     } else {
       body-height
     }
+    let len = calc.max(end-y - start-y, 0pt)
     box(width: 100%, height: body-height,
-      place(top + center,
+      place(top + center, dy: start-y,
         line(angle: 90deg, length: len, stroke: lifeline-stroke)))
   })
   let lifelines = grid(
@@ -965,6 +1157,41 @@
     column-gutter: column-gap,
     ..header-cells,
   )
+
+  // Resolve participant boxes: each entry { name, ids, fill? } draws a tinted
+  // backdrop spanning the listed participants' header columns with a small
+  // title bar above. Ids must be contiguous in the final column order.
+  let resolved-boxes = ()
+  if boxes != none {
+    for b in boxes {
+      let box-ids = b.at("ids", default: ())
+      if box-ids.len() == 0 { continue }
+      let cols = box-ids.map(id => {
+        if not (id in id-to-col) {
+          panic("seq-lane boxes: participant `" + id + "` not declared.")
+        }
+        id-to-col.at(id)
+      })
+      let lo = calc.min(..cols)
+      let hi = calc.max(..cols)
+      if hi - lo + 1 != box-ids.len() {
+        panic(
+          "seq-lane boxes: participants in `" + b.at("name", default: "<box>")
+          + "` must be contiguous in column order.",
+        )
+      }
+      resolved-boxes.push((
+        name: b.at("name", default: ""),
+        lo: lo, hi: hi,
+        fill: b.at("fill", default: palettes.base.surface-alt),
+      ))
+    }
+  }
+  // Box title bar above the participant headers when any box is present;
+  // PlantUML treats the box as a swim-lane that vertically encloses both
+  // headers AND lifelines, so the actual rectangle is drawn in the final
+  // composition spanning the full header+body height.
+  let box-title-h = if resolved-boxes.len() > 0 { 1.9 * em } else { 0pt }
 
   // Fragment frames: dashed border around a range of step rows with a small
   // corner tag (kind name) and an optional condition label in brackets.
@@ -1025,6 +1252,38 @@
       ))
   })
 
-  block(width: total-width, breakable: false,
-    stack(dir: ttb, spacing: 0pt, header-row, body-overlay))
+  let composed = if resolved-boxes.len() == 0 {
+    stack(dir: ttb, spacing: 0pt, header-row, body-overlay)
+  } else {
+    // Boxes are full-height swim lanes: draw a single tinted rectangle
+    // running from the title bar at the top to the bottom of the body, with
+    // the title text in the bar above the headers. Headers and body are then
+    // overlaid on top.
+    let total-h = box-title-h + header-height + body-height
+    layout(size => {
+      let w = size.width
+      let col-w = (w - (n - 1) * column-gap) / n
+      block(width: 100%, height: total-h, {
+        for b in resolved-boxes {
+          let x-left = b.lo * (col-w + column-gap)
+          let span-w = (b.hi - b.lo + 1) * col-w + (b.hi - b.lo) * column-gap
+          let pad = 0.4 * em
+          place(top + left, dx: x-left - pad,
+            rect(width: span-w + 2 * pad, height: total-h,
+                 fill: b.fill,
+                 stroke: metrics.stroke-thin + palettes.base.border-soft,
+                 radius: 4pt))
+          if b.name != "" and b.name != [] {
+            place(top + left, dx: x-left - pad, dy: 0.5 * em,
+              block(width: span-w + 2 * pad,
+                align(center, text(size: 0.85em, weight: "bold",
+                  fill: palettes.base.text, b.name))))
+          }
+        }
+        place(top + left, dy: box-title-h, header-row)
+        place(top + left, dy: box-title-h + header-height, body-overlay)
+      })
+    })
+  }
+  block(width: total-width, breakable: false, composed)
 }

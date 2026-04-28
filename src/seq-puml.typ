@@ -20,7 +20,7 @@
 //   @startuml / @enduml / comments skipped
 // ============================================================================
 
-#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-delay, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
+#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-ref, seq-divider, seq-else, seq-destroy, seq-create, seq-delay, seq-space, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
 #import "palettes.typ": palettes
 
 // ---- Helpers ---------------------------------------------------------------
@@ -196,6 +196,79 @@
   )
 }
 
+// Boundary-arrow patterns where one endpoint is the figure edge:
+//   `[-> A : label`    left edge enters A      (from = "[", to = A)
+//   `[<- A : label`    A sends to left edge    (from = A, to = "[")
+//   `A ->] : label`    A sends to right edge   (from = A, to = "]")
+//   `A <-] : label`    right edge sends to A   (from = "]", to = A)
+// Returns same shape as `_parse-message` but with one endpoint == "[" or "]".
+#let _parse-boundary(line) = {
+  let m1 = line.match(regex("^\[(-{1,2})>\s+(\S+)\s*(?::\s*(.*))?$"))
+  if m1 != none {
+    let dashes = m1.captures.at(0)
+    let target = m1.captures.at(1).trim()
+    let label = if m1.captures.at(2) != none { m1.captures.at(2).trim() } else { "" }
+    return (
+      from: "[", to: target,
+      type: if dashes.len() == 2 { "return" } else { "call" },
+      label: label, stroke: none, suffix: "",
+    )
+  }
+  let m2 = line.match(regex("^\[<(-{1,2})\s+(\S+)\s*(?::\s*(.*))?$"))
+  if m2 != none {
+    let dashes = m2.captures.at(0)
+    let target = m2.captures.at(1).trim()
+    let label = if m2.captures.at(2) != none { m2.captures.at(2).trim() } else { "" }
+    return (
+      from: target, to: "[",
+      type: if dashes.len() == 2 { "return" } else { "call" },
+      label: label, stroke: none, suffix: "",
+    )
+  }
+  let m3 = line.match(regex("^(\S+)\s+(-{1,2})>\]\s*(?::\s*(.*))?$"))
+  if m3 != none {
+    let source = m3.captures.at(0).trim()
+    let dashes = m3.captures.at(1)
+    let label = if m3.captures.at(2) != none { m3.captures.at(2).trim() } else { "" }
+    return (
+      from: source, to: "]",
+      type: if dashes.len() == 2 { "return" } else { "call" },
+      label: label, stroke: none, suffix: "",
+    )
+  }
+  let m4 = line.match(regex("^(\S+)\s+<(-{1,2})\]\s*(?::\s*(.*))?$"))
+  if m4 != none {
+    let source = m4.captures.at(0).trim()
+    let dashes = m4.captures.at(1)
+    let label = if m4.captures.at(2) != none { m4.captures.at(2).trim() } else { "" }
+    return (
+      from: "]", to: source,
+      type: if dashes.len() == 2 { "return" } else { "call" },
+      label: label, stroke: none, suffix: "",
+    )
+  }
+  none
+}
+
+// Attempt to parse a `ref over A[, B] : text` line.
+// Returns (over, label) or none.
+#let _parse-ref(line) = {
+  let m = line.match(regex(
+    "^ref\s+over\s+" +
+    "([^:,]+(?:\s*,\s*[^:,]+)?)" +
+    "\s*:\s*(.+)$"))
+  if m == none { return none }
+  let over-raw = m.captures.at(0).trim()
+  let label = m.captures.at(1).trim()
+  let over = if over-raw.contains(",") {
+    let parts = over-raw.split(",").map(s => s.trim())
+    (parts.at(0), parts.at(1))
+  } else {
+    over-raw
+  }
+  (over: over, label: label)
+}
+
 // Attempt to parse a note line.
 // Returns (type: "note-start"|"note-single", over, label) or none.
 #let _parse-note(line) = {
@@ -341,6 +414,12 @@
         over: s.over,
         label: _str-to-content(s.label),
       )
+    } else if s.type == "ref" {
+      (
+        type: "ref",
+        over: s.over,
+        label: _str-to-content(s.label),
+      )
     } else if s.type == "action" {
       (
         type: "action",
@@ -420,6 +499,9 @@
     last-from: none,      // last message sender
     last-to: none,        // last message receiver
     call-stack: (),       // for `return` keyword resolution
+    boxes: (),            // resolved (name, ids, fill) entries
+    box-state: none,      // active `box ... end box` accumulator
+    created-ids: (),      // ids for which a seq-create step has been emitted
   )
 
   for line in lines {
@@ -459,6 +541,31 @@
       } else {
         st.note-state.lines.push(line)
       }
+      continue
+    }
+
+    // ---- box "Name" [#color] / end box ----
+    if line == "end box" {
+      if st.box-state != none {
+        let b = (name: st.box-state.name, ids: st.box-state.ids)
+        if st.box-state.fill != none {
+          b.insert("fill", st.box-state.fill)
+        }
+        st.boxes.push(b)
+        st.box-state = none
+      }
+      continue
+    }
+    let bm = line.match(regex("^box\s+(?:\"([^\"]+)\"|(\S+))(?:\s+(#\S+))?\s*$"))
+    if bm != none {
+      let name = if bm.captures.at(0) != none {
+        bm.captures.at(0)
+      } else {
+        bm.captures.at(1)
+      }
+      let color-raw = bm.captures.at(2)
+      let fill = if color-raw != none { _parse-color(color-raw) } else { none }
+      st.box-state = (name: name, ids: (), fill: fill)
       continue
     }
 
@@ -523,15 +630,30 @@
         st.seen-ids.push(p.id)
         st.participants.push((id: p.id, name: p.name, fill: p.fill))
       }
+      // If we are inside an open `box ... end box`, record the participant.
+      if st.box-state != none and not (p.id in st.box-state.ids) {
+        st.box-state.ids.push(p.id)
+      }
       continue
     }
 
-    // ---- create keyword (P0: skip, ensure participant) ----
+    // ---- create keyword: defer the participant's header to this row ----
     if line.starts-with("create ") {
       let id = line.slice(7).trim()
       if id not in st.seen-ids {
         st.seen-ids.push(id)
         st.participants.push((id: id, name: id, fill: none))
+      }
+      if not (id in st.created-ids) {
+        st.created-ids.push(id)
+        let cstep = (type: "create", who: id)
+        if st.frag-stack.len() > 0 {
+          let top = st.frag-stack.last()
+          top.children.push(cstep)
+          st.frag-stack.at(st.frag-stack.len() - 1) = top
+        } else {
+          st.steps.push(cstep)
+        }
       }
       continue
     }
@@ -540,6 +662,20 @@
     let dv = _parse-divider(line)
     if dv != none {
       let step = (type: "divider", label: dv.label)
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
+      continue
+    }
+
+    // ---- Space: `|||` or `||N||` (N currently ignored — always one row) ----
+    let is-space = line.match(regex("^\|\|\|$")) != none or line.match(regex("^\|\|\d+\|\|$")) != none
+    if is-space {
+      let step = (type: "space")
       if st.frag-stack.len() > 0 {
         let top = st.frag-stack.last()
         top.children.push(step)
@@ -614,6 +750,28 @@
       continue
     }
 
+    // ---- ref over ... : text ----
+    let rf = _parse-ref(line)
+    if rf != none {
+      // Auto-create participants if not seen.
+      let ids = if type(rf.over) == str { (rf.over,) } else { rf.over }
+      for id in ids {
+        if id not in st.seen-ids {
+          st.seen-ids.push(id)
+          st.participants.push((id: id, name: id, fill: none))
+        }
+      }
+      let step = (type: "ref", over: rf.over, label: rf.label)
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
+      continue
+    }
+
     // ---- Note ----
     let nt = _parse-note(line)
     if nt != none {
@@ -684,17 +842,63 @@
       continue
     }
 
+    // ---- Boundary message: [-> / [<- / ->] / <-] ----
+    let bmsg = _parse-boundary(line)
+    if bmsg != none {
+      // Auto-create the real participant (the non-edge endpoint).
+      let real-id = if bmsg.from == "[" or bmsg.from == "]" {
+        bmsg.to
+      } else {
+        bmsg.from
+      }
+      if real-id not in st.seen-ids {
+        st.seen-ids.push(real-id)
+        st.participants.push((id: real-id, name: real-id, fill: none))
+      }
+      let step = (
+        type: bmsg.type,
+        from: bmsg.from,
+        to: bmsg.to,
+        label: bmsg.label,
+      )
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
+      st.last-from = bmsg.from
+      st.last-to = bmsg.to
+      continue
+    }
+
     // ---- Message arrow ----
     let msg = _parse-message(line)
     if msg != none {
-      // Ensure participants exist
-      if msg.from not in st.seen-ids {
+      // Ensure participants exist (skip edge anchors).
+      if msg.from != "[" and msg.from != "]" and msg.from not in st.seen-ids {
         st.seen-ids.push(msg.from)
         st.participants.push((id: msg.from, name: msg.from, fill: none))
       }
-      if msg.to not in st.seen-ids {
+      if msg.to != "[" and msg.to != "]" and msg.to not in st.seen-ids {
         st.seen-ids.push(msg.to)
         st.participants.push((id: msg.to, name: msg.to, fill: none))
+      }
+
+      // `**` suffix on the target creates it as a new participant — emit a
+      // seq-create step BEFORE the message so the header lands above the
+      // arrow.
+      if msg.suffix == "**" and not (msg.to in st.created-ids) {
+        st.created-ids.push(msg.to)
+        let cstep = (type: "create", who: msg.to)
+        if st.frag-stack.len() > 0 {
+          let top = st.frag-stack.last()
+          top.children.push(cstep)
+          st.frag-stack.at(st.frag-stack.len() - 1) = top
+        } else {
+          st.steps.push(cstep)
+        }
       }
 
       let step = (
@@ -764,6 +968,7 @@
   })
 
   // ---- Call seq-lane ----
+  let final-boxes = if st.boxes.len() > 0 { st.boxes } else { none }
   seq-lane(
     width: width,
     step-height: step-height,
@@ -773,6 +978,7 @@
     activate: activate,
     activation-width: activation-width,
     participants: final-participants,
+    boxes: final-boxes,
     ..steps,
   )
 }
