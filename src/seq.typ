@@ -412,6 +412,20 @@
     // tracking whether it currently has an open base activation.
     let base-open = (:)  // id -> start step index (or none)
 
+    // When a self-call lands on an inactive participant we implicitly open
+    // a base activation so the outer rect is visible (otherwise the U-shape
+    // departs from a bare lifeline and looks like a missing rectangle).
+    // Records the self-call start index that opened the base; the matching
+    // self-return then closes both the depth-1 rect and the base.
+    let base-self-opener = (:)  // id -> step index (or none)
+
+    // Top-edge offset (0..1 within step-height) of the base rect at its open
+    // step, set when base is opened.  Cross-participant arrows enter at the
+    // row's horizon center (0.5); a self-call exits the parent rect at 0.25
+    // (top of its U-shape), so its auto-opened base must extend up to 0.25
+    // for the arrow to leave from the rect's right edge.
+    let base-top-y = (:)  // id -> fraction
+
     // Self-call nesting tracking: a stack per participant of open self-call
     // start indices.  Stack length = current nesting depth above the base.
     let self-stack = (:)  // id -> array of start step indices
@@ -425,9 +439,18 @@
           let real = if is-edge(step.from) { step.to } else { step.from }
           if base-open.at(real, default: none) == none {
             base-open.insert(real, i)
+            base-top-y.insert(real, 0.5)
           }
         } else if step.from == step.to {
-          // Self-call: open a nested activation rectangle.
+          // Self-call: open a nested activation rectangle.  If the
+          // participant currently has no base activation, also implicitly
+          // open one so the outer (depth-0) rect anchors the U-shape; the
+          // matching self-return will close both.
+          if base-open.at(step.from, default: none) == none {
+            base-open.insert(step.from, i)
+            base-self-opener.insert(step.from, i)
+            base-top-y.insert(step.from, 0.25)
+          }
           let stack = self-stack.at(step.from, default: ())
           let depth = stack.len() + 1  // depth 1 for first self-call
           self-step-depth.insert(str(i) + ":" + step.from, depth)
@@ -449,16 +472,24 @@
               end: i - 1,
               depth: depth,
             ))
+            // If this force-closed self-call had auto-opened the base,
+            // the base ownership now transfers to the outgoing cross call —
+            // keep base-open as is, just clear the opener tracking.
+            if base-self-opener.at(step.from, default: none) == start {
+              base-self-opener.insert(step.from, none)
+            }
           }
           self-stack.insert(step.from, sender-stack)
 
           // Open base activation on sender if needed.
           if base-open.at(step.from, default: none) == none {
             base-open.insert(step.from, i)
+            base-top-y.insert(step.from, 0.5)
           }
           // Open base activation on receiver if needed.
           if base-open.at(step.to, default: none) == none {
             base-open.insert(step.to, i)
+            base-top-y.insert(step.to, 0.5)
           }
         }
       } else if step.type == "return" {
@@ -472,6 +503,8 @@
               start: start,
               end: i,
               depth: 0,
+              top-y: base-top-y.at(real, default: 0.5),
+              bot-y: 0.5,
             ))
             base-open.insert(real, none)
           }
@@ -489,6 +522,20 @@
             depth: depth,
           ))
           self-stack.insert(step.from, stack)
+          // If this self-call had auto-opened the base, close that too.
+          if base-self-opener.at(step.from, default: none) == start {
+            let base-start = base-open.at(step.from)
+            activations.push((
+              col: id-to-col.at(step.from),
+              start: base-start,
+              end: i,
+              depth: 0,
+              top-y: base-top-y.at(step.from, default: 0.25),
+              bot-y: 0.75,
+            ))
+            base-open.insert(step.from, none)
+            base-self-opener.insert(step.from, none)
+          }
         } else {
           // Closes a base activation.
           let start = base-open.at(step.from, default: none)
@@ -498,6 +545,8 @@
               start: start,
               end: i,
               depth: 0,
+              top-y: base-top-y.at(step.from, default: 0.5),
+              bot-y: 0.5,
             ))
             base-open.insert(step.from, none)
           }
@@ -524,8 +573,11 @@
             start: start,
             end: i,
             depth: 0,
+            top-y: base-top-y.at(id, default: 0.5),
+            bot-y: 0.5,
           ))
           base-open.insert(id, none)
+          base-self-opener.insert(id, none)
         }
       }
     }
@@ -551,6 +603,8 @@
           start: start,
           end: render-steps.len() - 1,
           depth: 0,
+          top-y: base-top-y.at(id, default: 0.5),
+          bot-y: 0.5,
         ))
       }
     }
@@ -1130,9 +1184,15 @@
       let sorted = col-acts.sorted(key: a => a.depth)
       for act in sorted {
         let (y-top, h) = if act.depth == 0 {
-          // Base activation: centered vertically on the call/return steps.
-          let yt = act.start * row-h + step-height / 2
-          (yt, (act.end - act.start) * row-h)
+          // Base activation: top/bottom edges follow the y-position where
+          // the opening/closing arrow touches the lifeline-side rect edge —
+          // 0.5 for cross-participant arrows (horizon), 0.25/0.75 for self-
+          // call/self-return U-shapes that exit/arrive at the rect edge.
+          let top-y = act.at("top-y", default: 0.5)
+          let bot-y = act.at("bot-y", default: 0.5)
+          let yt = act.start * row-h + step-height * top-y
+          let yb = act.end * row-h + step-height * bot-y
+          (yt, yb - yt)
         } else {
           // Nested self-call activation: top aligns with the self-call
           // arrow arrival point, bottom aligns with the self-return arrow
