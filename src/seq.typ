@@ -1257,6 +1257,13 @@
   // composition spanning the full header+body height.
   let box-title-h = if resolved-boxes.len() > 0 { 1.9 * em } else { 0pt }
 
+  // Breathing room between participant headers and the body content.  Without
+  // it, a fragment frame that starts at row 0 sits flush against the header
+  // bar (its top edge is at y=0 of the body); cross-participant arrows are
+  // at the row's horizon center so they have natural half-row whitespace,
+  // but fragment frames extend to the row top.
+  let body-pad-top = 0.4 * em
+
   // Fragment frames: dashed border around a range of step rows with a small
   // corner tag (kind name) and an optional condition label in brackets.
   let fragment-overlay = block(width: 100%, height: body-height, {
@@ -1317,13 +1324,13 @@
   })
 
   let composed = if resolved-boxes.len() == 0 {
-    stack(dir: ttb, spacing: 0pt, header-row, body-overlay)
+    stack(dir: ttb, spacing: 0pt, header-row, v(body-pad-top), body-overlay)
   } else {
     // Boxes are full-height swim lanes: draw a single tinted rectangle
     // running from the title bar at the top to the bottom of the body, with
     // the title text in the bar above the headers. Headers and body are then
     // overlaid on top.
-    let total-h = box-title-h + header-height + body-height
+    let total-h = box-title-h + header-height + body-pad-top + body-height
     layout(size => {
       let w = size.width
       let col-w = (w - (n - 1) * column-gap) / n
@@ -1345,7 +1352,8 @@
           }
         }
         place(top + left, dy: box-title-h, header-row)
-        place(top + left, dy: box-title-h + header-height, body-overlay)
+        place(top + left, dy: box-title-h + header-height + body-pad-top,
+              body-overlay)
       })
     })
   }
