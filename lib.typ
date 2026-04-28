@@ -48,8 +48,9 @@
 //                  cases are built with the `case(label, body)` constructor
 //   flow-loop      Wraps a body with a back-edge on the left ("repeat")
 //   seq-lane       Sequence diagram; steps built with the `seq-*` constructors
-//                  (seq-call / seq-ret / seq-note / seq-act /
-//                   seq-alt / seq-opt / seq-loop / seq-par)
+//                  (seq-call / seq-ret / seq-note / seq-act / seq-divider /
+//                   seq-destroy / seq-alt / seq-else / seq-opt / seq-loop /
+//                   seq-par)
 //   state-chain    State-transition diagram (linear chain or 2D grid);
 //                  edges built with state / loop / jump / bi-jump
 //   tree           Recursive top-down hierarchy (BST, heap, trie, directory,
@@ -69,7 +70,7 @@
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
-#import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
+#import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/seq-puml.typ": seq-puml
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/tree.typ": tree, node

@@ -20,7 +20,7 @@
 //   @startuml / @enduml / comments skipped
 // ============================================================================
 
-#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-alt, seq-opt, seq-loop, seq-par
+#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-alt, seq-opt, seq-loop, seq-par
 #import "palettes.typ": palettes
 
 // ---- Helpers ---------------------------------------------------------------
@@ -347,12 +347,23 @@
         who: s.who,
         label: _str-to-content(s.label),
       )
+    } else if s.type == "divider" {
+      (
+        type: "divider",
+        label: _str-to-content(s.label),
+      )
+    } else if s.type == "alt-else" {
+      (
+        type: "alt-else",
+        label: _str-to-content(s.label),
+      )
     } else if s.type == "fragment" {
       let children = _labels-to-content(s.children)
+      let lbl = if s.label == "" { none } else { _str-to-content(s.label) }
       (
         type: "fragment",
         kind: s.kind,
-        label: _str-to-content(s.label),
+        label: lbl,
         children: children,
       )
     } else {
@@ -477,7 +488,7 @@
     // ---- Divider: == text == ----
     let dv = _parse-divider(line)
     if dv != none {
-      let step = (type: "note", over: "__divider__", label: dv.label)
+      let step = (type: "divider", label: dv.label)
       if st.frag-stack.len() > 0 {
         let top = st.frag-stack.last()
         top.children.push(step)
@@ -499,9 +510,8 @@
     let el = _parse-else(line)
     if el != none {
       if st.frag-stack.len() > 0 {
-        let label = if el.label != "" { "[else: " + el.label + "]" } else { "[else]" }
         let top = st.frag-stack.last()
-        top.children.push((type: "note", over: "__divider__", label: label))
+        top.children.push((type: "alt-else", label: el.label))
         st.frag-stack.at(st.frag-stack.len() - 1) = top
       }
       continue
@@ -559,8 +569,26 @@
       continue
     }
 
-    // ---- activate / deactivate / destroy (skip in P0) ----
-    if line.starts-with("activate ") or line.starts-with("deactivate ") or line.starts-with("destroy ") {
+    // ---- activate / deactivate (skip — auto-tracked) ----
+    if line.starts-with("activate ") or line.starts-with("deactivate ") {
+      continue
+    }
+
+    // ---- destroy A ----
+    if line.starts-with("destroy ") {
+      let id = line.slice("destroy ".len()).trim()
+      if id not in st.seen-ids {
+        st.seen-ids.push(id)
+        st.participants.push((id: id, name: id, fill: none))
+      }
+      let step = (type: "destroy", who: id)
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
       continue
     }
 
@@ -620,6 +648,18 @@
       st.last-to = msg.to
       if msg.type == "call" and msg.from != msg.to {
         st.call-stack.push(msg.from)
+      }
+
+      // `!!` suffix on the target destroys it after the message lands.
+      if msg.suffix == "!!" {
+        let dstep = (type: "destroy", who: msg.to)
+        if st.frag-stack.len() > 0 {
+          let top = st.frag-stack.last()
+          top.children.push(dstep)
+          st.frag-stack.at(st.frag-stack.len() - 1) = top
+        } else {
+          st.steps.push(dstep)
+        }
       }
 
       continue

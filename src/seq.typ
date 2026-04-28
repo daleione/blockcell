@@ -10,6 +10,10 @@
 //   seq-ret      response message (dashed + open V head)
 //   seq-note     sticky-note spanning one or more columns
 //   seq-act      action block in a single column
+//   seq-divider  full-width horizontal line + centered label (phase marker)
+//   seq-else     branch separator inside seq-alt; subsequent siblings render
+//                under the new bracketed condition
+//   seq-destroy  terminates a participant's lifeline at this row with an ×
 //   seq-alt      alt fragment (dashed frame, bracketed condition)
 //   seq-opt      opt fragment
 //   seq-loop     loop fragment
@@ -33,6 +37,16 @@
 ///                                   NOT be inside an activation at that
 ///                                   step — use `seq-note` to annotate an
 ///                                   already-active participant
+/// - `seq-divider[label]`            full-width horizontal line with centered
+///                                   label, occupying its own row; used to
+///                                   mark a phase transition or scene break
+/// - `seq-else[condition]`           branch separator inside `seq-alt`: a
+///                                   dashed line crossing the alt frame with
+///                                   the next branch's bracketed condition
+/// - `seq-destroy(who)`              terminate the participant's lifeline
+///                                   with an × marker at this row; closes any
+///                                   open activation, no further messages
+///                                   should reference the participant
 /// - `seq-alt(condition, ..steps)`   alt fragment with bracketed condition
 /// - `seq-opt(condition, ..steps)`   opt fragment
 /// - `seq-loop(condition, ..steps)`  loop fragment
@@ -48,6 +62,15 @@
 )
 #let seq-act(who, body) = (
   type: "action", who: who, label: body,
+)
+#let seq-divider(body) = (
+  type: "divider", label: body,
+)
+#let seq-else(body) = (
+  type: "alt-else", label: body,
+)
+#let seq-destroy(who) = (
+  type: "destroy", who: who,
 )
 #let seq-alt(label, ..children) = (
   type: "fragment", kind: "alt", label: label, children: children.pos(),
@@ -245,6 +268,15 @@
 
   let body-height = step-height * render-steps.len() + row-gap * calc.max(render-steps.len() - 1, 0)
 
+  // Map participant id → render-step index where it is destroyed. Beyond that
+  // row, the lifeline does not render and any open activations are clamped.
+  let destroy-row = (:)
+  for (i, step) in render-steps.enumerate() {
+    if step.type == "destroy" and not (step.who in destroy-row) {
+      destroy-row.insert(step.who, i)
+    }
+  }
+
   // Auto-derive activation ranges from call/return pairs.
   //
   // Two kinds of activation:
@@ -333,6 +365,31 @@
             ))
             base-open.insert(step.from, none)
           }
+        }
+      } else if step.type == "destroy" {
+        // Close any open activations on the destroyed participant.
+        let id = step.who
+        let stack = self-stack.at(id, default: ())
+        while stack.len() > 0 {
+          let start = stack.pop()
+          let depth = stack.len() + 1
+          activations.push((
+            col: id-to-col.at(id),
+            start: start,
+            end: i,
+            depth: depth,
+          ))
+        }
+        self-stack.insert(id, ())
+        let start = base-open.at(id, default: none)
+        if start != none {
+          activations.push((
+            col: id-to-col.at(id),
+            start: start,
+            end: i,
+            depth: 0,
+          ))
+          base-open.insert(id, none)
         }
       }
     }
@@ -580,6 +637,42 @@
     )
   )
 
+  // Phase divider: full-width horizontal line (drawn double-stroke for
+  // scene-break feel) with the label centered on top in a surface-filled
+  // pill so the line reads as cleanly broken by the text.
+  let render-divider(label) = block(width: 100%, height: 100%, {
+    let line-stroke = (paint: palettes.base.border-soft,
+                       thickness: metrics.stroke-normal)
+    let gap = 0.18em
+    place(horizon + left, dy: -gap,
+      line(length: 100%, stroke: line-stroke))
+    place(horizon + left, dy: gap,
+      line(length: 100%, stroke: line-stroke))
+    if label != none and label != [] {
+      place(horizon + center,
+        box(fill: palettes.base.surface,
+            inset: (x: 0.6em, y: 0.05em),
+            text(size: 0.75em, weight: "bold", label)))
+    }
+  })
+
+  // Alt-else branch separator: a thin dashed line at the row's top edge
+  // (continuous with the alt frame's dashed border) with the next branch's
+  // condition shown as a UML guard `[cond]` at the top-left, on a surface-
+  // filled tag so it reads as the new branch header.
+  let render-alt-else(label) = block(width: 100%, height: 100%, {
+    let line-stroke = (paint: palettes.base.border-soft,
+                       thickness: metrics.stroke-thin, dash: "dashed")
+    place(top + left, line(length: 100%, stroke: line-stroke))
+    place(top + left,
+      box(fill: palettes.base.surface,
+          stroke: metrics.stroke-thin + palettes.base.border-soft,
+          inset: (x: 0.4em, y: 0.1em),
+          radius: (bottom-right: 3pt),
+          text(size: 0.55em, fill: palettes.base.text-muted,
+            if label != none and label != [] [\[else: #label\]] else [\[else\]])))
+  })
+
   let step-cells = ()
   for (step-idx, step) in render-steps.enumerate() {
     if step.type == "note" {
@@ -599,6 +692,34 @@
       step-cells.push(grid.cell(colspan: span,
         render-note(label, fill: fill, stroke-paint: stroke-paint)))
       for i in range(hi + 1, n) { step-cells.push([]) }
+    } else if step.type == "divider" {
+      let label = step.at("label", default: none)
+      step-cells.push(grid.cell(colspan: n, render-divider(label)))
+    } else if step.type == "alt-else" {
+      let label = step.at("label", default: none)
+      step-cells.push(grid.cell(colspan: n, render-alt-else(label)))
+    } else if step.type == "destroy" {
+      let col = id-to-col.at(step.who)
+      for i in range(n) {
+        if i == col {
+          let size = 0.9em
+          let stroke-style = (paint: palettes.base.border,
+                              thickness: metrics.stroke-normal)
+          step-cells.push(block(width: 100%, height: 100%, {
+            place(horizon + center,
+              box(width: size, height: size, {
+                place(top + left,
+                  line(start: (0pt, 0pt), end: (size, size),
+                       stroke: stroke-style))
+                place(top + left,
+                  line(start: (size, 0pt), end: (0pt, size),
+                       stroke: stroke-style))
+              }))
+          }))
+        } else {
+          step-cells.push([])
+        }
+      }
     } else if step.type == "action" {
       let col = id-to-col.at(step.who)
       for i in range(n) {
@@ -667,15 +788,26 @@
   }
 
   // Vertical dashed lifelines through each participant column center,
-  // sitting flush under the headers and extending the full body height.
+  // sitting flush under the headers and extending the full body height —
+  // unless the participant is destroyed, in which case the lifeline ends
+  // at the destroy row's vertical center.
+  let lifeline-stroke = (paint: palettes.base.border-subtle,
+                         thickness: metrics.stroke-thin, dash: "dashed")
+  let lifeline-cells = range(n).map(col-i => {
+    let id = participants.at(col-i).id
+    let len = if id in destroy-row {
+      destroy-row.at(id) * row-h + step-height / 2
+    } else {
+      body-height
+    }
+    box(width: 100%, height: body-height,
+      place(top + center,
+        line(angle: 90deg, length: len, stroke: lifeline-stroke)))
+  })
   let lifelines = grid(
     columns: (1fr,) * n,
     column-gutter: column-gap,
-    ..range(n).map(_ =>
-      align(center,
-        line(angle: 90deg, length: body-height,
-             stroke: (paint: palettes.base.border-subtle,
-                      thickness: metrics.stroke-thin, dash: "dashed"))))
+    ..lifeline-cells,
   )
 
   // Activation rectangles.
