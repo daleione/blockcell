@@ -14,6 +14,9 @@
 //   seq-else     branch separator inside seq-alt; subsequent siblings render
 //                under the new bracketed condition
 //   seq-destroy  terminates a participant's lifeline at this row with an ×
+//   seq-delay    "time passes" gap; vertical dots on every lifeline + an
+//                optional pill label centered across the row
+//   seq-autonumber*       inline auto-numbering control (start/stop/resume)
 //   seq-alt      alt fragment (dashed frame, bracketed condition)
 //   seq-opt      opt fragment
 //   seq-loop     loop fragment
@@ -47,6 +50,17 @@
 ///                                   with an × marker at this row; closes any
 ///                                   open activation, no further messages
 ///                                   should reference the participant
+/// - `seq-delay()` / `seq-delay[…]`  "time passes" marker: vertical dots on
+///                                   every lifeline + an optional centered
+///                                   pill label
+/// - `seq-autonumber(start, step)`   inline: (re)start auto-numbering at the
+///                                   given start (default 1) with given step
+///                                   (default 1); subsequent call/return
+///                                   labels gain an `*N.*` bold prefix
+/// - `seq-autonumber-stop()`         pause numbering; intervening messages
+///                                   render their labels as-is
+/// - `seq-autonumber-resume(step:)`  resume numbering from where it stopped;
+///                                   optionally change the step
 /// - `seq-alt(condition, ..steps)`   alt fragment with bracketed condition
 /// - `seq-opt(condition, ..steps)`   opt fragment
 /// - `seq-loop(condition, ..steps)`  loop fragment
@@ -71,6 +85,18 @@
 )
 #let seq-destroy(who) = (
   type: "destroy", who: who,
+)
+#let seq-delay(body: none) = (
+  type: "delay", label: body,
+)
+#let seq-autonumber(start: 1, step: 1) = (
+  type: "autonumber", action: "start", start: start, step: step,
+)
+#let seq-autonumber-stop() = (
+  type: "autonumber", action: "stop",
+)
+#let seq-autonumber-resume(step: none) = (
+  type: "autonumber", action: "resume", step: step,
 )
 #let seq-alt(label, ..children) = (
   type: "fragment", kind: "alt", label: label, children: children.pos(),
@@ -120,6 +146,7 @@
   row-gap: 0.4em,
   activate: true,
   activation-width: 0.8em,
+  autonumber: false,
   participants: none,
   ..steps,
 ) = context {
@@ -233,7 +260,25 @@
   // Returns `render-steps` (the rows that actually get drawn) and `fragments`
   // (range + kind + label tuples). Unclosed fragments auto-close at the last
   // rendered step.
+  //
+  // The same walk also threads the auto-numbering state through the step
+  // stream: `seq-autonumber* ()` control steps mutate `autonum-state`, and
+  // each call/return that lands in render-steps records its assigned number
+  // (or `none`) into the parallel `step-numbers` array consulted at render
+  // time to prefix the label.
+  let autonum-state = if autonumber == false {
+    none
+  } else if autonumber == true {
+    (current: 1, step: 1, paused: false)
+  } else {
+    (
+      current: autonumber.at("start", default: 1),
+      step: autonumber.at("step", default: 1),
+      paused: false,
+    )
+  }
   let render-steps = ()
+  let step-numbers = ()
   let fragments = ()
   let frag-stack = ()
   for step in steps {
@@ -253,7 +298,34 @@
           label: frag.label,
         ))
       }
+    } else if step.type == "autonumber" {
+      if step.action == "start" {
+        autonum-state = (
+          current: step.at("start", default: 1),
+          step: step.at("step", default: 1),
+          paused: false,
+        )
+      } else if step.action == "stop" {
+        if autonum-state != none { autonum-state.paused = true }
+      } else if step.action == "resume" {
+        if autonum-state == none {
+          autonum-state = (current: 1, step: 1, paused: false)
+        }
+        autonum-state.paused = false
+        let s = step.at("step", default: none)
+        if s != none { autonum-state.step = s }
+      }
     } else {
+      let is-msg = step.type == "call" or step.type == "return"
+      let active = autonum-state != none and not autonum-state.paused
+      let assign = if is-msg and active {
+        let n = autonum-state.current
+        autonum-state.current = autonum-state.current + autonum-state.step
+        n
+      } else {
+        none
+      }
+      step-numbers.push(assign)
       render-steps.push(step)
     }
   }
@@ -656,6 +728,27 @@
     }
   })
 
+  // Time-passes delay marker: nest an inner grid with the same column
+  // structure so vertical dots line up with each lifeline center, and
+  // overlay an optional centered pill label that visually breaks the dots.
+  let render-delay(label) = block(width: 100%, height: 100%, {
+    place(horizon + left,
+      grid(
+        columns: (1fr,) * n,
+        column-gutter: column-gap,
+        ..range(n).map(_ => align(center,
+          text(size: 1em, fill: palettes.base.text-muted, weight: "bold",
+            "⋮")))))
+    if label != none and label != [] {
+      place(horizon + center,
+        box(fill: palettes.base.surface,
+            stroke: metrics.stroke-thin + palettes.base.border-soft,
+            inset: (x: 0.6em, y: 0.05em),
+            radius: 3pt,
+            text(size: 0.7em, fill: palettes.base.text-muted, label)))
+    }
+  })
+
   // Alt-else branch separator: a thin dashed line at the row's top edge
   // (continuous with the alt frame's dashed border) with the next branch's
   // condition shown as a UML guard `[cond]` at the top-left, on a surface-
@@ -698,6 +791,9 @@
     } else if step.type == "alt-else" {
       let label = step.at("label", default: none)
       step-cells.push(grid.cell(colspan: n, render-alt-else(label)))
+    } else if step.type == "delay" {
+      let label = step.at("label", default: none)
+      step-cells.push(grid.cell(colspan: n, render-delay(label)))
     } else if step.type == "destroy" {
       let col = id-to-col.at(step.who)
       for i in range(n) {
@@ -742,7 +838,17 @@
       let to-col = id-to-col.at(step.to)
       let style = if step.type == "return" { "dashed" } else { "solid" }
       let head = if step.type == "return" { "v" } else { "filled" }
-      let label = step.at("label", default: none)
+      let raw-label = step.at("label", default: none)
+      let num = step-numbers.at(step-idx, default: none)
+      let label = if num != none {
+        if raw-label == none or raw-label == [] {
+          [*#(str(num) + ".")*]
+        } else {
+          [*#(str(num) + ".")* #raw-label]
+        }
+      } else {
+        raw-label
+      }
       let stroke-paint = step.at("stroke", default: palettes.base.border)
 
       if from-col == to-col {
@@ -877,17 +983,29 @@
       // reads as one semantic unit instead of two disconnected pieces
       // floating on the top border. Brackets are kept because they're the
       // UML guard notation.
+      //
+      // `group` is special-cased: PlantUML uses the user-supplied label as
+      // the entire header (no "GROUP" prefix), so we drop the kind name and
+      // render the label without brackets when present.
       place(top + left, dy: y-top,
         box(fill: palettes.base.surface,
             stroke: metrics.stroke-thin + palettes.base.border-soft,
             inset: (x: 0.4em, y: 0.1em),
             radius: (bottom-right: 3pt),
             {
-              text(size: 0.55em, weight: "bold", upper(frag.kind))
-              if frag.label != none {
-                h(0.4em)
-                text(size: 0.55em, fill: palettes.base.text-muted,
-                  [\[#frag.label\]])
+              if frag.kind == "group" {
+                if frag.label != none {
+                  text(size: 0.55em, weight: "bold", frag.label)
+                } else {
+                  text(size: 0.55em, weight: "bold", "GROUP")
+                }
+              } else {
+                text(size: 0.55em, weight: "bold", upper(frag.kind))
+                if frag.label != none {
+                  h(0.4em)
+                  text(size: 0.55em, fill: palettes.base.text-muted,
+                    [\[#frag.label\]])
+                }
               }
             }))
     }

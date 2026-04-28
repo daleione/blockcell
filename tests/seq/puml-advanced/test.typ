@@ -43,3 +43,32 @@
   destroy Temp
   Worker --> Client : finished
 `)
+
+#v(24pt)
+
+// autonumber, group / critical / break, and delay
+#seq-puml(
+  width: 380pt,
+  `
+  participant User
+  participant Web
+  participant DB
+
+  autonumber
+  User -> Web : login
+  group Authentication phase
+    Web -> DB : check credentials
+    DB --> Web : ok
+  end
+  ...
+  autonumber stop
+  Web -> Web : compose page
+  autonumber resume
+  critical render
+    Web --> User : page
+  end
+  ...500ms later...
+  break user clicks logout
+    User -> Web : logout
+  end
+`)

@@ -20,7 +20,7 @@
 //   @startuml / @enduml / comments skipped
 // ============================================================================
 
-#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-alt, seq-opt, seq-loop, seq-par
+#import "seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-divider, seq-else, seq-destroy, seq-delay, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
 #import "palettes.typ": palettes
 
 // ---- Helpers ---------------------------------------------------------------
@@ -357,6 +357,12 @@
         type: "alt-else",
         label: _str-to-content(s.label),
       )
+    } else if s.type == "delay" {
+      let lbl = if s.label == "" { none } else { _str-to-content(s.label) }
+      (
+        type: "delay",
+        label: lbl,
+      )
     } else if s.type == "fragment" {
       let children = _labels-to-content(s.children)
       let lbl = if s.label == "" { none } else { _str-to-content(s.label) }
@@ -423,7 +429,7 @@
     if line.starts-with("/'") { continue }
     if line.starts-with("@startuml") or line.starts-with("@enduml") { continue }
     if line.starts-with("hide ") or line.starts-with("skinparam ") { continue }
-    if line.starts-with("autoactivate ") or line.starts-with("autonumber") { continue }
+    if line.starts-with("autoactivate ") { continue }
     if line.starts-with("title ") or line == "title" { continue }
     if line.starts-with("header ") or line.starts-with("footer ") { continue }
     if line.starts-with("mainframe ") { continue }
@@ -452,6 +458,51 @@
         st.note-state = none
       } else {
         st.note-state.lines.push(line)
+      }
+      continue
+    }
+
+    // ---- autonumber directive ----
+    // Forms (PlantUML format string is ignored — engine uses `*N.*` prefix):
+    //   autonumber                    start = 1, step = 1
+    //   autonumber 5                  start = 5, step = 1
+    //   autonumber 5 10               start = 5, step = 10
+    //   autonumber stop               pause numbering
+    //   autonumber resume [step]      resume; optional new step
+    //
+    // Each form emits a control step that the engine processes during the
+    // render-step pre-pass, so puml and direct seq-lane usage share one
+    // numbering implementation.
+    if line.starts-with("autonumber") {
+      let rest = line.slice("autonumber".len()).trim()
+      let ctrl = none
+      if rest == "" {
+        ctrl = (type: "autonumber", action: "start", start: 1, step: 1)
+      } else if rest == "stop" {
+        ctrl = (type: "autonumber", action: "stop")
+      } else if rest.starts-with("resume") {
+        let after = rest.slice("resume".len()).trim()
+        let m = after.match(regex("^(\d+)"))
+        let s = if m != none { int(m.captures.at(0)) } else { none }
+        ctrl = (type: "autonumber", action: "resume", step: s)
+      } else {
+        let m = rest.match(regex("^(\d+)(?:\s+(\d+))?"))
+        if m != none {
+          let start = int(m.captures.at(0))
+          let step = if m.captures.at(1) != none {
+            int(m.captures.at(1))
+          } else { 1 }
+          ctrl = (type: "autonumber", action: "start", start: start, step: step)
+        }
+      }
+      if ctrl != none {
+        if st.frag-stack.len() > 0 {
+          let top = st.frag-stack.last()
+          top.children.push(ctrl)
+          st.frag-stack.at(st.frag-stack.len() - 1) = top
+        } else {
+          st.steps.push(ctrl)
+        }
       }
       continue
     }
@@ -499,6 +550,31 @@
       continue
     }
 
+    // ---- Delay: `...` or `...label...` ----
+    if line == "..." {
+      let step = (type: "delay", label: "")
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
+      continue
+    }
+    let dly = line.match(regex("^\.\.\.(.+?)\.\.\.$"))
+    if dly != none {
+      let step = (type: "delay", label: dly.captures.at(0).trim())
+      if st.frag-stack.len() > 0 {
+        let top = st.frag-stack.last()
+        top.children.push(step)
+        st.frag-stack.at(st.frag-stack.len() - 1) = top
+      } else {
+        st.steps.push(step)
+      }
+      continue
+    }
+
     // ---- Fragment start ----
     let fs = _parse-fragment-start(line)
     if fs != none {
@@ -521,17 +597,12 @@
     if line == "end" {
       if st.frag-stack.len() > 0 {
         let frag = st.frag-stack.pop()
-        let kind = frag.kind
-
-        let step = if kind == "alt" or kind == "opt" or kind == "loop" or kind == "par" {
-          (type: "fragment", kind: kind, label: frag.label, children: frag.children)
-        } else {
-          // group, break, critical → map to alt as fallback with capitalized kind as prefix
-          let prefix = upper(kind.slice(0, 1)) + kind.slice(1)
-          let lbl = if frag.label != "" { prefix + " " + frag.label } else { prefix }
-          (type: "fragment", kind: "alt", label: lbl, children: frag.children)
-        }
-
+        let step = (
+          type: "fragment",
+          kind: frag.kind,
+          label: frag.label,
+          children: frag.children,
+        )
         if st.frag-stack.len() > 0 {
           let parent = st.frag-stack.last()
           parent.children.push(step)
