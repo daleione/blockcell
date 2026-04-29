@@ -1,32 +1,60 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
+[#metadata("layer1") <layer1>]
+
 == Layer 1 — 原子
 
+这一章介绍最基础的图元。它们通常是你写图时最先接触的组件：
+
+- #api-ref("layer1-cell", "cell")：单个方块
+- #api-ref("layer1-tag", "tag") / #api-ref("layer1-badge", "badge")：紧凑标记
+- #api-ref("layer1-note", "note") / #api-ref("layer1-label", "label")：补充说明
+- #api-ref("layer1-sub-label", "sub-label") / #api-ref("layer1-span-label", "span-label")：字段注释
+- #api-ref("layer1-wrap", "wrap")：额外边框强调
+- #api-ref("layer1-edge", "edge")：简单连接
+- #api-ref("layer1-brace", "brace")：范围标注
+- #api-ref("layer1-flow-node", "flow-node")：流程图节点基础形状
+
+如果你是第一次使用，建议先掌握：
+
+1. #api-ref("layer1-cell", "cell")
+2. #api-ref("layer1-badge", "badge")
+3. #api-ref("layer1-sub-label", "sub-label")
+4. #api-ref("layer1-edge", "edge")
+
+[#metadata("layer1-cell") <layer1-cell>]
 === `cell`
 
-单元格 — 最核心的视觉原语：一个带背景色、边框和标签的方块。所有上层结构（region、
-schema、bit-row 等）都是 `cell` 的堆叠与包裹。
+最基础的方块。大多数结构图都从 `cell` 开始。
 
-#section-label[Example]
+通常用来放：
+
+- 字段
+- 状态块
+- 小型模块块
+- 单个节点
+- 需要颜色和边框的标签块
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
+  ```typst
   #cell[A]
-  #cell(fill: rgb("#FA8072"))[T]
-  #cell(fill: aqua,
-        stroke: 3pt + rgb("#FFD700"))[len]
-  ```,
+  #cell(fill: palettes.pastel.blue)[B]
+  #cell(fill: palettes.pastel.orange)[C]
+  ```
+,
   [
-    #cell[`A`]
+    #cell[A]
     #h(4pt)
-    #cell(fill: rgb("#FA8072"))[`T`]
+    #cell(fill: palettes.pastel.blue)[B]
     #h(4pt)
-    #cell(fill: aqua, stroke: 3pt + rgb("#FFD700"))[`len`]
+    #cell(fill: palettes.pastel.orange)[C]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("cell",
   ("body",       ("content",)),
@@ -47,116 +75,129 @@ schema、bit-row 等）都是 `cell` 的堆叠与包裹。
 
 #param-detail("fill", ("color",),
   default: raw("palettes.base.surface-strong", lang: none))[
-  背景颜色。
+  方块背景色。大多数情况下，只需要改这个参数就能区分不同字段或模块。
+]
+
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  宽度。需要固定字段宽度时显式设置，例如字节格、寄存器字段、小型状态块。
+]
+
+#param-detail("height", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  高度。多块并排时，如果希望视觉上更整齐，通常会统一设置高度。
 ]
 
 #param-detail("stroke", ("stroke",),
   default: raw("0.8pt + palettes.base.border", lang: none))[
-  边框样式。接受 Typst 原生 stroke（如 `3pt + red` 或 `3pt + rgb("#FFD700")`）。
+  边框样式。可以直接传 Typst 的 stroke，例如 `2pt + red`。
 ]
 
-#param-detail("dash", ("none", "str"), default: raw("none", lang: none))[
-  边框虚线模式。可选 `none`、`"dashed"`、`"dotted"`。
+#param-detail("dash", ("none", "str"),
+  default: raw("none", lang: none))[
+  边框线型。常用值是 `none`、`"dashed"`、`"dotted"`。
 ]
 
-#param-detail("expandable", ("bool",), default: raw("false", lang: none))[
-  在单元格内容两侧显示 `← ⋯ →` 标记，表示该字段大小可变。
+#param-detail("expandable", ("bool",),
+  default: raw("false", lang: none))[
+  在内容两侧显示可扩展标记。适合表示“长度可变”或“数量不固定”的字段。
 ]
 
-#param-detail("phantom", ("bool",), default: raw("false", lang: none))[
-  半透明 + 虚线边框，用于表达"不存在 / 零大小"字段（如 `()` 单元类型、
-  ZST、被 move 走的字段）。
+#param-detail("phantom", ("bool",),
+  default: raw("false", lang: none))[
+  用更弱的视觉样式表示“缺失”“零大小”或“占位”。
 ]
 
-#param-detail("overlay", ("none", "content"), default: raw("none", lang: none))[
-  右上角叠加小号标记，常用于标注缓存行状态（M / E / S / I）等。
+#param-detail("overlay", ("none", "content"),
+  default: raw("none", lang: none))[
+  在右上角叠加一个小标记。适合缓存状态、附加标签或简短状态字母。
 ]
 
-#param-detail("subtitle", ("none", "content"), default: raw("none", lang: none))[
-  在 body 下方渲染一行小号灰色副标，整体垂直居中。适合 "主标题 + 限定词"
-  的 tile（如 `Users` + `(MySQL)`），让同一行里的单行与双行 tile 在
-  `flex-row` 中对齐。
+#param-detail("subtitle", ("none", "content"),
+  default: raw("none", lang: none))[
+  在主标题下方增加一行较小的副标题。适合“主名称 + 限定词”的块。
 ]
 
-#section-label[Example — subtitle]
-
-`subtitle` 一旦传入，`cell` 会自动切换到 `center + horizon` 对齐。所以把一行
-cell 塞进 `flex-row`、让其中几个带 `subtitle` 时，有副标的双行 tile 与单行
-tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 会贴底、双行 tile
-贴顶，视觉上崩掉。
+#section-label[常用写法]
 
 #example-pair(
-  ```typ
-  #flex-row(
-    (flex: 1, body: cell(
-      fill: palettes.pastel.blue,
-      width: 100%,
-      height: 36pt,
-    )[Users]),
-    (flex: 1, body: cell(
-      subtitle: [(MySQL)],
-      fill: palettes.pastel.blue,
-      width: 100%,
-      height: 36pt,
-    )[Orders]),
-    (flex: 1, body: cell(
-      subtitle: [(vector)],
-      fill: palettes.pastel.blue,
-      width: 100%,
-      height: 36pt,
-    )[Memory]),
-  )
-  ```,
+  ```typst
+  #cell(fill: palettes.pastel.blue)[Users]
+  #cell(fill: palettes.pastel.green, width: 56pt)[Ready]
+  #cell(fill: palettes.pastel.orange, expandable: true)[Payload]
+  ```
+,
   [
-    #flex-row(
-      (flex: 1, body: cell(
-        fill: palettes.pastel.blue, width: 100%, height: 36pt,
-      )[Users]),
-      (flex: 1, body: cell(
-        subtitle: [(MySQL)],
-        fill: palettes.pastel.blue, width: 100%, height: 36pt,
-      )[Orders]),
-      (flex: 1, body: cell(
-        subtitle: [(vector)],
-        fill: palettes.pastel.blue, width: 100%, height: 36pt,
-      )[Memory]),
-    )
+    #cell(fill: palettes.pastel.blue)[Users]
+    #h(4pt)
+    #cell(fill: palettes.pastel.green, width: 56pt)[Ready]
+    #h(4pt)
+    #cell(fill: palettes.pastel.orange, expandable: true)[Payload]
   ],
 )
 
-同一 `height` 是关键 —— `subtitle` 只控制对齐，不自动拉伸。不固定 `height`
-时，单行 tile 自然短、双行 tile 自然长，两种高度挤在一行里。
+#section-label[带副标题]
 
-#section-label[Idioms]
+#example-pair(
+  ```typst
+  #cell(
+    fill: palettes.pastel.blue,
+    width: 72pt,
+    height: 36pt,
+    subtitle: [(MySQL)],
+  )[Orders]
+  ```
+,
+  [
+    #cell(
+      fill: palettes.pastel.blue,
+      width: 72pt,
+      height: 36pt,
+      subtitle: [(MySQL)],
+    )[Orders]
+  ],
+)
 
-用 `.with()` 锁定领域常用参数：
+#section-label[适合在这些情况下用]
 
-```typ
-#let mc = cell.with(width: 28pt, height: 20pt, inset: 2pt)
-#let type-cell(body) = cell(body, fill: rgb("#FA8072"))
-#let ptr-field(l: [ptr]) = cell(fill: rgb("#87CEFA"))[#l#sub-label[2/4/8]]
-```
+- 你只需要一个最基础的方块
+- 你在画字段、模块、状态块
+- 你想先把结构搭出来，再逐步加容器和说明
 
+#section-label[常见搭配]
+
+- 和 `sub-label` 一起标字段大小
+- 和 `region` 一起组成结构块
+- 和 `schema` 一起组成完整图块
+- 和 `wrap` 一起做强调边框
+
+[#metadata("layer1-tag") <layer1-tag>]
 === `tag`
 
-带点状虚线边框的 `cell`，语义上区别于普通单元格，常用于枚举判别器（`Some` /
-`None`）、标签或 tagged-union 的 tag 字段。
+用于标签、判别字段或小型标记块。
 
-#section-label[Example]
+它更适合那些“看起来像字段，但语义上更像标签”的内容，例如：
+
+- 枚举判别字段
+- 类型标签
+- 小型分类标记
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #tag[`Tag`]
-  #tag(fill: rgb("#FFD700"))[`D`]
-  ```,
+  ```typst
+  #tag[Tag]
+  #tag(fill: palettes.pastel.yellow)[Kind]
+  ```
+,
   [
-    #tag[`Tag`]
+    #tag[Tag]
     #h(6pt)
-    #tag(fill: rgb("#FFD700"))[`D`]
+    #tag(fill: palettes.pastel.yellow)[Kind]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("tag",
   ("body", ("content",)),
@@ -164,45 +205,79 @@ tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 
   returns: "content",
 )
 
+#param-detail("fill", ("color",),
+  default: raw("palettes.base.surface", lang: none))[
+  标签块背景色。通常只需要改颜色，不需要额外控制尺寸。
+]
+
+#section-label[适合在这些情况下用]
+
+- 你想表达“标签”而不是普通字段
+- 你在画枚举、判别字段、分类标记
+- 你希望它和普通 `cell` 在视觉上有所区分
+
+[#metadata("layer1-note") <layer1-note>]
 === `note`
 
-小号内联注释文本。典型用途是在 `cell` 序列之后写 "… n times" 这类省略提示。
+用于简短的内联说明。
 
-#section-label[Example]
+通常用来写：
+
+- `…`
+- `… n times`
+- 简短补充说明
+- 紧跟在字段序列后的提示
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #cell(fill: rgb("#FA8072"))[T]
-  #cell(fill: rgb("#FA8072"))[T]
+  ```typst
+  #cell(fill: palettes.pastel.red)[T]
+  #cell(fill: palettes.pastel.red)[T]
   #note[… n times]
-  ```,
+  ```
+,
   [
-    #cell(fill: rgb("#FA8072"))[`T`]
-    #cell(fill: rgb("#FA8072"))[`T`]
+    #cell(fill: palettes.pastel.red)[T]
+    #cell(fill: palettes.pastel.red)[T]
     #note[… n times]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("note",
   ("body", ("content",)),
   returns: "content",
 )
 
+#section-label[适合在这些情况下用]
+
+- 你只需要一小段补充说明
+- 说明应该跟在图元旁边，而不是单独占一块
+- 你不想让说明抢走视觉重点
+
+[#metadata("layer1-label") <layer1-label>]
 === `label`
 
-弱化的结构说明文字。比 `note` 更偏结构说明、比正文更轻，常用于 "(heap)"、
-"Memory"、"Only on eviction" 这类简短标注。
+用于较弱的结构说明文字。
 
-#section-label[Example]
+通常用来写：
+
+- `(heap)`
+- `Memory`
+- `Only on eviction`
+- 简短位置或语义提示
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
+  ```typst
   #label[Memory]
   #label[(heap)]
   #label[Only on eviction]
-  ```,
+  ```
+,
   [
     #label[Memory]
     #h(10pt)
@@ -212,36 +287,51 @@ tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("label",
   ("body", ("content",)),
   returns: "content",
 )
 
+#section-label[适合在这些情况下用]
+
+- 你需要比正文更弱的说明文字
+- 你想给图加位置、层次或语义提示
+- 你不希望说明像 `badge` 那样有强烈视觉强调
+
+[#metadata("layer1-badge") <layer1-badge>]
 === `badge`
 
-紧凑的状态徽章。最常用的入口是 `status` 参数 —— 直接取 `palettes.status` 的
-五个语义键之一，免去手写 `fill` / `stroke`。
+紧凑的状态标记。
 
-#section-label[Example]
+最常见的用法是直接使用 `status:`，让颜色表达语义，例如：
+
+- 成功
+- 警告
+- 错误
+- 信息
+- 中性状态
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #badge[STALLED]
-  #badge(status: "success")[HIT]
-  #badge(status: "danger")[MISS]
-  ```,
+  ```typst
+  #badge(status: "success")[OK]
+  #badge(status: "warning")[WAIT]
+  #badge(status: "danger")[ERROR]
+  ```
+,
   [
-    #badge[STALLED]
+    #badge(status: "success")[OK]
     #h(6pt)
-    #badge(status: "success")[HIT]
+    #badge(status: "warning")[WAIT]
     #h(6pt)
-    #badge(status: "danger")[MISS]
+    #badge(status: "danger")[ERROR]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("badge",
   ("body",   ("content",)),
@@ -251,31 +341,31 @@ tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 
   returns: "content",
 )
 
-#param-detail("status", ("none", "str"), default: raw("none", lang: none))[
-  五个语义状态之一：`"success"` / `"warning"` / `"danger"` / `"info"` /
-  `"neutral"`。设置后自动展开 `palettes.status.<key>` 的 `(fill, stroke)` 对，
-  覆盖显式 `fill` / `stroke`。
+#param-detail("status", ("none", "str"),
+  default: raw("none", lang: none))[
+  语义状态。常用值是 `success`、`warning`、`danger`、`info`、`neutral`。
+  如果组件支持 `status:`，优先用它，而不是手写颜色。
 ]
 
-#param-detail("fill", ("color",), default: raw("rgb(\"#FFECB3\")", lang: none))[
-  未指定 `status` 时使用的背景色。
+#param-detail("fill", ("color",),
+  default: raw("rgb(\"#FFECB3\")", lang: none))[
+  自定义背景色。只有在你不使用 `status:` 时才需要显式设置。
 ]
 
-#param-detail("stroke", ("color",), default: raw("rgb(\"#FF8F00\")", lang: none))[
-  未指定 `status` 时使用的边框色。
+#param-detail("stroke", ("color",),
+  default: raw("rgb
+(\"#FF8F00\")", lang: none))[
+  自定义边框色。通常与 `fill` 一起使用。
 ]
 
-#section-label[More]
-
-完全控制时，`badge` 同样接受显式 `fill` / `stroke`：
+#section-label[显式颜色]
 
 #example-pair(
-  ```typ
-  #badge(fill: rgb("#C8E6C9"),
-         stroke: rgb("#2E7D32"))[HIT]
-  #badge(fill: rgb("#FFCDD2"),
-         stroke: rgb("#C62828"))[MISS]
-  ```,
+  ```typst
+  #badge(fill: rgb("#C8E6C9"), stroke: rgb("#2E7D32"))[HIT]
+  #badge(fill: rgb("#FFCDD2"), stroke: rgb("#C62828"))[MISS]
+  ```
+,
   [
     #badge(fill: rgb("#C8E6C9"), stroke: rgb("#2E7D32"))[HIT]
     #h(6pt)
@@ -283,61 +373,90 @@ tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 
   ],
 )
 
+#section-label[适合在这些情况下用]
+
+- 你需要一个紧凑的状态标记
+- 你想让颜色直接表达语义
+- 你不想用完整 `cell` 去表示一个很小的状态块
+
+[#metadata("layer1-sub-label") <layer1-sub-label>]
 === `sub-label`
 
-下标式的小号注释，一般紧跟在 `cell` 里的字段名之后，用于标注字段大小
-（`2/4/8`、`2B` 等）。
+用于字段名后面的短小注释。
 
-#section-label[Example]
+最常见的用法，是拿来标字段大小，例如：
+
+- `2/4/8`
+- `2B`
+- `32b`
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #cell(fill: rgb("#87CEFA"))[
-    `ptr`#sub-label[2/4/8]
+  ```typst
+  #cell(fill: palettes.pastel.blue)[
+    ptr#sub-label[2/4/8]
   ]
-  #cell(fill: rgb("#FFF9C4"))[
-    `Length`#sub-label[2B]
+  #cell(fill: palettes.pastel.yellow)[
+    Length#sub-label[2B]
   ]
-  ```,
+  ```
+,
   [
-    #cell(fill: rgb("#87CEFA"))[`ptr`#sub-label[2/4/8]]
+    #cell(fill: palettes.pastel.blue)[ptr#sub-label[2/4/8]]
     #h(6pt)
-    #cell(fill: rgb("#FFF9C4"))[`Length`#sub-label[2B]]
+    #cell(fill: palettes.pastel.yellow)[Length#sub-label[2B]]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("sub-label",
   ("body", ("content",)),
   returns: "content",
 )
 
+#section-label[适合在这些情况下用]
+
+- 你想在字段名后补一个很短的尺寸说明
+- 你不想额外占一行或单独放说明块
+- 你在画协议字段、内存字段、寄存器字段
+
+[#metadata("layer1-span-label") <layer1-span-label>]
 === `span-label`
 
-水平跨度指示 `← label →`，用在一组 `cell` 之下标注"capacity"、"padding"
-之类的范围含义。
+用于给一段横向范围加说明。
 
-#section-label[Example]
+通常用来标：
+
+- `capacity`
+- `padding`
+- `payload`
+- 一段连续字段的共同含义
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #cell(fill: rgb("#FA8072"))[T]
-  #cell(fill: rgb("#FA8072"))[T]
-  #note[…]
-  #span-label[capacity]
-  ```,
+  ```typst
+  #box(width: 130pt)[
+    #cell(fill: palettes.pastel.red)[T]
+    #cell(fill: palettes.pastel.red)[T]
+    #note[…]
+    #span-label[capacity]
+  ]
+  ```
+,
   [
     #box(width: 130pt)[
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
+      #cell(fill: palettes.pastel.red)[T]
+      #cell(fill: palettes.pastel.red)[T]
       #note[…]
       #span-label[capacity]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("span-label",
   ("body",  ("content",)),
@@ -347,31 +466,43 @@ tile 会各自居中，行高统一后看起来是一整排；否则单行 tile 
 
 #param-detail("width", ("auto", "length", "ratio"),
   default: raw("100%", lang: none))[
-  跨度宽度。默认 `100%` 让它占满父容器；可以换成 `auto`（跟随前一个兄弟元素）
-  或具体长度。
+  范围标注的宽度。默认会占满父容器；如果你只想标一小段范围，可以显式设置长度。
 ]
 
+#section-label[适合在这些情况下用]
+
+- 你想给一段连续字段加统一说明
+- 你需要表达“这一段属于同一个概念”
+- 你在画数组容量、保留区、字段范围
+
+[#metadata("layer1-wrap") <layer1-wrap>]
 === `wrap`
 
-装饰性外层边框。典型用途是"双层边框"效果 —— Rust `Cell<T>` 的 `.celled`
-CSS 样式就是"内层单元格黑色细边 + 外层金色粗边"。
+给内容再加一层外边框。
 
-#section-label[Example]
+通常用来：
+
+- 强调某个字段或区域
+- 做双层边框效果
+- 表示“这个块有额外语义”
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
+  ```typst
   #wrap(stroke: 3pt + rgb("#FFD700"))[
-    #cell(fill: rgb("#FA8072"))[T]
+    #cell(fill: palettes.pastel.red)[T]
   ]
-  ```,
+  ```
+,
   [
     #wrap(stroke: 3pt + rgb("#FFD700"))[
-      #cell(fill: rgb("#FA8072"))[`T`]
+      #cell(fill: palettes.pastel.red)[T]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("wrap",
   ("body",   ("content",)),
@@ -383,32 +514,61 @@ CSS 样式就是"内层单元格黑色细边 + 外层金色粗边"。
 
 #param-detail("stroke", ("stroke",),
   default: raw("3pt + palettes.base.border", lang: none))[
-  外层边框样式。默认黑色 3pt，通常改成高对比颜色以区分内外两层。
+  外层边框样式。通常会用更粗、更醒目的边框来表达强调。
 ]
 
+#param-detail("radius", ("length",),
+  default: raw("0pt", lang: none))[
+  外层边框圆角。
+]
+
+#param-detail("inset", ("length",),
+  default: raw("2pt", lang: none))[
+  外层边框与内部内容之间的间距。
+]
+
+#section-label[适合在这些情况下用]
+
+- 你想强调某个字段或块
+- 你需要双层边框效果
+- 你想在不改内部内容的情况下增加一层视觉语义
+
+[#metadata("layer1-edge") <layer1-edge>]
 === `edge`
 
-带可选标签和箭头的有向连接线。横向（`"right"` / `"left"`）是 inline 元素，
-夹在一行 `cell` 之间；纵向（`"down"` / `"up"`）是块级元素，用在 `flow-col`
-的节点之间。跨容器路由请用 `cetz` / `fletcher`。
+用于简单的方向连接。
 
-#section-label[Example]
+通常用来表示：
+
+- A 指向 B
+- 调用关系
+- 顺序关系
+- 简单状态转移
+- 相邻元素之间的连接
+
+它最适合连接相邻内容；如果你需要复杂自由连线，应该使用更专门的绘图库。
+
+#section-label[最基本的写法]
 
 #wide-example(
-  ```typ
-  #cell[Controller] #edge(label: [HTTP]) #cell[Business]
-  #edge(label: [SQL], style: "dashed") #cell[MySQL]
-  ```,
+  ```typst
+  #cell[Controller]
+  #edge(label: [HTTP])
+  #cell[Service]
+  #edge(label: [SQL], style: "dashed")
+  #cell[DB]
+  ```
+,
   [
-    #cell(fill: palettes.pastel.blue)[Controller]
+    #cell[Controller]
     #edge(label: [HTTP])
-    #cell(fill: palettes.pastel.cyan)[Business]
+    #cell[Service]
     #edge(label: [SQL], style: "dashed")
-    #cell(fill: palettes.pastel.teal)[MySQL]
+    #cell[DB]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("edge",
   ("label",     ("none", "content")),
@@ -420,92 +580,157 @@ CSS 样式就是"内层单元格黑色细边 + 外层金色粗边"。
   returns: "content",
 )
 
+#param-detail("label", ("none", "content"),
+  default: raw("none", lang: none))[
+  连接线标签。适合写协议名、动作名、条件名等简短说明。
+]
+
 #param-detail("direction", ("str",),
   default: raw("\"right\"", lang: none))[
-  箭头方向：`"right"` / `"left"` 为 inline 横向；`"down"` / `"up"` 为块级纵向。
+  方向。常用值是 `right`、`left`、`down`、`up`。
 ]
 
 #param-detail("style", ("str",),
   default: raw("\"solid\"", lang: none))[
-  线形：`"solid"` / `"dashed"` / `"dotted"`。
+  线型。常用值是 `solid`、`dashed`、`dotted`。
 ]
 
 #param-detail("head", ("str",),
   default: raw("\"arrow\"", lang: none))[
-  箭头样式：`"arrow"` 为实心三角，`"none"` 无箭头（纯线段）。
+  箭头样式。`arrow` 表示带箭头，`none` 表示纯线段。
 ]
 
-#section-label[More]
+#param-detail("length", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  连接长度。需要更紧凑或更宽松的布局时可以显式设置。
+]
 
-用 stroke 颜色编码"成功 / 失败"语义：
+#section-label[适合在这些情况下用]
 
-#wide-example(
-  ```typ
-  #region(fill: palettes.pastel.yellow)[WAIT_BUYER_PAY]
-  #edge(label: [支付成功], stroke: 1pt + green)
-  #region(fill: palettes.pastel.orange)[WAIT_SELLER_SEND]
-  ```,
+- 你只需要简单、直接的连接
+- 连接对象彼此相邻
+- 你想表达顺序、调用或指向关系
+
+#section-label[何时不适合]
+
+- 需要跨多个区域走线
+- 需要复杂二维路由
+- 需要自由布局的连接网络
+
+[#metadata("layer1-flow-node") <layer1-flow-node>]
+=== `flow-node`
+
+流程图节点的基础形状。
+
+如果你在画流程图，通常会更常直接使用：
+
+- `process`
+- `decision`
+- `terminal`
+- `junction`
+
+但理解 `flow-node` 有助于你在需要时自定义节点形状。
+
+#section-label[最基本的写法]
+
+#example-pair(
+  ```typst
+  #flow-node(shape: "rect")[A]
+  #flow-node(shape: "diamond", width: 70pt)[B?]
+  #flow-node(shape: "stadium")[C]
+  #flow-node(shape: "circle")[D]
+  ```
+,
   [
-    #region(fill: palettes.pastel.yellow)[WAIT_BUYER_PAY]
-    #edge(label: [支付成功], stroke: 1pt + green)
-    #region(fill: palettes.pastel.orange)[WAIT_SELLER_SEND]
+    #flow-node(shape: "rect")[A]
+    #h(4pt)
+    #flow-node(shape: "diamond", width: 70pt)[B?]
+    #h(4pt)
+    #flow-node(shape: "stadium")[C]
+    #h(4pt)
+    #flow-node(shape: "circle")[D]
   ],
 )
 
+#section-label[常用参数]
+
+#params-box("flow-node",
+  ("body",       ("content",)),
+  ("shape",      ("str",)),
+  ("fill",       ("color",)),
+  ("stroke",     ("stroke",)),
+  ("width",      ("auto", "length")),
+  ("height",     ("auto", "length")),
+  ("inset",      ("length", "dictionary")),
+  ("status",     ("none", "str")),
+  ("edge-label", ("none", "content")),
+  returns: "content",
+)
+
+#param-detail("shape", ("str",),
+  default: raw("\"rect\"", lang: none))[
+  节点形状。常用值是 `rect`、`diamond`、`stadium`、`circle`。
+]
+
+#param-detail("status", ("none", "str"),
+  default: raw("none", lang: none))[
+  语义状态色。适合给错误出口、警告节点、成功节点快速上色。
+]
+
+#param-detail("edge-label", ("none", "content"),
+  default: raw("none", lang: none))[
+  在流程图容器中，为进入该节点的箭头添加标签。
+]
+
+#section-label[适合在这些情况下用]
+
+- 你想自定义流程图节点形状
+- 你需要比 `process` / `decision` 更底层一点的入口
+- 你想统一控制节点样式
+
+#section-label[更常见的入口]
+
+- 普通步骤：`process`
+- 条件判断：`decision`
+- 开始 / 结束：`terminal`
+- 小型连接点：`junction`
+
+[#metadata("layer1-brace") <layer1-brace>]
 === `brace`
 
-用花括号把一段内容“括起来”并附上说明文字，视觉上接近数学里的
-`\underbrace` / `\overbrace`：中间的突起朝向标签，两端向外展开。
-它特别适合表达“这一整段属于同一语义”，例如：
+用于给一段内容加花括号范围标注。
 
-- 这一排 `cell` 是同一个 header
-- 这几列 bit-field 共同组成某个字段
-- 这一段空间表示 capacity / padding / metadata
+通常用来表示：
 
-`brace` 本身不参与布局计算，只负责画出括号和标签；你需要用 `width`
-或 `height` 告诉它“要跨多长”。
+- 这一段字段属于同一部分
+- 这一组内容共同组成某个结构
+- 一段空间表示容量、保留区或元数据
 
-四种 `direction` 分别对应四种常见标注方式：
-
-- `"down"`（默认）：横向括号画在内容下方，标签也在下方。最适合给
-  一排 `cell`、`bit-row` 或横向字段范围做说明。
-- `"up"`：横向括号画在内容上方，标签在上方。适合上侧留白更多、或想把
-  说明放到图上方时使用。
-- `"right"`：纵向括号贴在内容右侧，标签继续放在右边。适合给一列元素、
-  竖向分组或侧边注释做标记。
-- `"left"`：纵向括号贴在内容左侧，标签放在左边。适合与右侧主内容错开，
-  或在左侧建立分组层次。
-
-尺寸控制规则很简单：
-
-- 横向模式（`"down"` / `"up"`）主要看 `width`
-- 纵向模式（`"left"` / `"right"`）主要看 `height`
-
-两者默认都是 `10em`。实际使用时，通常把它设成目标内容的实际宽度或高度，
-这样括号两端就会和被标注的内容自然对齐。
-
-#section-label[Example — 横向，标签在下]
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #cell(fill: rgb("#FA8072"))[T]
-  #cell(fill: rgb("#FA8072"))[T]
-  #cell(fill: rgb("#FA8072"))[T]
-  #note[…]
-  #brace(span: 160pt)[capacity]
-  ```,
+  ```typst
+  #box(width: 160pt)[
+    #cell(fill: palettes.pastel.red)[T]
+    #cell(fill: palettes.pastel.red)[T]
+    #cell(fill: palettes.pastel.red)[T]
+    #note[…]
+    #brace(span: 160pt)[capacity]
+  ]
+  ```
+,
   [
     #box(width: 160pt)[
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
+      #cell(fill: palettes.pastel.red)[T]
+      #cell(fill: palettes.pastel.red)[T]
+      #cell(fill: palettes.pastel.red)[T]
       #note[…]
       #brace(span: 160pt)[capacity]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("brace",
   ("body",      ("content",)),
@@ -514,20 +739,52 @@ CSS 样式就是"内层单元格黑色细边 + 外层金色粗边"。
   returns: "content",
 )
 
-#param-detail("span", ("length",), default: raw("10em", lang: none))[
-  花括号的跨度，与方向无关：
-  - `direction: "down"` / `"up"` 时表示横向跨越的宽度
-  - `direction: "left"` / `"right"` 时表示纵向跨越的高度
-
-  实际使用时，通常把它设成被标注内容的实际宽度或高度，这样括号两端就会
-  与目标内容自然对齐。
+#param-detail("span", ("length",),
+  default: raw("10em", lang: none))[
+  花括号跨度。横向时表示宽度，纵向时表示高度。
 ]
 
-#param-detail("direction", ("str",), default: raw("\"down\"", lang: none))[
-  花括号朝向——决定花括号是横还是竖、标签落在哪一侧；中间的突起
-  恰好指向标签方向。
-  - `"down"`：横向，花括号的突起朝下，标签在花括号下方。
-  - `"up"`：横向，突起朝上，标签在花括号上方。
-  - `"right"`：纵向，突起朝右，标签在花括号右侧。
-  - `"left"`：纵向，突起朝左，标签在花括号左侧。
+#param-detail("direction", ("str",),
+  default: raw("\"down\"", lang: none))[
+  花括号方向。常用值：
+  - `down`：横向，标签在下
+  - `up`：横向，标签在上
+  - `right`：纵向，标签在右
+  - `left`：纵向，标签在左
 ]
+
+#section-label[更多方向]
+
+#example-pair(
+  ```typst
+  #brace(span: 120pt)[payload]
+  #brace(direction: "up", span: 120pt)[header]
+  #brace(direction: "right", span: 60pt)[body]
+  ```
+,
+  [
+    #brace(span: 120pt)[payload]
+    #h(10pt)
+    #brace(direction: "up", span: 120pt)[header]
+    #h(10pt)
+    #brace(direction: "right", span: 60pt)[body]
+  ],
+)
+
+#section-label[适合在这些情况下用]
+
+- 你想标出一整段范围
+- 你需要比 `span-label` 更强的范围提示
+- 你在画协议头、数组容量、字段分组
+
+== 本章小结
+
+如果你只想先记住最常用的几个原子组件，可以先记这几个：
+
+- `cell`：最基础的方块
+- `badge`：紧凑状态标记
+- `sub-label`：字段尺寸注释
+- `edge`：简单连接
+- `wrap`：额外强调边框
+
+接下来如果你想把多个原子组件组织成一个整体，请继续看下一章：*Layer 2 — 容器*。

@@ -1,32 +1,61 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-== Layer 3 — 组合
+== Layer 3 — 组合 <layer3>
 
-=== `schema`
+这一章介绍可以直接生成常见图表结构的组合组件。
 
-顶层内联容器：一个带标题 + 描述的图表块。多个 `schema` 紧邻写会自动水平排列
-（inline box 的副作用），方便做"并列三种类型长这样"的对比图。
+如果前两章的重点是“单个元素”和“如何组织元素”，那么这一章的重点是：
 
-#section-label[Example]
+- 直接搭出一个完整图块
+- 用更少代码表达常见结构
+- 把重复出现的布局模式写成稳定、可复用的组件
+
+如果你是第一次使用，建议先掌握：
+
+1. #api-ref("layer3-schema", "schema")
+2. #api-ref("layer3-linked-schema", "linked-schema")
+3. #api-ref("layer3-grid-row", "grid-row")
+4. #api-ref("layer3-section", "section")
+5. #api-ref("layer3-legend", "legend")
+6. #api-ref("layer3-bit-row", "bit-row")
+
+=== `schema` <layer3-schema>
+
+用于展示一个独立的图块，通常带标题和可选说明。
+
+适合：
+
+- 单独展示一个结构
+- 并排比较多个结构
+- 给图加标题和简短描述
+- 把一段结构内容包装成可复用的展示单元
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #schema(title: raw("u8"),
-          desc: [8-bit unsigned.])[
+  ```typst
+  #schema(title: [User])[
     #region[
-      #cell(fill: red, width: 40pt)[u8]
+      #cell[id]
+      #cell[name]
+      #cell[email]
     ]
   ]
-  ```,
+  ```
+,
   [
-    #schema(title: raw("u8"), desc: [8-bit unsigned.])[
-      #region[#cell(fill: rgb("#FA8072"), width: 40pt)[`u8`]]
+    #schema(title: [User])[
+      #region[
+        #cell[id]
+        #cell[name]
+        #cell[email]
+      ]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("schema",
   ("body",  ("content",)),
@@ -36,64 +65,100 @@
   returns: "content",
 )
 
-#section-label[More]
-
-并列三个 schema：
-
-#align(center)[
-  #schema(title: raw("u8"), desc: [8-bit unsigned.])[
-    #region[#cell(fill: rgb("#FA8072"), width: 40pt)[`u8`]]
-  ]#schema(title: raw("[T; 3]"), desc: [Fixed array.])[
-    #region[
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
-      #cell(fill: rgb("#FA8072"))[`T`]
-    ]
-  ]#schema(title: raw("Option<T>"), desc: [Some or None.])[
-    #region(fill: rgb("#FAFAD2"))[#tag[`Tag`]]
-    #divider(body: [or])
-    #region(fill: rgb("#FAFAD2"))[
-      #tag[`Tag`] #cell(fill: rgb("#FA8072"), width: 50pt)[`T`]
-    ]
-  ]
+#param-detail("title", ("none", "content"),
+  default: raw("none", lang: none))[
+  图块标题。适合写类型名、模块名、结构名。
 ]
 
-=== `linked-schema`
+#param-detail("desc", ("none", "content"),
+  default: raw("none", lang: none))[
+  标题下方的简短说明。适合补一句用途说明，不适合放长段正文。
+]
 
-最常用的模式："顶部字段区 → 连接线 → 底部目标区"。是 `schema` + `region`
-+ `connector` + `target` 的组合封装。
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  图块宽度。需要多个图块并排对齐，或限制说明文字宽度时可以显式设置。
+]
 
-#section-label[Example]
+#section-label[并排放的时候]
+
+#wide-example(
+  ```typst
+  #schema(title: [A])[
+    #region[#cell[x]]
+  ]#schema(title: [B])[
+    #region[#cell[y]]
+  ]#schema(title: [C])[
+    #region[#cell[z]]
+  ]
+  ```
+,
+  [
+    #schema(title: [A])[
+      #region[#cell[x]]
+    ]#schema(title: [B])[
+      #region[#cell[y]]
+    ]#schema(title: [C])[
+      #region[#cell[z]]
+    ]
+  ],
+)
+
+#section-label[适合在这些情况下用]
+
+- 你想把一段结构作为独立图块展示
+- 你需要标题和简短说明
+- 你想并排比较多个结构
+- 你希望图块在文档中更容易复用
+
+#section-label[常和这些一起用]
+
+- 和 `region` 一起展示结构主体
+- 和 `cell` 一起展示字段
+- 和 `divider` 一起展示互斥布局
+- 和 `target`、`connector` 一起展示上下层结构
+
+=== `linked-schema` <layer3-linked-schema>
+
+用于表达“上方字段区 + 下方目标区”的常见结构。
+
+适合：
+
+- 指针与目标对象
+- 引用关系
+- 堆对象
+- 上层结构指向下层存储
+- 需要把“字段区”和“目标区”一起展示的图
+
+如果你的图正好是这种模式，优先使用 `linked-schema`，通常会比手工拼 `schema + region + connector + target` 更直接。
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
+  ```typst
   #linked-schema(
-    title: raw("Box<T>"),
-    desc: [Heap-allocated.],
+    title: [Box<T>],
     fields: (
-      cell(fill: rgb("#87CEFA"))[
-        ptr#sub-label[2/4/8]
-      ],
+      cell(fill: palettes.rust.ptr)[ptr],
     ),
-    target-fill: rgb("#C6DBE7"),
     target-label: "(heap)",
-    cell(fill: rgb("#FA8072"),
-         expandable: true)[T],
+    cell(fill: palettes.rust.any)[T],
   )
-  ```,
+  ```
+,
   [
     #linked-schema(
-      title: raw("Box<T>"),
-      desc: [Heap-allocated.],
-      fields: (cell(fill: rgb("#87CEFA"))[`ptr`#sub-label[2/4/8]],),
-      target-fill: rgb("#C6DBE7"),
+      title: [Box<T>],
+      fields: (
+        cell(fill: palettes.rust.ptr)[ptr],
+      ),
       target-label: "(heap)",
-      cell(fill: rgb("#FA8072"), expandable: true)[`T`],
+      cell(fill: palettes.rust.any)[T],
     )
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("linked-schema",
   ("body",          ("content",)),
@@ -108,42 +173,126 @@
   returns: "content",
 )
 
+#param-detail("title", ("none", "content"),
+  default: raw("none", lang: none))[
+  图块标题。
+]
+
+#param-detail("desc", ("none", "content"),
+  default: raw("none", lang: none))[
+  图块说明文字。
+]
+
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  整个图块宽度。说明文字较长或需要多块并排时，通常会显式设置。
+]
+
 #param-detail("fields", ("array",))[
-  顶部字段区里水平铺开的 cell 数组。数组顺序即视觉顺序。
+  上方字段区的内容数组。数组顺序就是视觉顺序。
 ]
 
-#param-detail("target-fill", ("color",))[
-  底部 target 的背景色；通常用比 field 更浅的同色系，暗示"这是被指向的
-  存储区"。
+#param-detail("target-fill", ("color",),
+  default: raw("rgb(\"#FDECDC\")", lang: none))[
+  下方目标区背景色。
 ]
 
-=== `grid-row`
+#param-detail("target-label", ("none", "str"),
+  default: raw("none", lang: none))[
+  目标区标签，例如 `(heap)`、`(static)`。
+]
 
-带左侧标签的单元格行。标签和右侧内容按基线对齐，适合寄存器映射、内存/缓存
-并列这类"每行一个主题"的图。
+#param-detail("target-width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  目标区宽度。
+]
 
-#section-label[Example]
+#param-detail("danger", ("bool",),
+  default: raw("false", lang: none))[
+  用更强的危险样式强调上方字段区。
+]
+
+#section-label[稍微完整一点的写法]
 
 #example-pair(
-  ```typ
-  #grid-row(label: [Main Memory])[
-    #cell(width: 28pt, height: 20pt,
-          fill: rgb("#FFE0B2"))[03]
-    #cell(width: 28pt, height: 20pt,
-          fill: rgb("#FFE0B2"))[21]
+  ```typst
+  #linked-schema(
+    width: 160pt,
+    title: raw("Vec<T>"),
+    desc: [Pointer, length, and capacity.],
+    fields: (
+      cell(fill: palettes.rust.ptr)[ptr],
+      cell(fill: palettes.rust.sized)[len],
+      cell(fill: palettes.rust.sized)[cap],
+    ),
+    target-fill: palettes.rust.heap,
+    target-label: "(heap)",
+  )[
+    #cell(fill: palettes.rust.any)[T]
+    #cell(fill: palettes.rust.any)[T]
+    #note[… len]
   ]
-  ```,
+  ```
+,
   [
-    #grid-row(label: [Main Memory])[
-      #cell(fill: rgb("#FFE0B2"), width: 28pt, height: 20pt, inset: 2pt)[`03`]
-      #cell(fill: rgb("#FFE0B2"), width: 28pt, height: 20pt, inset: 2pt)[`21`]
-      #cell(fill: rgb("#FFE0B2"), width: 28pt, height: 20pt, inset: 2pt)[`7F`]
-      #cell(fill: rgb("#FFE0B2"), width: 28pt, height: 20pt, inset: 2pt)[`A0`]
+    #linked-schema(
+      width: 160pt,
+      title: raw("Vec<T>"),
+      desc: [Pointer, length, and capacity.],
+      fields: (
+        cell(fill: palettes.rust.ptr)[ptr],
+        cell(fill: palettes.rust.sized)[len],
+        cell(fill: palettes.rust.sized)[cap],
+      ),
+      target-fill: palettes.rust.heap,
+      target-label: "(heap)",
+    )[
+      #cell(fill: palettes.rust.any)[T]
+      #cell(fill: palettes.rust.any)[T]
+      #note[… len]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[适合在这些情况下用]
+
+- 你想表达“字段区指向目标区”
+- 你在画堆对象、引用关系、上下层结构
+- 你不想手工拼多个基础组件
+- 你的图正好符合这种常见模式
+
+=== `grid-row` <layer3-grid-row>
+
+用于显示“左侧标签 + 右侧一行内容”的结构。
+
+适合：
+
+- 多行对齐的结构图
+- 缓存 / 内存行
+- 寄存器或表格式布局
+- 每行一个主题的图
+
+#section-label[最基本的写法]
+
+#example-pair(
+  ```typst
+  #grid-row(label: [Memory])[
+    #cell(width: 28pt, height: 20pt)[03]
+    #cell(width: 28pt, height: 20pt)[21]
+    #cell(width: 28pt, height: 20pt)[7F]
+  ]
+  ```
+,
+  [
+    #grid-row(label: [Memory])[
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[03]
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[21]
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[7F]
+    ]
+  ],
+)
+
+#section-label[常用参数]
 
 #params-box("grid-row",
   ("body",        ("content",)),
@@ -153,265 +302,379 @@
   returns: "content",
 )
 
+#param-detail("label", ("none", "content"),
+  default: raw("none", lang: none))[
+  左侧标签。
+]
+
 #param-detail("label-width", ("auto", "length"),
   default: raw("auto", lang: none))[
-  label 列宽度。`auto` 按 label 自然宽度贴身（+2pt 呼吸空间），单行用时
-  label 和 body 之间不会有多余留白。多行堆叠需要 *label 列对齐* 时（不同
-  长度的 label 要顶格对齐），显式传相同的 length，或者用 `.with()` 封一个
-  共享 helper。
+  标签列宽度。多行堆叠时，如果希望标签列整齐对齐，通常会显式设置相同宽度。
 ]
 
 #param-detail("label-align", ("alignment",),
   default: raw("right", lang: none))[
-  label 在其列内的水平对齐。默认 `right` —— 多行堆叠时 label 末尾贴齐
-  body 左边缘，最整齐。显式传 `left` 能让 label 靠左（少数场景如
-  "label 列更像一栏标题"用得到）。
+  标签在标签列中的对齐方式。默认右对齐，适合多行并列时保持整齐。
 ]
 
-#section-label[Idioms]
-
-*多行对齐：* 几行 `grid-row` 竖着堆，label 长短不一时用 `.with(label-width: N)`
-固定宽度：
-
-```typ
-#let mrow = grid-row.with(label-width: 52pt)
-
-#mrow(label: [Memory])[...]
-#mrow(label: [CPU 0 L1])[...]
-#mrow(label: [CPU 1 L1])[...]
-```
-
-不传 `label-width` 时每行各自贴身，适合 *单行独立出现* 的场景。
-
-=== `lane`
-
-水平色带轨道。每个 item 是一个 `(label, fill)` 字典，适合"线程 / 流水线
-随时间的状态变化"这类横向时序图。
-
-#section-label[Example]
+#section-label[多行放在一起时]
 
 #example-pair(
-  ```typ
+  ```typst
+  #let row = grid-row.with(label-width: 52pt)
+  #row(label: [Memory])[#cell[03] #cell[21]]
+  #row(label: [CPU 0])[#cell[S] #cell[S]]
+  #row(label: [CPU 1])[#cell[S] #cell[S]]
+  ```
+,
+  [
+    #let row = grid-row.with(label-width: 52pt)
+    #row(label: [Memory])[
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[03]
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[21]
+    ]
+    #row(label: [CPU 0])[
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[S]
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[S]
+    ]
+    #row(label: [CPU 1])[
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[S]
+      #cell(width: 28pt, height: 20pt, inset: 2pt)[S]
+    ]
+  ],
+)
+
+#section-label[适合在这些情况下用]
+
+- 你需要多行整齐对齐
+- 每一行都有一个明确标签
+- 你在画缓存、内存、寄存器、表格式结构
+- 你不想手工对齐标签列
+
+=== `lane` <layer3-lane>
+
+用于显示一条横向轨道上的多个阶段或状态块。
+
+适合：
+
+- 线程或流水线阶段
+- 横向状态变化
+- 一条时间线上的分段状态
+- 简单的“名称 + 多段色块”展示
+
+#section-label[最基本的写法]
+
+#example-pair(
+  ```typst
   #lane(
     name: [Thread 1],
     items: (
-      (label: [Mutex<u32>],
-       fill: rgb("#B4E9A9")),
-      (label: [Cell<u32>],
-       fill: rgb("#FBF7BD")),
-      (label: [Rc<u32>],
-       fill: rgb("#F37142")),
+      (label: [Parse], fill: palettes.pastel.blue),
+      (label: [Run], fill: palettes.pastel.green),
+      (label: [Wait], fill: palettes.pastel.yellow),
     ),
   )
-  ```,
+  ```
+,
   [
     #box(width: 100%)[
       #lane(
         name: [Thread 1],
         items: (
-          (label: [`Mutex<u32>`], fill: rgb("#B4E9A9")),
-          (label: [`Cell<u32>`],  fill: rgb("#FBF7BD")),
-          (label: [`Rc<u32>`],    fill: rgb("#F37142")),
+          (label: [Parse], fill: palettes.pastel.blue),
+          (label: [Run], fill: palettes.pastel.green),
+          (label: [Wait], fill: palettes.pastel.yellow),
         ),
       )
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("lane",
   ("name",  ("none", "content")),
   ("items", ("array",)),
+  ("width", ("auto", "length")),
   returns: "content",
 )
 
-#param-detail("items", ("array",))[
-  每项必须是 `(label: content, fill: color)` 字典，按顺序在轨道上水平平铺。
+#param-detail("name", ("none", "content"),
+  default: raw("none", lang: none))[
+  轨道名称，通常显示在左侧。
 ]
 
-=== `seq-lane`
+#param-detail("items", ("array",))[
+  轨道中的分段项。每项通常包含 `label` 和 `fill`。
+]
 
-声明式 UML 时序图。`seq-lane` 表达"参与者之间互相调用"，覆盖完整 UML
-词汇：跨列消息、自调用、激活、组合片段（alt / opt / loop / par）、便签、
-分隔符、生命周期、自动编号、参与者分组、PlantUML 兼容层（`seq-puml`）……
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  轨道总宽度。
+]
 
-完整介绍与示例参见 *"时序图"* 专题章节。
+#section-label[适合在这些情况下用]
 
-=== `section`
+- 你想表达一条横向轨道上的多个阶段
+- 你在画线程、流水线、阶段变化
+- 你需要比 `grid-row` 更偏“横向阶段”的表达
 
-带顶部大标题的文档级卡片容器。适合"一章一个主题"的布局（与 Markdown 的
-一级标题 + 有底色区块类似）。
+=== `section` <layer3-section>
 
-#section-label[Example]
+用于把一组相关内容包成一个带标题的卡片。
+
+适合：
+
+- 一个完整的小节图示
+- 一组相关图块
+- 需要标题和边界的说明区域
+- 在文档中把多个图组织成更清晰的块
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
-  #section[缓存一致性][
-    MESI 协议通过 4 种状态协调
-    缓存行的一致性。
-    ...
+  ```typst
+  #section[Cache hierarchy][
+    #region[CPU]
+    #v(4pt)
+    #region[Memory]
   ]
-  ```,
+  ```
+,
   [
-    #section[MESI][
-      协议通过 4 种状态协调缓存行。
-      #v(2pt)
-      #legend(
-        (label: [M], fill: rgb("#FFCC80")),
-        (label: [S], fill: rgb("#C8E6C9")),
-      )
+    #section[Cache hierarchy][
+      #region[CPU]
+      #v(4pt)
+      #region[Memory]
     ]
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("section",
-  ("title",  ("content",)),
-  ("body",   ("content",)),
-  ("fill",   ("color",)),
+  ("title", ("content",)),
+  ("body",  ("content",)),
+  ("fill",  ("color",)),
   ("stroke", ("stroke",)),
+  ("width", ("auto", "length")),
   returns: "content",
 )
 
-=== `legend`
+#param-detail("title", ("content",))[
+  卡片标题。
+]
 
-一行代码生成色彩图例。替代手写 `grid` + 小色块 + 标签的样板代码。
+#param-detail("body", ("content",))[
+  卡片内容。
+]
 
-#section-label[Example]
+#param-detail("fill", ("color",),
+  default: raw("palettes.base.surface", lang: none))[
+  卡片背景色。
+]
+
+#param-detail("stroke", ("stroke",),
+  default: raw("1pt + palettes.base.border-soft", lang: none))[
+  卡片边框样式。
+]
+
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  卡片宽度。
+]
+
+#section-label[适合在这些情况下用]
+
+- 你想把一组图作为一个完整单元展示
+- 你需要一个更明显的标题卡片
+- 你在写教程、手册、说明文档中的完整示例
+
+=== `legend` <layer3-legend>
+
+用于显示颜色与含义的对应关系。
+
+适合：
+
+- 状态说明
+- 字段颜色说明
+- 分类颜色说明
+- 图中颜色较多时的辅助解释
+
+#section-label[最基本的写法]
 
 #example-pair(
-  ```typ
+  ```typst
   #legend(
-    (label: [Modified], fill: orange),
-    (label: [Shared],   fill: green),
-    (label: [Invalid],  fill: gray),
+    (label: [Modified], fill: palettes.cache.modified),
+    (label: [Shared], fill: palettes.cache.shared),
+    (label: [Invalid], fill: palettes.cache.invalid),
   )
-  ```,
+  ```
+,
   [
     #legend(
-      (label: [Modified],  fill: rgb("#FFCC80")),
-      (label: [Shared],    fill: rgb("#C8E6C9")),
-      (label: [Invalid],   fill: luma(220)),
+      (label: [Modified], fill: palettes.cache.modified),
+      (label: [Shared], fill: palettes.cache.shared),
+      (label: [Invalid], fill: palettes.cache.invalid),
     )
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("legend",
-  ("..items",      ("array",)),
-  ("columns",      ("auto", "int")),
-  ("swatch-size",  ("length",)),
+  ("..items", ("array",)),
+  ("gap", ("length",)),
   returns: "content",
 )
 
 #param-detail("..items", ("array",))[
-  每项 `(label: content, fill: color)` 字典。排列方式由 `columns` 决定。
+  图例项。每项通常包含 `label` 和 `fill`。
 ]
 
-=== `bit-row`
+#param-detail("gap", ("length",),
+  default: raw("8pt", lang: none))[
+  图例项之间的间距。
+]
 
-按比特数等比缩放字段宽度，专为协议头部和寄存器映射设计。告别手算
-`width: NNpt`。
+#section-label[适合在这些情况下用]
 
-#section-label[Example]
+- 图中颜色已经承担语义
+- 你希望读者快速理解颜色含义
+- 你在画协议头、缓存状态、分类结构图
 
-#example-pair(
-  ```typ
-  #bit-row(total: 32, width: 400pt,
-    fields: (
-      (bits: 4,  label: [Ver],  fill: yellow),
-      (bits: 4,  label: [IHL],  fill: yellow),
-      (bits: 8,  label: [DSCP], fill: purple),
-      (bits: 16, label: [Total Length],
-                 fill: aqua),
-    ),
-  )
-  ```,
+=== `bit-row` <layer3-bit-row>
+
+用于按比例显示位字段。
+
+适合：
+
+- 协议头
+- 寄存器布局
+- 固定宽度字段图
+- 需要按 bit 数分配宽度的结构
+
+这是画协议头和寄存器图时最常用的入口。
+
+#section-label[最基本的写法]
+
+#wide-example(
+  ```typst
+  #bit-row(total: 16, width: 220pt, fields: (
+    (bits: 4, label: [Ver], fill: palettes.network.meta),
+    (bits: 4, label: [IHL], fill: palettes.network.meta),
+    (bits: 8, label: [Flags], fill: palettes.network.flag),
+  ))
+  ```
+,
   [
-    #bit-row(total: 32, width: 100%, fields: (
-      (bits: 4,  label: [Ver],         fill: rgb("#FFF9C4")),
-      (bits: 4,  label: [IHL],         fill: rgb("#FFF9C4")),
-      (bits: 8,  label: [DSCP],        fill: rgb("#E1BEE7")),
-      (bits: 16, label: [Total Length], fill: rgb("#B2DFDB")),
+    #bit-row(total: 16, width: 220pt, fields: (
+      (bits: 4, label: [Ver], fill: palettes.network.meta),
+      (bits: 4, label: [IHL], fill: palettes.network.meta),
+      (bits: 8, label: [Flags], fill: palettes.network.flag),
     ))
   ],
 )
 
-#section-label[Parameters]
+#section-label[常用参数]
 
 #params-box("bit-row",
-  ("total",     ("int",)),
-  ("width",     ("length", "ratio")),
   ("fields",    ("array",)),
+  ("total",     ("int",)),
+  ("width",     ("length",)),
   ("show-bits", ("bool",)),
   returns: "content",
 )
 
 #param-detail("fields", ("array",))[
-  每项是 `(bits: int, label: content, fill: color)` 字典；可选键
-  `stroke` / `dash`。字段宽度 = `width * bits / total`。
+  字段数组。每项通常包含 `bits`、`label`、`fill`，也可以带 `stroke`、`dash`。
 ]
 
-#param-detail("show-bits", ("bool",), default: raw("true", lang: none))[
-  是否在字段标签后以下标形式显示比特宽度（如 `Ver`#sub-label[`4b`]）。
+#param-detail("total", ("int",))[
+  这一行的总 bit 数，例如 `16`、`32`、`64`。
 ]
 
-#section-label[More]
-
-IPv4 头部前 3 行 —— 字段宽度按比特数自动等比分配：
-
-#align(center)[
-  #bit-row(total: 32, width: 480pt, fields: (
-    (bits: 4,  label: [Ver],         fill: rgb("#FFF9C4")),
-    (bits: 4,  label: [IHL],         fill: rgb("#FFF9C4")),
-    (bits: 8,  label: [DSCP],        fill: rgb("#E1BEE7")),
-    (bits: 16, label: [Total Length], fill: rgb("#B2DFDB")),
-  ))
-  #v(2pt)
-  #bit-row(total: 32, width: 480pt, fields: (
-    (bits: 16, label: [Identification], fill: rgb("#FFF9C4")),
-    (bits: 3,  label: [Flg],            fill: rgb("#E1BEE7")),
-    (bits: 13, label: [Fragment Offset], fill: rgb("#FFF9C4")),
-  ))
-  #v(2pt)
-  #bit-row(total: 32, width: 480pt, fields: (
-    (bits: 8,  label: [TTL],          fill: rgb("#FFF9C4")),
-    (bits: 8,  label: [Protocol],     fill: rgb("#FFF9C4")),
-    (bits: 16, label: [Hdr Checksum], fill: rgb("#D1C4E9")),
-  ))
+#param-detail("width", ("length",))[
+  这一行的总显示宽度。
 ]
 
-=== `flex-row`
+#param-detail("show-bits", ("bool",),
+  default: raw("true", lang: none))[
+  是否显示字段 bit 数标注。
+]
 
-用 `flex` 权重（CSS `flex-grow` 语义）切分行内宽度。每项 `(flex, body)` 字典，
-列宽 = `flex / sum(flex) * 行宽`。底层走 Typst `fr` 单元。
+#section-label[多行一起写的时候]
 
-#section-label[Example]
-
-#example-pair(
-  ```typ
-  #flex-row(
-    (flex: 1, body:
-      cell(fill: blue)[Category]),
-    (flex: 1, body:
-      cell(fill: aqua)[Product]),
-    (flex: 2, body:
-      cell(fill: teal)[Search]),
-  )
-  ```,
+#wide-example(
+  ```typst
+  #bit-row(total: 32, width: 320pt, fields: (
+    (bits: 4, label: [Ver], fill: palettes.network.meta),
+    (bits: 4, label: [IHL], fill: palettes.network.meta),
+    (bits: 8, label: [DSCP], fill: palettes.network.flag),
+    (bits: 16, label: [Total Length], fill: palettes.network.addr),
+  ))
+  #bit-row(total: 32, width: 320pt, fields: (
+    (bits: 16, label: [ID], fill: palettes.network.meta),
+    (bits: 16, label: [Flags + Offset], fill: palettes.network.flag),
+  ))
+  ```
+,
   [
-    #flex-row(
-      (flex: 1, body: cell(fill: palettes.sequential.blue.at(0), width: 100%)[Cat]),
-      (flex: 1, body: cell(fill: palettes.sequential.blue.at(2), width: 100%)[Prod]),
-      (flex: 2, body: cell(fill: palettes.sequential.blue.at(4), width: 100%)[Search]),
-    )
+    #bit-row(total: 32, width: 320pt, fields: (
+      (bits: 4, label: [Ver], fill: palettes.network.meta),
+      (bits: 4, label: [IHL], fill: palettes.network.meta),
+      (bits: 8, label: [DSCP], fill: palettes.network.flag),
+      (bits: 16, label: [Total Length], fill: palettes.network.addr),
+    ))
+    #bit-row(total: 32, width: 320pt, fields: (
+      (bits: 16, label: [ID], fill: palettes.network.meta),
+      (bits: 16, label: [Flags + Offset], fill: palettes.network.flag),
+    ))
   ],
 )
 
-#section-label[Parameters]
+#section-label[适合在这些情况下用]
+
+- 你在画协议头或寄存器
+- 字段宽度由 bit 数决定
+- 你希望字段比例自动正确
+- 你不想手工计算每个字段的显示宽度
+
+=== `flex-row` <layer3-flex-row>
+
+用于按比例分配一行中的宽度。
+
+适合：
+
+- 一行中多个块按比例分宽
+- 不想手工给每个块写固定宽度
+- 需要“1:1:2”这类布局
+- 在有限宽度内做更稳定的横向分配
+
+#section-label[最基本的写法]
+
+#example-pair(
+  ```typst
+  #flex-row(
+    (flex: 1, body: cell(fill: palettes.pastel.blue, width: 100%)[A]),
+    (flex: 1, body: cell(fill: palettes.pastel.green, width: 100%)[B]),
+    (flex: 2, body: cell(fill: palettes.pastel.orange, width: 100%)[C]),
+  )
+  ```
+,
+  [
+    #box(width: 220pt)[
+      #flex-row(
+        (flex: 1, body: cell(fill: palettes.pastel.blue, width: 100%)[A]),
+        (flex: 1, body: cell(fill: palettes.pastel.green, width: 100%)[B]),
+        (flex: 2, body: cell(fill: palettes.pastel.orange, width: 100%)[C]),
+      )
+    ]
+  ],
+)
+
+#section-label[常用参数]
 
 #params-box("flex-row",
   ("..items", ("array",)),
@@ -422,254 +685,144 @@ IPv4 头部前 3 行 —— 字段宽度按比特数自动等比分配：
 )
 
 #param-detail("..items", ("array",))[
-  每项 `(flex: int, body: content)` 字典；`flex` 必须 > 0，越大越宽。
+  行内项目。每项通常包含 `flex` 和 `body`。
 ]
 
 #param-detail("width", ("auto", "length"),
   default: raw("auto", lang: none))[
-  `auto` 让整行撑满父容器；传具体长度固定宽度。
+  整行宽度。
 ]
 
-#param-detail("gap", ("length",), default: raw("4pt", lang: none))[
-  列间距。默认 4pt 保证相邻 tile 不贴边；需要无缝并排时显式传 `0pt`。
+#param-detail("gap", ("length",),
+  default: raw("0pt", lang: none))[
+  各列之间的间距。
 ]
 
-#section-label[Notes]
-
-子元素默认 `width: auto`（保留自身宽度，不填满分得的列宽）。要让 cell 填满
-所分列宽，显式传 `width: 100%`。
-
-=== `tier`
-
-"左边彩色粗体层名 + 右边面板"的一行。本身只负责排好 label 列 + body 列，
-不做装饰；body 放什么都行（一个 `group`、一行 `cell`、`match-row` 嵌套、
-grid …）。
-
-典型用法是竖着堆几个 `tier` 拼出分层架构图（应用 → 服务 → 数据层），
-每层一个 `accent` 色，对应 body 内 `group` / `cell` 同色系的浅 / 深 fill，
-形成一致的视觉分层。
-
-#section-label[Example]
-
-#example-pair(
-  ```typ
-  #tier(label: [Client],
-        accent: palettes.categorical.at(0).darken(30%))[
-    #group(fill: palettes.categorical.at(0).lighten(55%),
-           width: 100%, inset: 6pt)[
-      #cell(fill: palettes.categorical.at(0).lighten(20%),
-            width: 100%)[Web]
-    ]
-  ]
-  ```,
-  [
-    #tier(label: [Client], accent: palettes.categorical.at(0).darken(30%))[
-      #group(fill: palettes.categorical.at(0).lighten(55%),
-             stroke: 0.6pt + palettes.categorical.at(0).darken(10%),
-             width: 100%, inset: 6pt)[
-        #cell(fill: palettes.categorical.at(0).lighten(20%), width: 100%)[Web]
-      ]
-    ]
-  ],
-)
-
-#section-label[Parameters]
-
-#params-box("tier",
-  ("body",        ("content",)),
-  ("label",       ("none", "content")),
-  ("accent",      ("color",)),
-  ("label-width", ("auto", "length")),
-  ("label-align", ("alignment",)),
-  ("gap",         ("length",)),
-  returns: "content",
-)
-
-#param-detail("label", ("none", "content"), default: raw("none", lang: none))[
-  层名。传 `none` 时 label 列留空但仍占位，便于堆叠的多个 tier 共用等宽
-  label 列、body 起始 x 对齐。
+#param-detail("align", ("alignment",),
+  default: raw("horizon", lang: none))[
+  行内对齐方式。
 ]
 
-#param-detail("accent", ("color",),
-  default: raw("palettes.base.text", lang: none))[
-  label 的文字颜色。与 body 里容器的 fill 同色系（`.lighten()` / `.darken()`）
-  能让每一层看起来自成色块。
-]
+#section-label[适合在这些情况下用]
 
-#param-detail("label-width", ("auto", "length"),
-  default: raw("auto", lang: none))[
-  label 列宽度。`auto`（默认）测量 label 按需贴身，单个 tier 下紧凑且合
-  理。多个 tier 堆叠时，若 label 长度不一 *且* 要保持 body 起始 x 对齐，
-  显式传相同的 length（或用 `tier.with(label-width: N)` 封一个共享 helper）。
-]
+- 你想按比例分配横向空间
+- 你不想手工计算每列宽度
+- 你在做一行多块的结构图
+- 你希望布局在宽度变化时更稳定
 
-#param-detail("label-align", ("alignment",),
-  default: raw("right", lang: none))[
-  label 在其列内的水平对齐。只传水平分量（`left` / `right` / `center`），
-  垂直部分由内部管理。与 `grid-row.label-align` 语义一致。
-]
+=== `seq-lane` <layer3-seq-lane>
 
-#section-label[Idioms]
+用于绘制时序图。
 
-*堆叠多个 tier：* 竖着放并用 `#v(...)` 控制层间距。颜色取 `palettes.categorical`
-的不同 index，每层 `accent: C.at(i).darken(30%)` + `group fill: C.at(i).lighten(55%)`
-自动得到协调的色调。
+适合：
+
+- 服务调用链
+- 协议交互
+- 登录流程
+- 多参与者之间的消息往返
+- 需要表达“谁调用谁、何时返回”的图
+
+如果你的重点是参与者之间的交互，而不是单个对象的状态变化，应该从 `seq-lane` 开始。
+
+#section-label[最小示例]
 
 #wide-example(
-  ```typ
-  #let C = palettes.categorical
-  #let layer(i, name, body) = tier(
-    label: [#name], accent: C.at(i).darken(30%),
-  )[
-    #group(fill: C.at(i).lighten(55%),
-           stroke: 0.6pt + C.at(i).darken(10%),
-           width: 100%, inset: 6pt, body)
-  ]
-  #layer(0, [Client], [#cell(width: 100%)[Web] #cell(width: 100%)[Mobile]])
-  #v(4pt)
-  #layer(2, [Service], [#cell(width: 100%)[Auth] #cell(width: 100%)[Orders]])
-  #v(4pt)
-  #layer(4, [Data],    [#cell(width: 100%)[Users] #cell(width: 100%)[Events]])
-  ```,
-  [
-    #{
-      let C = palettes.categorical
-      let layer(i, name, body) = tier(
-        label: [#name], accent: C.at(i).darken(30%),
-      )[
-        #group(fill: C.at(i).lighten(55%),
-               stroke: 0.6pt + C.at(i).darken(10%),
-               width: 100%, inset: 6pt, body)
-      ]
-      layer(0, [Client], flex-row(
-        (flex: 1, body: cell(fill: C.at(0).lighten(20%), width: 100%)[Web]),
-        (flex: 1, body: cell(fill: C.at(0).lighten(20%), width: 100%)[Mobile]),
-      ))
-      v(4pt)
-      layer(2, [Service], flex-row(
-        (flex: 1, body: cell(fill: C.at(2).lighten(20%), width: 100%)[Auth]),
-        (flex: 1, body: cell(fill: C.at(2).lighten(20%), width: 100%)[Orders]),
-      ))
-      v(4pt)
-      layer(4, [Data], flex-row(
-        (flex: 1, body: cell(fill: C.at(4).lighten(20%), width: 100%)[Users]),
-        (flex: 1, body: cell(fill: C.at(4).lighten(20%), width: 100%)[Events]),
-      ))
-    }
-  ],
-)
-
-*混搭 `match-row`：* 当某层需要并列的子面板等高（如 "三个服务域 + 一个只读
-legacy 域"），把 `match-row` 直接塞进 `tier` 的 body 里即可。见 `match-row`
-的示例。
-
-=== `match-row`
-
-把并列的几个子元素拉伸到最高那个的高度。典型场景：架构图里 "五项 + 五项 +
-两项" 的三列面板，想让三列外框一样高、而不是最右边那列短一截。
-
-*为什么不能直接用 `grid`：* Typst 的 grid 行高 = 子元素自然高度的最大值，
-但子元素本身的高度仍然是各自的自然值。`height: 100%` 在 `height: auto` 的
-行里不会被解析（会塌陷），所以没法让短的那列自动变长。`match-row` 用
-`layout()` + `measure()` 先量出最高那个，再把 *需要被拉伸* 的子元素写成
-工厂 `h => content`，把测得的高度传进去，通常透传成 `group(height: h)`。
-
-#section-label[Example]
-
-刚性子元素（常规 content）参与测量；需要被拉伸的子元素写成 `h => ...`
-工厂：
-
-#wide-example(
-  ```typ
-  #match-row(
-    width-ratio: (1, 1),
-    gap: 8pt,
-    // 刚性：参与测量，贡献自然高度
-    group(label: [Tall], width: 100%, inset: 6pt)[
-      #stack(cell[A], cell[B], cell[C], cell[D])
-    ],
-    // 工厂：收到 h = 4 个 cell 的自然高度
-    h => group(
-      label: [Short], width: 100%, height: h, inset: 6pt,
-    )[#cell[Only one]],
+  ```typst
+  #seq-lane(
+    seq-call("client", "server")[GET /users],
+    seq-ret("server", "client")[200 OK],
   )
-  ```,
+  ```
+,
   [
-    #match-row(
-      width-ratio: (1, 1),
-      gap: 8pt,
-      group(label: [Tall], fill: palettes.pastel.blue.lighten(30%), width: 100%, inset: 6pt)[
-        #stack(
-          cell(fill: palettes.pastel.blue, width: 100%)[A],
-          cell(fill: palettes.pastel.blue, width: 100%)[B],
-          cell(fill: palettes.pastel.blue, width: 100%)[C],
-          cell(fill: palettes.pastel.blue, width: 100%)[D],
-        )
-      ],
-      h => group(label: [Short], fill: palettes.pastel.green.lighten(30%),
-                 width: 100%, height: h, inset: 6pt)[
-        #cell(fill: palettes.pastel.green, width: 100%)[Only one]
-      ],
+    #seq-lane(
+      width: 100%,
+      seq-call("client", "server")[GET /users],
+      seq-ret("server", "client")[200 OK],
     )
   ],
 )
 
-#section-label[Parameters]
+#section-label[参数]
 
-#params-box("match-row",
-  ("..items",     ("content", "function")),
-  ("width-ratio", ("none", "array")),
-  ("gap",         ("length",)),
-  ("align",       ("alignment",)),
+#params-box("seq-lane",
+  ("..steps", ("content",)),
+  ("participants", ("none", "array")),
+  ("width", ("auto", "length")),
+  ("activate", ("bool",)),
+  ("autonumber", ("none", "bool", "str")),
+  ("boxes", ("none", "array")),
   returns: "content",
 )
 
-#param-detail("..items", ("content", "function"))[
-  每个位置参数要么是 content（刚性，参与高度测量），要么是 `length -> content`
-  的工厂（拉伸，收到测出的目标高度）。两者可混合、数量不限；至少要有一个
-  刚性子元素来决定目标高度，不然工厂会收到 `0pt`。
+#param-detail("..steps", ("content",))[
+  时序图中的步骤内容，例如 `seq-call`、`seq-ret`、`seq-note`、`seq-alt` 等。
 ]
 
-#param-detail("width-ratio", ("none", "array"), default: raw("none", lang: none))[
-  列宽比重数组，例如 `(3, 1)` 或 `(1, 1, 1)`。`none` 表示等宽。长度应等于
-  `items` 数量。
+#param-detail("participants", ("none", "array"),
+  default: raw("none", lang: none))[
+  参与者定义。省略时会根据步骤中首次出现的 id 自动推导。
 ]
 
-#param-detail("gap", ("length",), default: raw("4pt", lang: none))[
-  列间距。默认 `4pt`，和 `flex-row` 一致 —— 两个"横向并列子元素"的 composite
-  行为统一。需要无缝并排时显式传 `0pt`，架构图里通常传 `8pt` / `10pt`。
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  时序图总宽度。
 ]
 
-#param-detail("align", ("alignment",), default: raw("top", lang: none))[
-  每列内部内容的对齐方向。`top` 让短 body 的工厂子元素顶部对齐（外框已
-  拉满高度，body 本身若不填满则空在下方）。
+#param-detail("activate", ("bool",),
+  default: raw("true", lang: none))[
+  是否显示激活条。
 ]
 
-#section-label[Notes]
+#param-detail("autonumber", ("none", "bool", "str"),
+  default: raw("none", lang: none))[
+  是否启用自动编号。
+]
 
-*测量开销*：`match-row` 对每个刚性子元素渲染一次 `measure()`，对页内复杂
-图表几乎察觉不到；渲染千级别 row 时再考虑优化。
+#param-detail("boxes", ("none", "array"),
+  default: raw("none", lang: none))[
+  参与者分组框定义。
+]
 
-*什么时候不用*：
+#section-label[常见步骤]
 
-- 各列内容本来就等高（例如同结构的 tile 都用显式 `height`）——
-  直接 `grid` 或 `flex-row` 就行。
-- 只想让列宽按比例分，不关心高度 —— 用 `flex-row`。
-- 需要测量外的布局能力（换行、动态列数）—— 用原生 `layout()` + `measure()`
-  自己写，`match-row` 就是这种常见模式的封装。
+#align(center)[
+  #region(width: 100%)[
+    #grid(
+      columns: (110pt, 1fr),
+      row-gutter: 5pt,
+      text(weight: "bold")[`seq-call`], [同步调用消息],
+      text(weight: "bold")[`seq-ret`], [返回消息],
+      text(weight: "bold")[`seq-note`], [便签说明],
+      text(weight: "bold")[`seq-act`], [单列动作块],
+      text(weight: "bold")[`seq-alt`], [条件分支片段],
+      text(weight: "bold")[`seq-loop`], [循环片段],
+    )
+  ]
+]
 
-#section-label[Idioms]
+#section-label[何时使用]
 
-*多个工厂*：全部只读 / 次要的列都可以写成工厂，由剩下一个刚性列决定高度：
+- 你想表达参与者之间的交互
+- 你在画 API 调用链、协议握手、服务编排
+- 你需要消息、返回、分支、循环这些时序语义
+- 你不想手工摆放参与者和消息线
 
-```typ
-#match-row(
-  width-ratio: (1, 1, 1),
-  gap: 8pt,
-  primary-panel,                    // 决定高度
-  h => secondary-panel(height: h),  // 被拉伸
-  h => archived-panel(height: h),   // 被拉伸
-)
-```
+== 本章小结 <layer3-summary>
 
-*搭 `tier`*：整条面板当作 `tier` 的 body，让层名和拉伸行在同一排。
+如果你只想先记住最常用的几个组合组件，可以先记这几个：
+
+- `schema`：独立图块
+- `linked-schema`：字段区 + 目标区
+- `grid-row`：左标签 + 右内容
+- `section`：带标题卡片
+- `legend`：颜色说明
+- `bit-row`：位字段行
+- `seq-lane`：时序图入口
+
+如果你接下来想按场景学习更完整的图法，建议继续阅读后面的专题章节：
+
+- 流程图
+- 状态转换图
+- 层级树图
+- 时序图

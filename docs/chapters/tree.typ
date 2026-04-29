@@ -1,14 +1,26 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-= 层级树图
+= 层级树图 <tree>
 
 *blockcell* 的 `tree` 画自顶向下的层级结构 —— BST、堆、Trie、目录树、JSON、
 组织架构。入口只有一个函数：
 
-```typ
-#tree(root, ..children)
-```
+#section-label[最小形式]
+
+#example-pair(
+  ```typ
+  #tree(root, ..children)
+  ```
+,
+  [
+    #tree(
+      node[root],
+      node[left],
+      node[right],
+    )
+  ],
+)
 
 `root` 和每个 `child` 都是 *任意 content* —— `node(...)` / 嵌套 `tree(...)` /
 `cell` / `flow-node` / `process` / 甚至 `[纯文本]`，想塞什么都行，可以任意混搭。
@@ -37,7 +49,7 @@ pastel 蓝底、自然高度（文字怎么大盒子就怎么高）、`"circle"`
   ]
 ]
 
-== 快速上手
+== 快速上手 <tree-quick-start>
 
 经典的平衡二叉树 —— 一个函数同时当根构造器和子树构造器：
 
@@ -66,9 +78,9 @@ pastel 蓝底、自然高度（文字怎么大盒子就怎么高）、`"circle"`
 默认风格是正交折线（elbow），适合目录树、组织架构。BST / 堆要对角直线就在
 *最外层* 设一次 `edge-style: "line"`，所有嵌套子树自动继承。
 
-== 核心 API
+== 核心 API <tree-core-api>
 
-=== `node`
+=== `node` <tree-node>
 
 tree 专用的节点构造器。和 atoms 章的 `cell` / `flow-node` 是并列关系 —— 都是
 "一个带文字的形状"，但各自面向不同场景：`cell` 贴合内存布局图（0 圆角、4pt 紧
@@ -117,12 +129,24 @@ padding），`flow-node` 贴合流程图（28pt 统一高度），`node` 贴合�
 ]
 
 #param-detail("size", ("auto", "length"), default: raw("auto", lang: none))[
-  固定圆直径或矩形/胶囊宽度。`auto` 自适应 body；三位数以上手动统一时用：
+  固定圆直径或矩形/胶囊宽度。`auto` 自适应 body；三位数以上手动统一时可参考下面的写法：
+]
+
+#section-label[Example — 统一圆节点尺寸]
+
+#example-pair(
   ```typ
   #let c(body) = node(shape: "circle", size: 36pt, body)
   #tree(c[100], c[250], c[999])
   ```
-]
+,
+  [
+    #{
+      let c(body) = node(shape: "circle", size: 36pt, body)
+      tree(c[100], c[250], c[999])
+    }
+  ],
+)
 
 #param-detail("fill", ("color",),
   default: raw("palettes.pastel.blue", lang: none))[
@@ -145,7 +169,7 @@ padding），`flow-node` 贴合流程图（28pt 统一高度），`node` 贴合�
   矩形圆角。`stadium` 强制 999pt（胶囊），`circle` 强制 50%，此参数不影响。
 ]
 
-=== `tree`
+=== `tree` <tree-tree>
 
 层级树的渲染器。第一个位置参数是根，其余位置参数是孩子。*每个槽位都是 content*
 —— `node(...)`、嵌套 `tree(...)`、`cell` / `flow-node` / `process`、纯文本，
@@ -221,7 +245,7 @@ padding），`flow-node` 贴合流程图（28pt 统一高度），`node` 贴合�
   连线笔触。可调粗细 / 颜色 / 虚实，比如用淡灰色弱化背景子树。
 ]
 
-== 常用模式
+== 常用模式 <tree-common-patterns>
 
 #section-label[目录树（elbow 默认）]
 
@@ -308,7 +332,7 @@ elbow 风格的目录树 —— 文件夹黄色、文件蓝色，通过 `fill:` 
 连线从 root 底部中心引出，落到每个孩子顶部中心 —— 对矩形/胶囊/圆完全贴合；
 菱形等带尖角的形状会让端点略微悬空，这时用 `node` 或 `shape: "rect"`。
 
-== 局限
+== 局限 <tree-limitations>
 
 - *非紧致布局* —— 兄弟子树按 `x-gap` 均匀间距，不会像 Reingold-Tilford /
   tidy-tree 那样挤压重叠。密集树建议拆小或手调 `x-gap`。

@@ -6,3 +6,6 @@
 
 # Snapshot test reference images are tracked
 !tests/**/ref/*.png
+
+# README showcase assets are tracked
+!docs/imgs/showcase/*.png

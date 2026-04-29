@@ -1,5 +1,16 @@
 // blockcell 手册样式辅助：统一 API 条目的展示组件。
 
+// 内部跳转辅助：为 PDF 提供可点击的章节与条目导航。
+// 把字符串包成 label，避免被 Typst 误判为 URL。
+#let doc-link(target, body) = link(label(target), body)
+
+#let doc-target(target, body) = [#body #target]
+
+#let doc-ref(target, body) = link(label(target), body)
+
+// 把 raw 风格的 API 名包成可跳转链接：`#api-ref("layer3-bit-row", "bit-row")`。
+#let api-ref(target, name) = link(label(target), raw(name, lang: none))
+
 // 内置类型标签的背景色。
 #let _type-color(name) = (
   "none":       rgb("#F8D8CF"),
@@ -120,8 +131,12 @@
 )
 
 // 非函数条目的标题样式；分页由 manual.typ 顶层控制。
-#let entry-title(name, kind: "Function") = {
+// 传入 anchor 时会附上同名 label，方便 doc-link 跨章节跳转。
+#let entry-title(name, kind: "Function", anchor: none) = {
   [#metadata("bc-entry-title")<bc-entry-title>]
+  if anchor != none {
+    [#metadata(anchor)#label(anchor)]
+  }
   block(above: 18pt, below: 8pt, {
     text(size: 22pt, weight: "bold",
       font: ("DejaVu Sans Mono", "Menlo", "Consolas"))[#name]

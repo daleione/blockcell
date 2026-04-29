@@ -1,7 +1,7 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-= 状态转换图
+= 状态转换图 <states>
 
 *blockcell* 内置一层状态机专用图元 —— `state-chain`。两种模式共用同一个渲染器：
 
@@ -44,7 +44,7 @@
   ]
 ]
 
-== 快速上手
+== 快速上手 <states-quick-start>
 
 经典的文件 I/O 状态机：`reading → eof → closed`，`reading` 可自环读下一块，
 也可直接 `close()` 跳到 `closed`：
@@ -76,9 +76,9 @@
 由 *后一个状态* 的 `edge-label:` 提供。`loop` / `jump` 按 id 引用状态，顺序不
 重要，写在 `state-chain` 里哪都行。
 
-== 核心构造函数
+== 核心构造函数 <states-core>
 
-=== `state`
+=== `state` <states-state>
 
 一个圆形状态节点。自动按 body 尺寸调大（下限 44pt）。`initial` / `accept`
 是两个布尔标志，分别对应 UML 的"初始态"和"接受态"，各自带默认配色和视觉
@@ -160,7 +160,7 @@
   ]
 ]
 
-=== `loop`
+=== `loop` <states-loop>
 
 在指定 id 的状态上画一段回到自身的小弧。2D 模式下四向都有意义；线性模式下
 一般用上/下，避免和主链箭头冲突。
@@ -201,7 +201,7 @@
   `"dashed"` 画虚线弧（表示可选/条件转移）。
 ]
 
-=== `jump`
+=== `jump` <states-jump>
 
 从 `from` 到 `to` 画一条*单向*连线。线性模式下用 `route:` 走链上/下的大弧；
 2D 模式下用 `bend:` 控制曲率。
@@ -269,26 +269,75 @@
 双向转移（A ↔ B）用 *`bi-jump`* 而不是写两条相反方向的 `jump` —— 后者画出来
 是两条平行箭头，前者只画一条线、两头加箭头，更符合状态图惯例。
 
-=== `bi-jump`
+=== `bi-jump` <states-bi-jump>
 
 一条线上同时画两头箭头，两端各一个标签。*2D 模式专用*。
 
 #section-label[Example]
 
-```typ
-#bi-jump("a", "b",
-  forward: [a→b 标签],
-  back:    [b→a 标签],
-  bend: 0,         // 默认直线
+#wide-example(
+  ```typ
+  #state-chain(
+    col-gap: 90pt,
+    row-gap: 90pt,
+    state("a", pos: (0, 0))[A],
+    state("b", pos: (2, 0))[B],
+    bi-jump("a", "b",
+      forward: [a→b 标签],
+      back:    [b→a 标签],
+      bend: 0,
+    ),
+  )
+  ```
+,
+  [
+    #state-chain(
+      col-gap: 90pt,
+      row-gap: 90pt,
+      state("a", pos: (0, 0))[A],
+      state("b", pos: (2, 0))[B],
+      bi-jump("a", "b",
+        forward: [a→b 标签],
+        back:    [b→a 标签],
+        bend: 0,
+      ),
+    )
+  ],
 )
 
-// 两标签默认镜像放在线两侧（forward=+perp, back=-perp）。
-// 默认一侧若压到旁边某根线上，把两 side 设成同号即可并到一侧。
-#bi-jump("active", "grace",
-  forward: [...], back: [...],
-  back-side: 1,
+#v(4pt)
+
+如果两侧标签和附近连线过近，可以把两边标签放到同一侧：
+
+#wide-example(
+  ```typ
+  #state-chain(
+    col-gap: 95pt,
+    row-gap: 95pt,
+    state("active", pos: (0, 0))[active],
+    state("grace",  pos: (2, 0.8))[grace],
+    bi-jump("active", "grace",
+      forward: [进入宽限期],
+      back:    [恢复订阅],
+      back-side: 1,
+    ),
+  )
+  ```
+,
+  [
+    #state-chain(
+      col-gap: 95pt,
+      row-gap: 95pt,
+      state("active", pos: (0, 0))[active],
+      state("grace",  pos: (2, 0.8))[grace],
+      bi-jump("active", "grace",
+        forward: [进入宽限期],
+        back:    [恢复订阅],
+        back-side: 1,
+      ),
+    )
+  ],
 )
-```
 
 #section-label[Parameters]
 
@@ -317,9 +366,9 @@
   `±1`。与 `back-side` 同号 ⇒ 两标签并到同一侧；异号 ⇒ 镜像分两侧（默认）。
 ]
 
-== 容器
+== 容器 <states-container>
 
-=== `state-chain`
+=== `state-chain` <states-state-chain>
 
 容纳所有状态节点和转移覆盖层的顶层容器。把 `state` / `loop` / `jump` /
 `bi-jump` 以任意顺序传入即可，内部按类型分层渲染（连线 → 状态 → 标签）。
@@ -361,25 +410,14 @@
   状态最小直径（下限）。实际直径按 body 自适应，但不小于此。
 ]
 
-== 综合示例：TCP 连接生命周期
+== 综合示例：TCP 连接生命周期 <states-tcp-example>
 
 把 `state` / `edge-label` / `loop` / `jump` 组合在一个链上：TCP 从 `CLOSED`
 开始，经 `LISTEN` / `SYN_RECVD` 到 `ESTABLISHED`，两条 `close()` 分别从
 LISTEN（提前取消监听）和 ESTABLISHED（正常关闭）回到 `CLOSED`。
 
-```typ
-#state-chain(
-  state("closed", size: 56pt, initial: true, accept: true)[CLOSED],
-  state("listen", size: 56pt, edge-label: [listen()])[LISTEN],
-  state("syn-recvd", size: 56pt, edge-label: [SYN recv])[SYN_RECVD],
-  state("established", size: 56pt, edge-label: [ACK])[ESTABLISHED],
-  loop("listen")[SYN recv],
-  jump("listen", "closed", route: "above", style: "dashed")[close()],
-  jump("established", "closed", route: "below", style: "dashed")[close()],
-)
-```
-
-#align(center)[
+#wide-example(
+  ```typ
   #state-chain(
     state("closed", size: 56pt, initial: true, accept: true)[CLOSED],
     state("listen", size: 56pt, edge-label: [listen()])[LISTEN],
@@ -389,7 +427,20 @@ LISTEN（提前取消监听）和 ESTABLISHED（正常关闭）回到 `CLOSED`�
     jump("listen", "closed", route: "above", style: "dashed")[close()],
     jump("established", "closed", route: "below", style: "dashed")[close()],
   )
-]
+  ```
+,
+  [
+    #state-chain(
+      state("closed", size: 56pt, initial: true, accept: true)[CLOSED],
+      state("listen", size: 56pt, edge-label: [listen()])[LISTEN],
+      state("syn-recvd", size: 56pt, edge-label: [SYN recv])[SYN_RECVD],
+      state("established", size: 56pt, edge-label: [ACK])[ESTABLISHED],
+      loop("listen")[SYN recv],
+      jump("listen", "closed", route: "above", style: "dashed")[close()],
+      jump("established", "closed", route: "below", style: "dashed")[close()],
+    )
+  ],
+)
 
 #v(4pt)
 
@@ -408,65 +459,64 @@ LISTEN（提前取消监听）和 ESTABLISHED（正常关闭）回到 `CLOSED`�
 - 一条 `above` 一条 `below`，避免两条 `close()` 长弧在同一侧堆叠。多条同侧
   jump 嵌套时，给短的那条传 `height:` 让它收浅（比长的至少小一半）。
 
-== 2D 模式：任意拓扑
+== 2D 模式：任意拓扑 <states-2d>
 
 当状态之间不是简单的线性顺序 —— 比如订阅/订单流转里 active 可以绕三角进到
 billing retry、grace period、revoke、expired —— 给每个 `state` 加上
 `pos: (col, row)`，其余 API 不变，`state-chain` 自动切到 2D。
 
-```typ
-#state-chain(
-  col-gap: 95pt, row-gap: 100pt,
-  state("active",  pos: (0, 0), initial: true)[active],
-  state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing retry],
-  state("grace",   pos: (1, 0.8), fill: palettes.pastel.green)[grace period],
-  state("revoke",  pos: (2, 0.8), fill: palettes.pastel.red)[revoke],
-  state("expired", pos: (1.5, 2.3), fill: palettes.pastel.red)[expired],
-  loop("active", route: "above")[正常续期],
-  bi-jump("active", "billing",
-    forward: [60天内扣款失败],
-    back:    [60天内成功续期]),
-  bi-jump("active", "grace",
-    forward: [取消订阅], back: [开启订阅],
-    back-side: 1),
-  jump("grace", "revoke")[取消订阅],
-  jump("billing", "revoke"),
-  jump("grace", "expired")[宽限期未续订],
-  jump("active", "expired", label-side: -1)[取消订阅],
-  jump("billing", "expired")[取消订阅 or 60天后仍扣款失败],
-)
-```
-
-#align(center)[
+#wide-example(
+  ```typ
   #state-chain(
     col-gap: 95pt, row-gap: 100pt,
-
     state("active",  pos: (0, 0), initial: true)[active],
-    state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing \ retry],
-    state("grace",   pos: (1, 0.8), fill: palettes.pastel.green)[grace \ period],
+    state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing retry],
+    state("grace",   pos: (1, 0.8), fill: palettes.pastel.green)[grace period],
     state("revoke",  pos: (2, 0.8), fill: palettes.pastel.red)[revoke],
     state("expired", pos: (1.5, 2.3), fill: palettes.pastel.red)[expired],
-
     loop("active", route: "above")[正常续期],
-
     bi-jump("active", "billing",
       forward: [60天内扣款失败],
-      back:    [60天内成功续期],
-    ),
+      back:    [60天内成功续期]),
     bi-jump("active", "grace",
-      forward: [取消订阅],
-      back:    [开启订阅],
-      back-side: 1,
-    ),
-
-    jump("grace",   "revoke")[取消订阅],
+      forward: [取消订阅], back: [开启订阅],
+      back-side: 1),
+    jump("grace", "revoke")[取消订阅],
     jump("billing", "revoke"),
-
-    jump("grace",   "expired")[宽限期未续订],
-    jump("active",  "expired", label-side: -1)[取消订阅],
+    jump("grace", "expired")[宽限期未续订],
+    jump("active", "expired", label-side: -1)[取消订阅],
     jump("billing", "expired")[取消订阅 or 60天后仍扣款失败],
   )
-]
+  ```
+,
+  [
+    #state-chain(
+      col-gap: 95pt, row-gap: 100pt,
+
+      state("active",  pos: (0, 0), initial: true)[active],
+      state("billing", pos: (3, 0), fill: palettes.pastel.yellow)[billing \ retry],
+      state("grace",   pos: (1, 0.8), fill: palettes.pastel.green)[grace \ period],
+      state("revoke",  pos: (2, 0.8), fill: palettes.pastel.red)[revoke],
+      state("expired", pos: (1.5, 2.3), fill: palettes.pastel.red)[expired],
+
+      loop("active", route: "above")[正常续期],
+      bi-jump("active", "billing",
+        forward: [60天内扣款失败],
+        back: [60天内成功续期],
+      ),
+      bi-jump("active", "grace",
+        forward: [取消订阅],
+        back: [开启订阅],
+        back-side: 1,
+      ),
+      jump("grace", "revoke")[取消订阅],
+      jump("billing", "revoke"),
+      jump("grace", "expired")[宽限期未续订],
+      jump("active", "expired", label-side: -1)[取消订阅],
+      jump("billing", "expired")[取消订阅 or 60天后仍扣款失败],
+    )
+  ],
+)
 
 #v(4pt)
 
@@ -486,7 +536,7 @@ billing retry、grace period、revoke、expired —— 给每个 `state` 加上
   把 `back-side` 改成与 `forward-side` 同号，两个标签就并到一起。
 - 标签自动按文字宽度做最小垂直偏移，`bend = 0` 的直线也不会压线。
 
-== 局限
+== 局限 <states-limits>
 
 - *不做自动路由/避障* —— 2D 模式下长对角可能穿过中间状态，需要手动写
   `bend` 让它绕开；密集标签也可能相互压字，同样靠手动调 `bend` 的符号/

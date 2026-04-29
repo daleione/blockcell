@@ -1,15 +1,15 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-= 时序图
+= 时序图 <seq>
 
-*blockcell* 内置一套覆盖 UML 词汇的时序图工具 —— `seq-lane`（声明式 API）
+*blockcell* 内置一套覆盖 UML 词汇的时序图工具 —— #api-ref("layer3-seq-lane", "seq-lane")（声明式 API）
 与 `seq-puml`（PlantUML 兼容层）。两者共用同一套渲染引擎，所以行为完全
 一致：能用 PlantUML 表达的，几乎都能用 Typst API 直接写出来。
 
 适用范围：*参与者之间互相调用*的交互流程（API 调用链、协议握手、登录流程、
-微服务编排……）。如果想表达"单一对象在时间上的状态变化"，请用 `lane`
-（在"组合"章节），或用"状态转换图"章节里的 `state-chain`。
+微服务编排……）。如果想表达"单一对象在时间上的状态变化"，请用 #api-ref("layer3-lane", "lane")
+（在"组合"章节），或用"状态转换图"章节里的 #api-ref("states-state-chain", "state-chain")。
 
 #v(6pt)
 
@@ -21,37 +21,37 @@
       columns: (84pt, 1fr),
       row-gutter: 4pt,
       text(size: 0.85em, weight: "bold")[消息],
-      text(size: 0.85em)[`seq-call(from, to)[..]` 同步调用 ·
-        `seq-ret(from, to)[..]` 返回 · `from == to` 自动渲染为自调用回环],
+      text(size: 0.85em)[#api-ref("seq-seq-call", "seq-call") `(from, to)[..]` 同步调用 ·
+        #api-ref("seq-seq-ret", "seq-ret") `(from, to)[..]` 返回 · `from == to` 自动渲染为#doc-link("seq-self-call")[自调用]回环],
       text(size: 0.85em, weight: "bold")[便签],
-      text(size: 0.85em)[`seq-note(over)[..]` 折角便签 · `seq-act(who)[..]`
-        单列工作块 · `seq-ref(over)[..]` 外部引用框],
+      text(size: 0.85em)[#api-ref("seq-seq-note", "seq-note") `(over)[..]` 折角便签 · #api-ref("seq-seq-act", "seq-act") `(who)[..]`
+        单列工作块 · #api-ref("seq-seq-ref", "seq-ref") `(over)[..]` 外部引用框],
       text(size: 0.85em, weight: "bold")[片段],
-      text(size: 0.85em)[`seq-alt` + `seq-else` · `seq-opt` · `seq-loop` ·
-        `seq-par` · 还有 `group` / `break` / `critical`（详见对应小节）],
+      text(size: 0.85em)[#doc-link("seq-fragments")[`seq-alt` + `seq-else` · `seq-opt` · `seq-loop` ·
+        `seq-par`] · 还有 `group` / `break` / `critical`（详见对应小节）],
       text(size: 0.85em, weight: "bold")[节奏],
-      text(size: 0.85em)[`seq-divider[..]` 阶段分隔 · `seq-delay[..]`
-        时间流逝 · `seq-space()` 纯空行],
+      text(size: 0.85em)[#doc-link("seq-structure")[`seq-divider[..]` 阶段分隔 · `seq-delay[..]`
+        时间流逝 · `seq-space()` 纯空行]],
       text(size: 0.85em, weight: "bold")[生命周期],
-      text(size: 0.85em)[`seq-create(who)` 内联头部 · `seq-destroy(who)`
-        × 标记并截断生命线],
+      text(size: 0.85em)[#doc-link("seq-lifecycle")[`seq-create(who)` 内联头部 · `seq-destroy(who)`
+        × 标记并截断生命线]],
       text(size: 0.85em, weight: "bold")[边界],
-      text(size: 0.85em)[消息端点用 `"["` / `"]"` 表示图左 / 右边缘，箭头
-        从外部进入或离开],
+      text(size: 0.85em)[#doc-link("seq-boundary-arrows")[消息端点用 `"["` / `"]"` 表示图左 / 右边缘，箭头
+        从外部进入或离开]],
       text(size: 0.85em, weight: "bold")[编号],
-      text(size: 0.85em)[`autonumber:` 参数（顶层）·
+      text(size: 0.85em)[#doc-link("seq-autonumber")[`autonumber:` 参数（顶层）·
         `seq-autonumber()` / `seq-autonumber-stop()` /
-        `seq-autonumber-resume()`（内嵌）],
+        `seq-autonumber-resume()`（内嵌）]],
       text(size: 0.85em, weight: "bold")[分组],
-      text(size: 0.85em)[`boxes:` 参数定义连续参与者的 swim lane 框],
+      text(size: 0.85em)[#doc-link("seq-boxes")[`boxes:` 参数定义连续参与者的 swim lane 框]],
       text(size: 0.85em, weight: "bold")[兼容层],
       text(size: 0.85em)[`seq-puml(body)` 把 PlantUML 语法直接当字符串传入,
-        参数透传给 `seq-lane`],
+        参数透传给 #api-ref("layer3-seq-lane", "seq-lane")],
     )
   ]
 ]
 
-== 快速上手
+== 快速上手 <seq-quick-start>
 
 最基础的"客户端 → 业务 → 数据库"调用：
 
@@ -89,9 +89,10 @@
 是嵌套 step。所有 step 函数的"语义参数"都通过末尾 content block 传入
 （`seq-call("a", "b")[label]`）。
 
-== 基础消息
+== 基础消息 <seq-basic-messages>
 
-=== `seq-call` / `seq-ret`
+[#metadata("seq-seq-ret") <seq-seq-ret>]
+=== `seq-call` / `seq-ret` <seq-seq-call>
 
 `seq-call` 是同步调用（实线 + 实心三角箭头）；`seq-ret` 是返回（虚线 +
 开口 V 形箭头）。两者共用 `(from, to)[label]` 形式，第三个参数（content
@@ -143,7 +144,7 @@ block）是消息上方的小字标注。
 
 #v(4pt)
 
-=== 自调用与嵌套
+=== 自调用与嵌套 <seq-self-call>
 
 当 `from == to` 时，`seq-call` 自动渲染为右侧的 U 形回环，激活区会展开
 出一段右移的子矩形（可嵌套）：
@@ -175,9 +176,9 @@ block）是消息上方的小字标注。
 之类的自调用可以只写一行 `seq-call("svc", "svc")[validate]`，无需手写
 对应的 `seq-ret`。
 
-== 便签与注解
+== 便签与注解 <seq-notes>
 
-=== `seq-note`
+=== `seq-note` <seq-seq-note>
 
 折角便签，置于一个或多个参与者上方。`over` 接受单个 id 或 `("a", "b")`
 跨列。
@@ -204,7 +205,7 @@ block）是消息上方的小字标注。
 
 #v(4pt)
 
-=== `seq-act`
+=== `seq-act` <seq-seq-act>
 
 `seq-act(who)[..]` 在单一列内画一个着色的工作块，比便签更醒目，适合表达
 "这个参与者本地做了一件事"。
@@ -212,7 +213,7 @@ block）是消息上方的小字标注。
 注意：`seq-act` 不能落在该参与者*已经被激活*的行上 —— 一个宽框压在窄
 激活竖条上视觉很乱。引擎会 panic 给提示，让你改用 `seq-note` 标注。
 
-=== `seq-ref`
+=== `seq-ref` <seq-seq-ref>
 
 UML 的"引用框"，表达"这一段交互的细节见另一张图"。矩形边框 + 左上角 `ref`
 角标，跨指定参与者：
@@ -241,7 +242,7 @@ UML 的"引用框"，表达"这一段交互的细节见另一张图"。矩形边
 
 #v(4pt)
 
-== 片段
+== 片段 <seq-fragments>
 
 UML 把"分支 / 循环 / 可选 / 并行"等结构封装为*组合片段*（combined
 fragment）—— 一个虚线框，左上角带操作子名。`seq-lane` 提供了完整集合，
@@ -336,7 +337,7 @@ fragment）—— 一个虚线框，左上角带操作子名。`seq-lane` 提供
 
 #v(4pt)
 
-== 节奏与结构
+== 节奏与结构 <seq-structure>
 
 把交互流分段、留白、表达"一段时间过去了"的工具：
 
@@ -382,7 +383,7 @@ fragment）—— 一个虚线框，左上角带操作子名。`seq-lane` 提供
 
 #v(4pt)
 
-== 生命周期
+== 生命周期 <seq-lifecycle>
 
 UML 区分*静态参与者*（图开始就在）和*动态创建*（在某次调用中诞生），
 后者还可能被显式销毁。`seq-create` 与 `seq-destroy` 各自对应：
@@ -428,7 +429,7 @@ UML 区分*静态参与者*（图开始就在）和*动态创建*（在某次调
 
 #v(4pt)
 
-== 边界箭头
+== 边界箭头 <seq-boundary-arrows>
 
 UML 用图的左右边缘表达"系统外部"。把消息的 `from` 或 `to` 设成字符串
 `"["`（左边缘）或 `"]"`（右边缘），箭头就从图边进入 / 离开，不需要
@@ -459,7 +460,7 @@ UML 用图的左右边缘表达"系统外部"。把消息的 `from` 或 `to` 设
 边界端点不参与"自动 id 收集"，也不会被画成参与者头部 / 生命线 —— 它们
 只是渲染锚点。
 
-== 自动编号
+== 自动编号 <seq-autonumber>
 
 PlantUML 的 `autonumber` 在 `seq-lane` 里有两条等价路径：
 
@@ -545,9 +546,9 @@ PlantUML 的 `autonumber` 在 `seq-lane` 里有两条等价路径：
 
 数字以粗体 `*N.*` 格式贴在原 label 前面。
 
-== 参与者
+== 参与者 <seq-participants>
 
-=== `participants` 参数
+=== `participants` 参数 <seq-participants-arg>
 
 不传时，引擎按 step id 首次出现顺序自动收集，配色循环 `palettes.categorical`。
 传入时显式锁定顺序与显示名：
@@ -569,7 +570,7 @@ PlantUML 的 `autonumber` 在 `seq-lane` 里有两条等价路径：
 *没在任何 step 中出现*的 id 会被拒绝（panic）—— 与其留个孤立的列，
 不如告诉作者删掉。
 
-=== `boxes` —— Swim lane 分组
+=== `boxes` —— Swim lane 分组 <seq-boxes>
 
 PlantUML 的 `box ... end box`：把*相邻*的若干参与者和它们的生命线一同
 框起来，作为逻辑边界（"内部服务" / "存储层"……）。

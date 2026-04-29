@@ -1,7 +1,7 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-= 流程图
+= 流程图 <flows>
 
 *blockcell* 内置一套完整的流程图工具，覆盖线性流程、条件分支、N 路分发、
 循环回流等常见结构。本章自底向上依次介绍 *节点 → 容器 → 分支 → 循环*，
@@ -21,23 +21,23 @@
       columns: (84pt, 1fr),
       row-gutter: 4pt,
       text(size: 0.85em, weight: "bold")[节点],
-      text(size: 0.85em)[`process` / `decision` / `terminal` / `junction`
-        （别名，带默认色）· `flow-node`（底层）],
+      text(size: 0.85em)[#api-ref("flows-process", "process") / #api-ref("flows-decision", "decision") / #api-ref("flows-terminal", "terminal") / #api-ref("flows-junction", "junction")
+        （别名，带默认色）· #api-ref("flows-flow-node", "flow-node")（底层）],
       text(size: 0.85em, weight: "bold")[纵向容器],
-      text(size: 0.85em)[`flow-col` 自动插入下行箭头；节点上加
+      text(size: 0.85em)[#api-ref("flows-flow-col", "flow-col") 自动插入下行箭头；节点上加
         `edge-label:` 标注进入它的那条箭头],
       text(size: 0.85em, weight: "bold")[分支],
-      text(size: 0.85em)[`branch`（不汇合）· `branch-merge`（汇合）·
-        `switch` + `case(label, body)`（N 路）],
+      text(size: 0.85em)[#api-ref("flows-branch", "branch")（不汇合）· #api-ref("flows-branch-merge", "branch-merge")（汇合）·
+        #api-ref("flows-switch", "switch") + #api-ref("flows-case", "case") `(label, body)`（N 路）],
       text(size: 0.85em, weight: "bold")[循环],
-      text(size: 0.85em)[`flow-loop` 带左侧回边],
+      text(size: 0.85em)[#api-ref("flows-flow-loop", "flow-loop") 带左侧回边],
     )
   ]
 ]
 
-== 节点
+== 节点 <flows-nodes>
 
-=== `flow-node`
+=== `flow-node` <flows-flow-node>
 
 流程图节点的底层构造函数。通过 `shape` 参数切换矩形 / 菱形 / 胶囊 / 圆形，
 或用下面的四个语义别名省去手写 `shape:` 和 `fill:`。
@@ -94,7 +94,7 @@
   的那条箭头* 的标签。不依赖下标，插入/移动节点不会错位。
 ]
 
-=== `process`
+=== `process` <flows-process>
 
 矩形执行步骤；`flow-node(shape: "rect", fill: palettes.pastel.blue)` 的别名。
 
@@ -116,7 +116,7 @@
   returns: "content",
 )
 
-=== `decision`
+=== `decision` <flows-decision>
 
 菱形条件判断；`flow-node(shape: "diamond", fill: palettes.pastel.yellow)`
 的别名。宽度自动适配文字，但建议显式传 `width:` 避免过宽。
@@ -130,7 +130,7 @@
   [#decision(width: 90pt)[Config ok?]],
 )
 
-=== `terminal`
+=== `terminal` <flows-terminal>
 
 胶囊形开始/结束标记；`flow-node(shape: "stadium", fill: palettes.pastel.green)`
 的别名。
@@ -149,7 +149,7 @@
   ],
 )
 
-=== `junction`
+=== `junction` <flows-junction>
 
 圆形跨页锚点；`flow-node(shape: "circle", fill: palettes.pastel.cyan)` 的
 别名。`size:` 控制直径。
@@ -167,9 +167,9 @@
   ],
 )
 
-== 线性容器
+== 线性容器 <flows-linear>
 
-=== `flow-col`
+=== `flow-col` <flows-flow-col>
 
 把节点竖排为一条流水线，相邻节点之间自动插入向下箭头。要给某条箭头加标签，
 给 *目标节点* 传 `edge-label:` —— 即"标注那条指向我的箭头"。这种写法
@@ -212,7 +212,7 @@
 `flow-col` 是流程图的 *纵向骨架* —— 后面介绍的 `branch` / `branch-merge` /
 `switch` / `flow-loop` 都被设计为直接塞进 `flow-col` 当作"加胖了的一节"。
 
-== 条件分支
+== 条件分支 <flows-branches>
 
 两种 if-else 形态，区别在 No 路径是否回到主干：
 
@@ -229,7 +229,7 @@
   ],
 )
 
-=== `branch`
+=== `branch` <flows-branch>
 
 Yes 分支向下继续，No 分支向右散出。两条路不汇合 —— 适合主流程 + 异常/
 快速返回这种"一出去就不回来了"的结构。
@@ -287,7 +287,7 @@ Yes 分支向下继续，No 分支向右散出。两条路不汇合 —— 适�
 
 `yes` / `no` 接受任意内容，可以嵌套 `flow-col` 或再套 `branch` 表达子流程。
 
-=== `branch-merge`
+=== `branch-merge` <flows-branch-merge>
 
 Yes / No 并列两列展开，底部通过水平汇合线汇入单一出口。两条路归一 ——
 适合都回到主流程的 if-else。
@@ -339,9 +339,9 @@ Yes / No 并列两列展开，底部通过水平汇合线汇入单一出口。�
   两列之间的水平间距。
 ]
 
-== N 路分支
+== N 路分支 <flows-switch-section>
 
-=== `switch`
+=== `switch` <flows-switch>
 
 `branch-merge` 的泛化 —— 任意数量分支从菱形分发、底部汇合。case 用
 `case(label, body)` 构造器声明（位置参数），`label` 作为从菱形下行的箭头
@@ -395,7 +395,7 @@ Yes / No 并列两列展开，底部通过水平汇合线汇入单一出口。�
 `diamond-width: 140pt`、`col-gap: 24pt`（比 `branch-merge` 更紧凑，以容纳
 更多分支）。
 
-=== `case`
+=== `case` <flows-case>
 
 `switch` 的 case 构造器。返回一个内部字典；不直接渲染，必须嵌在 `switch`
 里使用。
@@ -407,9 +407,9 @@ case([order], process[Place order])
 // 等价于 (label: [order], body: process[Place order])
 ```
 
-== 循环
+== 循环 <flows-loop>
 
-=== `flow-loop`
+=== `flow-loop` <flows-flow-loop>
 
 把一段流程包成"循环体"，左侧自动画一条回边：*body 底部中心 → 向左 → 向上 →
 向右，以向下箭头重新插入 body 顶部中心*。
@@ -467,7 +467,7 @@ case([order], process[Place order])
   导致宽度很大，回边也始终贴近主列。
 ]
 
-== 选型速查
+== 选型速查 <flows-quick-guide>
 
 #align(center)[
   #region(width: 100%)[

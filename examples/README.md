@@ -1,7 +1,8 @@
 # Examples
 
-This directory contains end-to-end `blockcell` examples organized by scenario.  
-If you're new to the project, start here: pick the example closest to your use case, compile it, and then copy the relevant patterns into your own document.
+This directory contains complete `blockcell` examples organized by use case.
+
+If you are new to the project, start here. Pick the scenario closest to the diagram you want to draw, compile that example, and then copy the parts you need into your own document.
 
 ## How to use these examples
 
@@ -11,19 +12,41 @@ Inside this repository, examples import the local package source:
 #import "../lib.typ": *
 ```
 
-If you are using the published package instead of the repository checkout, use the preview import form in your own document:
+If you are using the published package in your own document, use the preview import instead:
 
 ```typ
 #import "@preview/blockcell:0.1.0": *
 ```
 
+## Where to begin
+
+Choose the example by the kind of diagram you want to make:
+
+- **Memory layout or ownership diagram** → `rust-cells.typ`
+- **Protocol header or layered network diagram** → `network-layers.typ`
+- **Business flow or request-processing flowchart** → `http-handler-flow.typ`
+- **State machine or lifecycle diagram** → `file-io-states.typ`
+- **Hardware hierarchy or cache diagram** → `cache-hierarchy.typ`
+
+If you only want one file to study first:
+
+1. Start with `rust-cells.typ` for structural diagrams
+2. Start with `http-handler-flow.typ` for flowcharts
+3. Start with `file-io-states.typ
+` for state transitions
+
 ## Example index
 
 ### `rust-cells.typ`
 
-**Scenario:** Rust memory layout / ownership / interior mutability
+**A good fit if you want to draw:**
 
-**Demonstrates:**
+- memory layouts
+- pointer + payload structures
+- enum-like storage layouts
+- ownership / heap-reference diagrams
+
+**What this example includes:**
 
 - `schema`
 - `linked-schema`
@@ -35,20 +58,24 @@ If you are using the published package instead of the repository checkout, use t
 - `tag`
 - domain palette: `palettes.rust`
 
-**Good starting point if you want to draw:**
+**Good patterns to copy first:**
 
-- memory layouts
-- pointer + payload structures
-- enum-like storage layouts
-- ownership / heap-reference diagrams
+- `schema + region + cell` for simple structure diagrams
+- `linked-schema` for pointer-to-target layouts
+- `wrap` for highlighted outer borders
 
 ---
 
 ### `network-layers.typ`
 
-**Scenario:** protocol stack / packet header / encapsulation diagrams
+**A good fit if you want to draw:**
 
-**Demonstrates:**
+- IPv4 / TCP / UDP headers
+- layered protocol stacks
+- encapsulation diagrams
+- register-like fixed-width field layouts
+
+**What this example includes:**
 
 - `bit-row`
 - `schema`
@@ -58,20 +85,24 @@ If you are using the published package instead of the repository checkout, use t
 - `legend`
 - domain palette: `palettes.network`
 
-**Good starting point if you want to draw:**
+**Good patterns to copy first:**
 
-- IPv4 / TCP / UDP headers
-- layered protocol stacks
-- encapsulation diagrams
-- register-like fixed-width field layouts
+- `bit-row` for packet headers and bit fields
+- `legend` for field color explanations
+- `section` for grouping related protocol parts
 
 ---
 
 ### `http-handler-flow.typ`
 
-**Scenario:** request-processing flowchart / worker loop
+**A good fit if you want to draw:**
 
-**Demonstrates:**
+- backend request flows
+- decision-heavy business logic
+- retry / loop workflows
+- operational process diagrams
+
+**What this example includes:**
 
 - `flow-col`
 - `branch`
@@ -85,40 +116,48 @@ If you are using the published package instead of the repository checkout, use t
 - `legend`
 - `status:` semantic colors
 
-**Good starting point if you want to draw:**
+**Good patterns to copy first:**
 
-- backend request flows
-- decision-heavy business logic
-- retry / loop workflows
-- operational process diagrams
+- `flow-col` for straight-line flows
+- `branch` for yes/no decisions
+- `flow-loop` for retry or polling loops
 
 ---
 
 ### `file-io-states.typ`
 
-**Scenario:** simple state machine
-
-**Demonstrates:**
-
-- `state-chain`
-- `state`
-- `loop`
-- `jump`
-
-**Good starting point if you want to draw:**
+**A good fit if you want to draw:**
 
 - lifecycle diagrams
 - protocol states
 - resource state transitions
 - compact finite-state machines
 
+**What this example includes:**
+
+- `state-chain`
+- `state`
+- `loop`
+- `jump`
+
+**Good patterns to copy first:**
+
+- `state-chain` for left-to-right state flows
+- `loop` for self-transitions
+- `jump` for non-adjacent transitions
+
 ---
 
 ### `cache-hierarchy.typ`
 
-**Scenario:** computer architecture / cache hierarchy / coherence behavior
+**A good fit if you want to draw:**
 
-**Demonstrates:**
+- layered architecture
+- cache / memory hierarchy
+- MESI-style state illustrations
+- tabular hardware diagrams
+
+**What this example includes:**
 
 - `section`
 - `grid-row`
@@ -128,12 +167,11 @@ If you are using the published package instead of the repository checkout, use t
 - `cell`
 - domain palette: `palettes.cache`
 
-**Good starting point if you want to draw:**
+**Good patterns to copy first:**
 
-- layered architecture
-- cache / memory hierarchy
-- MESI-style state illustrations
-- tabular hardware diagrams
+- `grid-row` for aligned labeled rows
+- `legend` for state/color keys
+- `connector` for simple vertical relationships
 
 ## Compile an example
 
@@ -144,3 +182,17 @@ typst compile --root . examples/http-handler-flow.typ
 ```
 
 Replace the filename with any example listed above.
+
+## Suggested workflow
+
+1. Pick the closest example
+2. Compile it unchanged
+3. Delete the parts you do not need
+4. Rename labels and colors
+5. Extract repeated patterns into helpers with `.with()` or small wrapper functions
+
+## Related documentation
+
+- Project overview and quick start: `README.md`
+- Full manual: `docs/manual.typ`
+- Snapshot tests and focused fixtures: `tests/README.md`
