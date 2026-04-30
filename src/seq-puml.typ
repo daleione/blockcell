@@ -147,12 +147,46 @@
   return (id: id-m.text, name: name, fill: fill)
 }
 
+// Translate the captured head modifier string into a head kind.
+//
+// The captured chunk for the right side is `[>]{0,2}[ox]?[/\\]{0,2}` and the
+// left side mirrors it: any combination of `<`, `<<`, `o`, `x`, `\`, `/` may
+// appear next to the dash run. PlantUML treats these as orthogonal:
+//   `>>`      → thin / async open V
+//   `>` alone → filled triangle (or open V if dashed return)
+//   `o`       → open circle endpoint (replaces the head)
+//   `x`       → × marker (replaces the head; lost message)
+//   `\`       → only the upper diagonal of a V (half arrow)
+//   `/`       → only the lower diagonal
+//   nothing   → bare line (treat as default per direction)
+//
+// `is-dashed` lets a plain `>` map to "v" for return arrows so dashed `-->`
+// keeps its existing visual.
+#let _head-kind(modifier, is-dashed) = {
+  if modifier.contains("x") { return "x" }
+  if modifier.contains("o") { return "o" }
+  if modifier.contains("\\") and not modifier.contains("/") {
+    return "half-top"
+  }
+  if modifier.contains("/") and not modifier.contains("\\") {
+    return "half-bottom"
+  }
+  let arrow-count = modifier.replace(regex("[^<>]"), "").len()
+  if arrow-count >= 2 { return "v" }
+  if arrow-count == 1 {
+    if is-dashed { return "v" } else { return "filled" }
+  }
+  // No arrow character at all (e.g. `-x` had its `x` consumed by the
+  // contains check above). Fall back to default per dashing.
+  if is-dashed { return "v" } else { return "filled" }
+}
+
 // Attempt to parse a message arrow line.
-// Returns (from, to, type, label, stroke, suffix) or none.
+// Returns (from, to, type, label, stroke, suffix, head) or none.
 #let _parse-message(line) = {
   let m = line.match(regex(
     "^(\S+)\s+" +
-    "([<]?[ox]?)" +
+    "([<]{0,2}[ox]?[/\\\\]{0,2})" +
     "(-+)" +
     "(?:\\[([^\\]]+)\\])?" +
     "(-*)" +
@@ -186,6 +220,11 @@
   let msg-type = if is-dashed { "return" } else { "call" }
   let label = if label-text != none { label-text.trim() } else { "" }
 
+  // The head we render lands on `to`. When the arrow is reversed (`<-`,
+  // `<<-`, etc.), the modifiers on the left side describe that head.
+  let outgoing-modifier = if is-reversed { left-head } else { right-head }
+  let head-kind = _head-kind(outgoing-modifier, is-dashed)
+
   (
     from: actual-from,
     to: actual-to,
@@ -193,6 +232,7 @@
     label: label,
     stroke: stroke-color,
     suffix: if suffix != none { suffix } else { "" },
+    head: head-kind,
   )
 }
 
@@ -406,6 +446,9 @@
       )
       if "stroke" in s and s.stroke != none {
         base.insert("stroke", s.stroke)
+      }
+      if "head" in s and s.head != none {
+        base.insert("head", s.head)
       }
       base
     } else if s.type == "note" {
@@ -909,6 +952,12 @@
       )
       if msg.stroke != none {
         step.insert("stroke", msg.stroke)
+      }
+      // Only carry an explicit head when it differs from the type default,
+      // so unmodified `->` and `-->` arrows stay in the canonical shape.
+      let default-head = if msg.type == "return" { "v" } else { "filled" }
+      if msg.head != default-head {
+        step.insert("head", msg.head)
       }
 
       if st.frag-stack.len() > 0 {

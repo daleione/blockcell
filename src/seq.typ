@@ -81,14 +81,19 @@
 /// - `seq-opt(condition, ..steps)`   opt fragment
 /// - `seq-loop(condition, ..steps)`  loop fragment
 /// - `seq-par(condition, ..steps)`   par fragment
-#let seq-call(from, to, body, stroke: none) = {
+// head: optional override of the arrow head shape — one of
+//   "filled" (sync default), "v" (return default / async open V),
+//   "x" (lost), "o" (open circle), "half-top", "half-bottom".
+#let seq-call(from, to, body, stroke: none, head: none) = {
   let s = (type: "call", from: from, to: to, label: body)
   if stroke != none { s.insert("stroke", stroke) }
+  if head != none { s.insert("head", head) }
   s
 }
-#let seq-ret(from, to, body, stroke: none) = {
+#let seq-ret(from, to, body, stroke: none, head: none) = {
   let s = (type: "return", from: from, to: to, label: body)
   if stroke != none { s.insert("stroke", stroke) }
+  if head != none { s.insert("head", head) }
   s
 }
 #let seq-note(over, body) = (
@@ -640,11 +645,14 @@
   }
 
   // Head renderers. UML conventions:
-  //   filled triangle  ▶  — synchronous call
-  //   open V (two strokes) — return (no fill so dashed line + sharp head reads
-  //                          as "answer" rather than "request")
-  // Each returns a content sized head-size × head-size with the tip on the
-  // appropriate side, so the caller only has to position the bounding box.
+  //   filled triangle  ▶          — synchronous call
+  //   open V (two strokes)        — return / async open arrow
+  //   x (two crossed strokes)     — lost message marker
+  //   o (open circle)             — circle endpoint
+  //   half-top / half-bottom      — single-stroke half arrows
+  // Each returns a content sized head-size × head-size; the tip / endpoint
+  // sits on the side opposite `dir` so the caller can place the bounding
+  // box flush against the line endpoint.
   let head-filled(paint, dir) = if dir == "right" {
     polygon(fill: paint, stroke: none,
       (0pt, 0pt), (head-size, head-size / 2), (0pt, head-size))
@@ -671,10 +679,56 @@
              stroke: (paint: paint, thickness: metrics.stroke-normal)))
     })
   }
-  let render-head(kind, paint, dir) = if kind == "v" {
-    head-v(paint, dir)
+  // × marker for "lost message". Two diagonals through the head's center.
+  let head-x(paint, dir) = box(width: head-size, height: head-size, {
+    let s = (paint: paint, thickness: metrics.stroke-normal)
+    place(top + left,
+      line(start: (0pt, 0pt), end: (head-size, head-size), stroke: s))
+    place(top + left,
+      line(start: (0pt, head-size), end: (head-size, 0pt), stroke: s))
+  })
+  // Open circle endpoint. Sized slightly smaller than head-size so it visually
+  // matches the triangle/V head weights.
+  let head-o(paint, dir) = {
+    let d = head-size * 0.7
+    let pad = (head-size - d) / 2
+    box(width: head-size, height: head-size,
+      place(top + left, dx: pad, dy: pad,
+        circle(radius: d / 2,
+               fill: none,
+               stroke: (paint: paint, thickness: metrics.stroke-normal))))
+  }
+  // Half arrows: only the upper or lower diagonal of the V. Direction-aware
+  // so a left-pointing arrow keeps the chosen half on the same visual side.
+  let head-half-top(paint, dir) = if dir == "right" {
+    box(width: head-size, height: head-size,
+      place(top + left,
+        line(start: (0pt, 0pt), end: (head-size, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal))))
   } else {
-    head-filled(paint, dir)
+    box(width: head-size, height: head-size,
+      place(top + left,
+        line(start: (head-size, 0pt), end: (0pt, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal))))
+  }
+  let head-half-bottom(paint, dir) = if dir == "right" {
+    box(width: head-size, height: head-size,
+      place(top + left,
+        line(start: (0pt, head-size), end: (head-size, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal))))
+  } else {
+    box(width: head-size, height: head-size,
+      place(top + left,
+        line(start: (head-size, head-size), end: (0pt, head-size / 2),
+             stroke: (paint: paint, thickness: metrics.stroke-normal))))
+  }
+  let render-head(kind, paint, dir) = {
+    if kind == "v" { head-v(paint, dir) }
+    else if kind == "x" { head-x(paint, dir) }
+    else if kind == "o" { head-o(paint, dir) }
+    else if kind == "half-top" { head-half-top(paint, dir) }
+    else if kind == "half-bottom" { head-half-bottom(paint, dir) }
+    else { head-filled(paint, dir) }
   }
 
   // The colspan cell covers `span` columns plus (span-1) gutters. We want
@@ -1020,7 +1074,8 @@
       }
     } else if step.type == "call" or step.type == "return" {
       let style = if step.type == "return" { "dashed" } else { "solid" }
-      let head = if step.type == "return" { "v" } else { "filled" }
+      let default-head = if step.type == "return" { "v" } else { "filled" }
+      let head = step.at("head", default: default-head)
       let raw-label = step.at("label", default: none)
       let num = step-numbers.at(step-idx, default: none)
       let label = if num != none {
@@ -1081,12 +1136,12 @@
               line(length: hi-x - lo-x, stroke: line-stroke))
             // Arrowhead at the "to" end.
             let to-x = if from-edge { real-edge-x } else { edge-x }
-            let head-x = if direction == "right" {
+            let head-anchor-x = if direction == "right" {
               to-x - head-size
             } else {
               to-x
             }
-            place(horizon + left, dx: head-x,
+            place(horizon + left, dx: head-anchor-x,
               render-head(head, stroke-paint, direction))
           }))))
         continue

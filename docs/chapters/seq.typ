@@ -144,6 +144,32 @@ block）是消息上方的小字标注。
 
 #v(4pt)
 
+`head:` 用来覆盖默认箭头形状。可选值：`"filled"`（同步调用默认）、
+`"v"`（返回默认 / `->>` 异步开口箭头）、`"x"`（×，丢失消息）、
+`"o"`（开口圆，如缓存命中或回调注册）、`"half-top"` / `"half-bottom"`
+（单边斜线，PUML 的 `\` / `/` 半箭头）。`seq-puml` 会自动根据 PUML
+箭头修饰符填上正确的 `head:`。
+
+#wide-example(
+  ```typ
+  #seq-lane(
+    seq-call("a", "b", head: "v")[async],
+    seq-call("a", "b", head: "x")[lost],
+    seq-call("a", "b", head: "o")[circle],
+  )
+  ```,
+  [
+    #seq-lane(
+      width: 100%,
+      seq-call("a", "b", head: "v")[async],
+      seq-call("a", "b", head: "x")[lost],
+      seq-call("a", "b", head: "o")[circle],
+    )
+  ],
+)
+
+#v(4pt)
+
 === 自调用与嵌套 <seq-self-call>
 
 当 `from == to` 时，`seq-call` 自动渲染为右侧的 U 形回环，激活区会展开
