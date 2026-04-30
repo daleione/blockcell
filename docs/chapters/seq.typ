@@ -91,7 +91,7 @@
 
 == 基础消息 <seq-basic-messages>
 
-[#metadata("seq-seq-ret") <seq-seq-ret>]
+#metadata("seq-seq-ret") <seq-seq-ret>
 === `seq-call` / `seq-ret` <seq-seq-call>
 
 `seq-call` 是同步调用（实线 + 实心三角箭头）；`seq-ret` 是返回（虚线 +

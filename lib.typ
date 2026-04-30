@@ -20,6 +20,9 @@
 //   flow-node    Flowchart node (rect / diamond / stadium / circle)
 //                + semantic aliases process / decision / terminal / junction
 //                (each ships with a conventional default fill)
+//   pill         Small filled accent pill (type tags, role markers, keywords);
+//                the filled counterpart to `badge` (which is outlined + status)
+//   field-cell   Four-corner annotated tile — body / badge / desc / chip
 //
 // Layer 2 — Containers (grouping and structure):
 //   region       Bordered container grouping cells into a unit
@@ -66,7 +69,7 @@
 //
 // ============================================================================
 
-#import "src/atoms.typ": cell, tag, note, label, badge, sub-label, span-label, wrap, brace, edge, flow-node, process, decision, terminal, junction
+#import "src/atoms.typ": cell, tag, note, label, badge, pill, sub-label, span-label, wrap, brace, edge, flow-node, process, decision, terminal, junction, field-cell
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
 #import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop

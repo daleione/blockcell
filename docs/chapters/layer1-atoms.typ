@@ -1,7 +1,7 @@
 #import "../../lib.typ": *
 #import "../style.typ": *
 
-[#metadata("layer1") <layer1>]
+#metadata("layer1") <layer1>
 
 == Layer 1 — 原子
 
@@ -15,6 +15,8 @@
 - #api-ref("layer1-edge", "edge")：简单连接
 - #api-ref("layer1-brace", "brace")：范围标注
 - #api-ref("layer1-flow-node", "flow-node")：流程图节点基础形状
+- #api-ref("layer1-pill", "pill")：填色小标签（类型 tag / 角色标记），与 #api-ref("layer1-badge", "badge")（描边 + 状态语义）互补
+- #api-ref("layer1-field-cell", "field-cell")：四角注解卡片，用于字段 / 类型条目文档
 
 如果你是第一次使用，建议先掌握：
 
@@ -23,7 +25,7 @@
 3. #api-ref("layer1-sub-label", "sub-label")
 4. #api-ref("layer1-edge", "edge")
 
-[#metadata("layer1-cell") <layer1-cell>]
+#metadata("layer1-cell") <layer1-cell>
 === `cell`
 
 最基础的方块。大多数结构图都从 `cell` 开始。
@@ -171,7 +173,7 @@
 - 和 `schema` 一起组成完整图块
 - 和 `wrap` 一起做强调边框
 
-[#metadata("layer1-tag") <layer1-tag>]
+#metadata("layer1-tag") <layer1-tag>
 === `tag`
 
 用于标签、判别字段或小型标记块。
@@ -216,7 +218,7 @@
 - 你在画枚举、判别字段、分类标记
 - 你希望它和普通 `cell` 在视觉上有所区分
 
-[#metadata("layer1-note") <layer1-note>]
+#metadata("layer1-note") <layer1-note>
 === `note`
 
 用于简短的内联说明。
@@ -257,7 +259,7 @@
 - 说明应该跟在图元旁边，而不是单独占一块
 - 你不想让说明抢走视觉重点
 
-[#metadata("layer1-label") <layer1-label>]
+#metadata("layer1-label") <layer1-label>
 === `label`
 
 用于较弱的结构说明文字。
@@ -300,7 +302,7 @@
 - 你想给图加位置、层次或语义提示
 - 你不希望说明像 `badge` 那样有强烈视觉强调
 
-[#metadata("layer1-badge") <layer1-badge>]
+#metadata("layer1-badge") <layer1-badge>
 === `badge`
 
 紧凑的状态标记。
@@ -379,7 +381,7 @@
 - 你想让颜色直接表达语义
 - 你不想用完整 `cell` 去表示一个很小的状态块
 
-[#metadata("layer1-sub-label") <layer1-sub-label>]
+#metadata("layer1-sub-label") <layer1-sub-label>
 === `sub-label`
 
 用于字段名后面的短小注释。
@@ -422,7 +424,7 @@
 - 你不想额外占一行或单独放说明块
 - 你在画协议字段、内存字段、寄存器字段
 
-[#metadata("layer1-span-label") <layer1-span-label>]
+#metadata("layer1-span-label") <layer1-span-label>
 === `span-label`
 
 用于给一段横向范围加说明。
@@ -475,7 +477,7 @@
 - 你需要表达“这一段属于同一个概念”
 - 你在画数组容量、保留区、字段范围
 
-[#metadata("layer1-wrap") <layer1-wrap>]
+#metadata("layer1-wrap") <layer1-wrap>
 === `wrap`
 
 给内容再加一层外边框。
@@ -533,7 +535,7 @@
 - 你需要双层边框效果
 - 你想在不改内部内容的情况下增加一层视觉语义
 
-[#metadata("layer1-edge") <layer1-edge>]
+#metadata("layer1-edge") <layer1-edge>
 === `edge`
 
 用于简单的方向连接。
@@ -617,7 +619,7 @@
 - 需要复杂二维路由
 - 需要自由布局的连接网络
 
-[#metadata("layer1-flow-node") <layer1-flow-node>]
+#metadata("layer1-flow-node") <layer1-flow-node>
 === `flow-node`
 
 流程图节点的基础形状。
@@ -695,7 +697,182 @@
 - 开始 / 结束：`terminal`
 - 小型连接点：`junction`
 
-[#metadata("layer1-brace") <layer1-brace>]
+#metadata("layer1-field-cell") <layer1-field-cell>
+=== `field-cell`
+
+用来描述一个"字段 / 属性 / 类型条目"——在四个角分别承载 *主名*、*角标*、*描述*、*元信息 chip*。
+最常见的用途是数据库 schema、API 字段表、类型/配置文档。
+
+布局：
+
+```text
+┌───────────────────────────────┐
+│ body                  [badge] │  body  · 左上主名
+│ desc                  [chip]  │  badge · 右上小角标（如 ★ / ! / ?）
+└───────────────────────────────┘  desc  · 左下描述
+                                   chip  · 右下元信息（常用 #raw("pill"))
+```
+
+四个槽位都可省略，没填的不会留出空行。
+
+#section-label[最基本的写法]
+
+#example-pair(
+  ```typst
+  #let blue = palettes.categorical.at(0)
+
+  #field-cell(raw("user_id"),
+    desc:  [用户 ID — 内部账户标识],
+    chip:  pill("string", accent: blue),
+    accent: blue,
+  )
+  ```
+,
+  [
+    #let blue = palettes.categorical.at(0)
+    #field-cell(raw("user_id"),
+      desc:  [用户 ID — 内部账户标识],
+      chip:  pill("string", accent: blue),
+      accent: blue,
+    )
+  ],
+)
+
+#section-label[加角标 + 强调边]
+
+把字段挂到外部参考时，加一个 `★` 角标并让 `emphasized: true` 把边框加粗：
+
+#example-pair(
+  ```typst
+  #let orange = palettes.categorical.at(5)
+
+  #field-cell(raw("product_type"),
+    desc:  [商品类型],
+    badge: text(fill: orange.darken(35%), weight: "bold")[★],
+    chip:  pill("ProductType", accent: orange),
+    accent: orange,
+    emphasized: true,
+  )
+  ```
+,
+  [
+    #let orange = palettes.categorical.at(5)
+    #field-cell(raw("product_type"),
+      desc:  [商品类型],
+      badge: text(fill: orange.darken(35%), weight: "bold")[★],
+      chip:  pill("ProductType", accent: orange),
+      accent: orange,
+      emphasized: true,
+    )
+  ],
+)
+
+#section-label[常用参数]
+
+#params-box("field-cell",
+  ("body",       ("content",)),
+  ("desc",       ("none", "content")),
+  ("badge",      ("none", "content")),
+  ("chip",       ("none", "content")),
+  ("accent",     ("color",)),
+  ("emphasized", ("bool",)),
+  ("fill",       ("auto", "color")),
+  ("stroke",     ("auto", "stroke")),
+  ("body-fill",  ("auto", "color")),
+  ("desc-size",  ("length", "ratio")),
+  ("radius",     ("length",)),
+  ("inset",      ("length", "dictionary")),
+  ("width",      ("auto", "length", "ratio")),
+  ("height",     ("auto", "length", "ratio")),
+  ("gutter",     ("length",)),
+  returns: "content",
+)
+
+#param-detail("accent", ("color",),
+  default: raw("palettes.base.border-soft", lang: none))[
+  主题色，用来推导 fill (`accent.lighten(78%)`)、stroke
+  (`0.5pt + accent.darken(8%)`) 与正文颜色 (`accent.darken(45%)`)。
+  传入 `fill:` / `stroke:` / `body-fill:` 可单独覆盖任一推导项。
+]
+
+#param-detail("emphasized", ("bool",),
+  default: raw("false", lang: none))[
+  开启后边框变重 (`0.9pt + accent.darken(25%)`)。适合"该字段链到别处"
+  这类需要视觉强调的卡片。
+]
+
+#section-label[适合在这些情况下用]
+
+- 数据库 collection / 表结构图
+- API 字段、类型成员、配置项一览
+- 任何"主名 + 元信息 + 描述"的卡片矩阵
+
+#metadata("layer1-pill") <layer1-pill>
+=== `pill`
+
+填色风格的小标签——`badge` 的另一种形态。
+
+- *用 `pill`*：表达"类型 tag / 角色标记 / 内联关键字"，颜色由单一 `accent` 派生
+- *用 `badge`*：表达"语义状态"（success / warning / danger / info / neutral），描边 + 浅底深字
+
+视觉差异：
+
+- `pill`：深色填充 + 白色文字 + 无描边，看起来像 *标签*
+- `badge`：浅色填充 + 深色文字 + 有描边，看起来像 *状态指示器*
+
+两者最常见的搭档是 `field-cell`：把语义指示（状态）用 `badge` 放进 `chip:` 槽，
+把类型/分类标记（无状态语义）用 `pill` 放进 `chip:` 槽。
+
+默认 `size: 0.78em`，比正文小一号以呈现"次要元信息"的视觉层级。
+
+#section-label[单独使用]
+
+#example-pair(
+  ```typst
+  #pill("string")
+  #pill("uint64", accent: rgb("#3b82f6"))
+  ```
+,
+  [
+    #pill("string")
+    #h(4pt)
+    #pill("uint64", accent: rgb("#3b82f6"))
+  ],
+)
+
+#section-label[搭配 `field-cell` 使用（典型用法）]
+
+#example-pair(
+  ```typst
+  #let blue = palettes.categorical.at(0)
+
+  #field-cell(raw("price"),
+    desc:  [价格 × 1000],
+    chip:  pill("int", accent: blue),
+    accent: blue,
+  )
+  ```
+,
+  [
+    #let blue = palettes.categorical.at(0)
+    #field-cell(raw("price"),
+      desc:  [价格 × 1000],
+      chip:  pill("int", accent: blue),
+      accent: blue,
+    )
+  ],
+)
+
+#section-label[常用参数]
+
+#params-box("pill",
+  ("body",   ("content",)),
+  ("accent", ("color",)),
+  ("size",   ("length", "ratio")),
+  returns: "content",
+)
+
+#metadata("layer1-brace") <layer1-brace>
 === `brace`
 
 用于给一段内容加花括号范围标注。

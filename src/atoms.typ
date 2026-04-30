@@ -9,6 +9,8 @@
 // badge      - A compact status indicator (e.g., STALLED, ERROR)
 // sub-label  - Subscript-style size annotation (e.g., 2/4/8)
 // span-label - A horizontal extent label (e.g., ← capacity →)
+// pill       - Small filled accent pill (type tags, role markers, inline keywords)
+// field-cell - Four-corner annotated card (name / badge / desc / chip)
 // ============================================================================
 
 #import "palettes.typ": palettes
@@ -506,4 +508,196 @@
       ..cells,
     ))
   }
+}
+
+/// A small filled accent pill — the "filled" counterpart to `badge`.
+///
+/// Use `pill` for *type tags, role markers, and inline keywords* — anywhere
+/// you want a compact label tinted by a single accent color. Use `badge`
+/// when the label conveys *semantic status* (success / warning / danger /
+/// info / neutral) and you want the outlined, light-fill aesthetic.
+///
+/// Visual difference at a glance:
+///   - `pill`  — dark accent fill, white bold text, no stroke. Reads as a tag.
+///   - `badge` — light fill, colored bold text, colored stroke. Reads as a
+///               status indicator.
+///
+/// ```typst
+/// // standalone — type tags
+/// #pill("string")
+/// #pill("uint64", accent: rgb("#3b82f6"))
+///
+/// // dropped into a `field-cell`'s `chip:` slot — its primary use site
+/// #field-cell(raw("price"),
+///   desc: [价格 × 1000],
+///   chip: pill("int", accent: blue),
+///   accent: blue,
+/// )
+/// ```
+///
+/// - `body`: pill content (typically a short string).
+/// - `accent`: drives the pill's fill (`accent.darken(20%)`); white text.
+/// - `size`: text size relative to surrounding text. Defaults to `0.78em`
+///   so the pill reads as subordinate metadata next to body text. Match
+///   the surrounding text size by passing `size: 1em`.
+#let pill(body, accent: palettes.base.border-soft, size: 0.78em) = box(
+  fill: accent.darken(20%),
+  inset: (x: 4pt, y: 0pt),
+  outset: (y: 2pt),
+  radius: 2pt,
+  text(size: size, fill: white, weight: "bold")[#body],
+)
+
+/// A four-corner annotated cell for documenting fields, properties, or any
+/// `name + meta` tile. Slots:
+///
+/// ```text
+///   ┌────────────────────────────────┐
+///   │ body                  [badge]  │  body  · top-left main label
+///   │ desc                  [chip]   │  badge · top-right marker (e.g. ★)
+///   └────────────────────────────────┘  desc   · bottom-left description
+///                                       chip   · bottom-right meta pill
+/// ```
+///
+/// All four corner slots except `body` are optional; missing ones leave
+/// their cell empty so neighbours stay aligned.
+///
+/// ```typst
+/// #field-cell(raw("user_id"),
+///   desc: [用户ID],
+///   chip: pill("string", accent: blue),
+///   accent: blue,
+/// )
+///
+/// // Mark the field as referencing an enum table elsewhere:
+/// #field-cell(raw("product_type"),
+///   desc:  [商品类型],
+///   badge: text(fill: orange.darken(35%), weight: "bold")[★],
+///   chip:  pill("ProductType", accent: orange),
+///   accent: orange,
+///   emphasized: true,
+/// )
+/// ```
+///
+/// Tile colors all derive from `accent`:
+///   - card fill   = `accent.lighten(78%)`
+///   - card stroke = `0.5pt + accent.darken(8%)` (or `0.9pt + accent.darken(25%)`
+///                   when `emphasized: true` — useful for "this field links to
+///                   another panel")
+///   - body text   = `accent.darken(45%)` (bold)
+///
+/// All of these are overridable: pass `fill:`, `stroke:`, `body-fill:` to
+/// bypass any single derivation.
+///
+/// - `body`: top-left main content. Required. Sized at the surrounding
+///   text size; bold + colored from `accent`. Wrap in `raw(...)` for mono.
+/// - `desc`: bottom-left description / subtitle. Auto-styled at `desc-size`
+///   in the muted text color. Pass `desc-size: 1em` (or wrap your content
+///   in `text(...)`) to opt out of the size shrink.
+/// - `badge`: top-right small marker. Passed through verbatim.
+/// - `chip`: bottom-right meta content. Passed through verbatim — typically
+///   a `pill(...)` for type / kind metadata, or `badge(...)` for status.
+/// - `accent`: theme color the defaults derive from.
+/// - `emphasized`: bumps the stroke weight + saturation to call out the
+///   tile (e.g. for fields that link elsewhere).
+/// - `fill`, `stroke`, `body-fill`: per-property overrides for the
+///   accent-derived colors.
+/// - `desc-size`: font size for the auto-styled description slot.
+/// - `radius`, `inset`, `width`: standard block geometry.
+/// - `height`: `auto` (default) → *compact mode*: card sizes to content.
+///   Any explicit length (e.g. `100%`, `50pt`) → *stretched mode*: the
+///   inner layout switches to a `(auto, 1fr, auto)` grid that pins
+///   body+badge to the top corners and desc+chip to the bottom corners.
+///   Use `height: 100%` when dropping the card into a grid cell whose row
+///   height is pinned, so adjacent cards (one with a wrapping desc, one
+///   without) align exactly.
+/// - `gutter`: in compact mode, the literal vertical gap between the body
+///   and desc rows. In stretched mode, the *minimum* gap (the spacer can
+///   grow past it to absorb slack while keeping the corners anchored).
+#let field-cell(
+  body,
+  desc: none,
+  badge: none,
+  chip: none,
+  accent: palettes.base.border-soft,
+  emphasized: false,
+  fill: auto,
+  stroke: auto,
+  body-fill: auto,
+  desc-size: 0.85em,
+  radius: 3pt,
+  inset: (x: 6pt, y: 4pt),
+  width: 100%,
+  height: auto,
+  gutter: 5pt,
+) = {
+  let resolved-fill = if fill == auto { accent.lighten(78%) } else { fill }
+  let resolved-stroke = if stroke == auto {
+    if emphasized { 0.9pt + accent.darken(25%) }
+    else { 0.5pt + accent.darken(8%) }
+  } else { stroke }
+  let resolved-body-fill = if body-fill == auto {
+    accent.darken(45%)
+  } else { body-fill }
+
+  // One anchored grid cell. Optional slots fall back to an empty cell so
+  // the column layout stays aligned even when a slot is absent.
+  let slot(align: top + left, content) = grid.cell(
+    align: align,
+    if content != none { content } else { [] },
+  )
+
+  let desc-content = if desc != none {
+    text(size: desc-size, fill: palettes.base.text-muted, desc)
+  }
+
+  // Two layout modes:
+  //   - `height: auto` (the default) — compact: 2 rows separated by a real
+  //     row-gutter. Sizes to content; safe to drop into any container.
+  //   - explicit height (e.g. `100%` to fill a parent grid cell whose row
+  //     is pinned) — stretched: 3 rows with a `1fr` middle that absorbs
+  //     slack so body+badge stick to the top corners and desc+chip stick
+  //     to the bottom corners.
+  //
+  // The mode switch matters because Typst's `1fr` rows greedily expand to
+  // fill any vertical space the parent context provides — including the
+  // unbounded space granted by `align(horizon, ...)` in surrounding layout
+  // wrappers. Using `1fr` only when the caller explicitly opted into
+  // stretching avoids accidentally page-tall cards.
+  let stretched = height != auto
+  let inner = if stretched {
+    grid(
+      columns: (1fr, auto),
+      rows: (auto, 1fr, auto),
+      column-gutter: 4pt,
+      slot(align: top + left,
+        text(weight: "bold", fill: resolved-body-fill, body)),
+      slot(align: top + right, badge),
+      grid.cell(colspan: 2, v(gutter)),
+      slot(align: bottom + left, desc-content),
+      slot(align: bottom + right, chip),
+    )
+  } else {
+    grid(
+      columns: (1fr, auto),
+      rows: (auto, auto),
+      column-gutter: 4pt,
+      row-gutter: gutter,
+      slot(align: top + left,
+        text(weight: "bold", fill: resolved-body-fill, body)),
+      slot(align: top + right, badge),
+      slot(align: bottom + left, desc-content),
+      slot(align: bottom + right, chip),
+    )
+  }
+
+  block(
+    width: width,
+    height: height,
+    fill: resolved-fill,
+    stroke: resolved-stroke,
+    radius: radius,
+    inset: inset,
+    inner,
+  )
 }
