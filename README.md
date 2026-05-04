@@ -76,7 +76,7 @@ Specialized chapters: `flow-col` / `branch` / `switch` / `flow-loop` for flowcha
 
 ## Documentation & examples
 
-- Full manual: [`docs/manual.typ`](docs/manual.typ) (compile with `typst compile --root . docs/manual.typ`)
+- Full manual: [`docs/manual.typ`](docs/manual.typ) (中文) / [`docs/manual-en.typ`](docs/manual-en.typ) (English) — compile with `typst compile --root . docs/manual.typ` (or `manual-en.typ`)
 - Scenario examples: [`examples/README.md`](examples/README.md)
 - Snapshot tests: [`tests/README.md`](tests/README.md)
 
