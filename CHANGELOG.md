@@ -10,6 +10,7 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 - **PlantUML compatibility layer (`seq-puml`)**: parses PlantUML sequence syntax and dispatches to `seq-lane`. Covers participants, aliases, all listed fragments, notes, dividers, delays, spacers, refs, boundary arrows, autonumber, `create` / `destroy`, and the full set of arrow modifiers.
 - **State diagrams (`state-chain`)**: `state`, `loop`, `jump`, `bi-jump`, and a 2D mode for non-linear topologies.
 - **Tree diagrams (`tree` / `node`)**: hierarchical layout with elbow connectors and atom interop.
+- **Records (`record` / `record-graph`)**: bordered key-value blocks with internal row / column separators, plus a 2D layout that links records via dashed reference arrows (filled origin dot + filled triangle head). Auto column-by-depth placement with sibling stacking — useful for object diagrams, JSON visualizations, ER-style links, and box-and-pointer / heap diagrams.
 - **Flow diagrams (`flow-col`)**: dedicated chapter with `process`, `decision`, `terminal`, `junction`, `branch`, `branch-merge`, `switch`, `flow-loop`.
 - **New composites**: `tier`, `match-row`, `cell` `subtitle:` support for architecture diagrams; `group` container; `stack` helper.
 - **Status badges**: shortcuts for semantic colors via `palettes.status`.

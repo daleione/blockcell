@@ -59,6 +59,12 @@
 //   tree           Recursive top-down hierarchy (BST, heap, trie, directory,
 //                  JSON); nodes built with `node(...)`, subtrees by nesting
 //                  `tree(...)` calls as children
+//   record         Bordered key-value block — two-column rows (bold key |
+//                  value) with internal separators; standalone for struct /
+//                  register / DB-row layouts, or as a node in `record-graph`
+//   record-graph   2D layout of `record`s linked by dashed reference arrows;
+//                  for object diagrams, JSON visualizations, ER-style links,
+//                  box-and-pointer / heap diagrams
 //
 // Palettes (curated color sets):
 //   palettes.status       Semantic states (success/warning/danger/info/neutral)
@@ -77,4 +83,5 @@
 #import "src/seq-puml.typ": seq-puml
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/tree.typ": tree, node
+#import "src/records.typ": record, record-graph
 #import "src/palettes.typ": palettes
