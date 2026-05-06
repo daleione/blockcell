@@ -251,9 +251,9 @@
   x-gap: 2.4em,
   y-gap: 0.6em,
   arrow-color: black,
-  arrow-thickness: 0.8pt,
+  arrow-thickness: 1pt,
   arrow-head: 6pt,
-  arrow-dot: 2.8pt,
+  arrow-dot: 3pt,
 ) = context {
   let x-gap = x-gap.to-absolute()
   let y-gap = y-gap.to-absolute()
@@ -361,6 +361,190 @@
       let c-meta = metas.at(i)
       let end = (c-pos.x, c-pos.y + c-meta.height / 2)
       _draw-arrow-line(start, end, arrow-color, arrow-thickness, arrow-head)
+    }
+  })
+
+  if title != none {
+    align(center)[#strong(title)]
+    v(0.5em, weak: true)
+  }
+  body
+}
+
+// ---------------------------------------------------------------------------
+// record-layout
+// ---------------------------------------------------------------------------
+//
+// Painter for diagrams whose layout was computed externally — currently used
+// by TypstUML's JSON / YAML codegen, which runs a Sugiyama-style layout
+// pipeline (Brandes-Kopf x-coords, mincross, edge straighten) on the Rust
+// side and emits absolute record positions plus per-edge cubic bezier
+// control points. This function does no layout work; it just paints what
+// it's given.
+//
+// The companion `record-graph` above stays for callers that want to hand
+// over a topology and let blockcell place things.
+
+// Draw a single cubic Bezier from `start` to `end` with control points
+// `c1` and `c2`. Arrowhead is a filled triangle whose tip sits at `end`,
+// oriented along the tangent at the end (= end - c2).
+#let _draw-bezier-edge(
+  start, c1, c2, end,
+  color, thickness, dashed, head-size,
+) = {
+  // Body of the curve.
+  place(top + left, curve(
+    curve.move(start),
+    curve.cubic(c1, c2, end),
+    stroke: (
+      paint: color,
+      thickness: thickness,
+      dash: if dashed { "dashed" } else { none },
+    ),
+  ))
+
+  // Arrowhead at `end`. Tangent direction = end - c2.
+  let tx = (end.at(0) - c2.at(0)).to-absolute()
+  let ty = (end.at(1) - c2.at(1)).to-absolute()
+  let txn = tx / 1pt
+  let tyn = ty / 1pt
+  let lenn = calc.sqrt(txn * txn + tyn * tyn)
+  if lenn == 0 { return }
+  let len = lenn * 1pt
+  let ux = tx / len
+  let uy = ty / len
+  let px = -uy
+  let py = ux
+  let bx = end.at(0) - ux * head-size
+  let by = end.at(1) - uy * head-size
+  let half = head-size * 0.4
+  place(top + left, polygon(
+    fill: color, stroke: none,
+    end,
+    (bx + px * half, by + py * half),
+    (bx - px * half, by - py * half),
+  ))
+}
+
+/// Painter for record-graph diagrams whose record positions and edge
+/// bezier paths are already computed (e.g. by TypstUML's record-graph
+/// codegen). Companion to `record-graph`, which does its own layout.
+///
+/// ```typst
+/// #record-layout(
+///   title: [Order],
+///   records: (
+///     (x: 0pt, y: 100pt, rows: ((key: [id], value: [42]),)),
+///     (x: 200pt, y: 0pt, rows: ((key: [sku], value: [A]),)),
+///   ),
+///   edges: (
+///     (from: 0, from-row: 0, to: 1, c1: (140pt, 110pt), c2: (160pt, 30pt)),
+///   ),
+/// )
+/// ```
+///
+/// - `title`: bold title above the diagram.
+/// - `records`: array of `(x, y, rows)`. `(x, y)` is the top-left of the
+///   record's bounding box; `rows` is the same shape as `record(...)`'s
+///   `rows` parameter.
+/// - `edges`: array of `(from, from-row, to, c1, c2)`. `from` / `to` are
+///   indices into `records`; `from-row` is the source row index. The
+///   curve's start is snapped to the row's right-edge dot anchor in the
+///   parent's actual rendered geometry, the end to the child's left-edge
+///   center — `c1` / `c2` give the curve its overall shape.
+/// - `fill` / `stroke` / `inner-stroke` / `radius` / `inset`: forwarded
+///   to each underlying `record(...)`.
+/// - `arrow-color` / `arrow-thickness` / `arrow-head` / `arrow-dot`:
+///   styling knobs for edges.
+#let record-layout(
+  title: none,
+  records: (),
+  edges: (),
+  fill: rgb("#F1F1F1"),
+  stroke: 1.5pt + black,
+  inner-stroke: 0.6pt + black,
+  radius: 5pt,
+  inset: (x: 0.5em, y: 0.25em),
+  arrow-color: black,
+  arrow-thickness: 1pt,
+  arrow-head: 6pt,
+  arrow-dot: 3pt,
+) = context {
+  let arrow-head = arrow-head.to-absolute()
+  let arrow-dot = arrow-dot.to-absolute()
+  let pad-x = inset.at("x").to-absolute()
+
+  // Lay out each record up front: gives us its actual rendered width,
+  // height, and per-row vertical centers — used to snap edge endpoints
+  // to the real record geometry (layout-rs's char-width estimate
+  // diverges from Typst's text shaping).
+  let metas = records.map(r =>
+    _layout-record(
+      r.rows, fill, stroke, inner-stroke, radius, inset,
+      value-min: 4 * arrow-dot,
+    )
+  )
+
+  // Resolve an edge's start point: just inside the right edge of the
+  // source row's value cell, at that row's vertical center — same place
+  // a dot would sit.
+  let resolve-start(edge) = {
+    let r = records.at(edge.from)
+    let m = metas.at(edge.from)
+    let y = r.y + m.row-centers.at(edge.from-row)
+    let x = r.x + m.width - pad-x - arrow-dot
+    (x, y)
+  }
+
+  // Resolve an edge's end point: left edge of the target record at its
+  // vertical center.
+  let resolve-end(edge) = {
+    let r = records.at(edge.to)
+    let m = metas.at(edge.to)
+    (r.x, r.y + m.height / 2)
+  }
+
+  // Canvas size = farthest right / bottom across records and bezier
+  // control points (which may extend beyond their endpoints).
+  let canvas-w = 0pt
+  let canvas-h = 0pt
+  for i in range(records.len()) {
+    let r = records.at(i)
+    let m = metas.at(i)
+    canvas-w = calc.max(canvas-w, r.x + m.width)
+    canvas-h = calc.max(canvas-h, r.y + m.height)
+  }
+  for e in edges {
+    let s = resolve-start(e)
+    let t = resolve-end(e)
+    for p in (s, t, e.c1, e.c2) {
+      canvas-w = calc.max(canvas-w, p.at(0))
+      canvas-h = calc.max(canvas-h, p.at(1))
+    }
+  }
+
+  let body = block(width: canvas-w, height: canvas-h, breakable: false, {
+    // Records first, then dots (one per unique source row), then bezier
+    // edges with arrowheads.
+    for i in range(records.len()) {
+      let r = records.at(i)
+      place(top + left, dx: r.x, dy: r.y, metas.at(i).content)
+    }
+    // Dedupe dots per (record, row) — multiple edges out of the same
+    // row should share one origin marker, matching PlantUML.
+    let seen = ()
+    for e in edges {
+      let key = (e.from, e.from-row)
+      if seen.find(s => s.at(0) == key.at(0) and s.at(1) == key.at(1)) == none {
+        seen.push(key)
+        _draw-arrow-dot(resolve-start(e), arrow-color, arrow-dot)
+      }
+    }
+    for e in edges {
+      _draw-bezier-edge(
+        resolve-start(e), e.c1, e.c2, resolve-end(e),
+        arrow-color, arrow-thickness, true, arrow-head,
+      )
     }
   })
 

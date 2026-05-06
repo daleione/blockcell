@@ -83,5 +83,5 @@
 #import "src/seq-puml.typ": seq-puml
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/tree.typ": tree, node
-#import "src/records.typ": record, record-graph
+#import "src/records.typ": record, record-graph, record-layout
 #import "src/palettes.typ": palettes
