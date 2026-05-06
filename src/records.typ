@@ -31,6 +31,7 @@
   inner-stroke,
   radius,
   inset,
+  value-min: 0pt,
 ) = {
   let pad-x = inset.at("x").to-absolute()
   let pad-y = inset.at("y").to-absolute()
@@ -49,7 +50,14 @@
   let val-ms = val-bodies.map(measure)
 
   let col-key-w = key-ms.fold(0pt, (a, m) => calc.max(a, m.width)) + 2 * pad-x
-  let col-val-w = val-ms.fold(0pt, (a, m) => calc.max(a, m.width)) + 2 * pad-x
+  // `value-min` ensures the value column is at least wide enough to hold a
+  // marker (e.g. record-graph's outgoing-reference dot) when no row has
+  // wider scalar content; otherwise an all-compound record would collapse
+  // the column and the dot would land on the column separator.
+  let col-val-w = calc.max(
+    val-ms.fold(0pt, (a, m) => calc.max(a, m.width)),
+    value-min,
+  ) + 2 * pad-x
   let row-hs = range(n).map(i =>
     calc.max(key-ms.at(i).height, val-ms.at(i).height) + 2 * pad-y
   )
@@ -151,10 +159,20 @@
   (nodes, cursor)
 }
 
-// Draw a dashed reference arrow from `start` to `end` with a filled origin
-// dot and a filled triangle arrowhead. Coordinates are in the enclosing
-// block's local frame (top-left origin, y growing downward).
-#let _draw-arrow(start, end, color, thickness, dot-radius, head-size) = {
+// Draw a filled origin dot at `at` (a `(x, y)` tuple).
+#let _draw-arrow-dot(at, color, radius) = {
+  let cx = at.at(0)
+  let cy = at.at(1)
+  place(top + left, dx: cx - radius, dy: cy - radius,
+    box(width: 2 * radius, height: 2 * radius,
+      fill: color, stroke: none, radius: 50%))
+}
+
+// Draw a dashed reference line from `start` to `end` with a filled triangle
+// arrowhead at `end`. The origin dot is drawn separately by `_draw-arrow-dot`
+// so a row with multiple outgoing arrows shows just one dot, matching
+// PlantUML's record-graph z-order.
+#let _draw-arrow-line(start, end, color, thickness, head-size) = {
   let sx = start.at(0)
   let sy = start.at(1)
   let ex = end.at(0)
@@ -175,10 +193,6 @@
   // Pull the dashed segment short of the tip so the head sits flush.
   let bx = ex - ux * head-size
   let by = ey - uy * head-size
-  // Filled origin dot.
-  place(top + left, dx: sx - dot-radius, dy: sy - dot-radius,
-    box(width: 2 * dot-radius, height: 2 * dot-radius,
-      fill: color, stroke: none, radius: 50%))
   // Dashed body.
   place(top + left, line(
     start: (sx, sy), end: (bx, by),
@@ -247,9 +261,30 @@
   let arrow-dot = arrow-dot.to-absolute()
 
   let (nodes, _) = _flatten-rec(root, 0, none, none, 0)
-  let metas = nodes.map(n =>
-    _layout-record(n.rows, fill, stroke, inner-stroke, radius, inset)
-  )
+
+  // Per-parent set of row indices that have at least one outgoing
+  // reference. Used both to reserve value-column width (so the dot doesn't
+  // land on the column separator when all rows are compound) and to draw
+  // exactly one origin dot per anchor row.
+  let anchor-rows = range(nodes.len()).map(_ => ())
+  for c in nodes {
+    if c.parent == none { continue }
+    let cur = anchor-rows.at(c.parent)
+    if cur.find(r => r == c.parent-row) == none {
+      cur.push(c.parent-row)
+      anchor-rows.at(c.parent) = cur
+    }
+  }
+
+  let metas = range(nodes.len()).map(i => {
+    let v-min = if anchor-rows.at(i).len() > 0 { 4 * arrow-dot } else { 0pt }
+    _layout-record(
+      nodes.at(i).rows, fill, stroke, inner-stroke, radius, inset,
+      value-min: v-min,
+    )
+  })
+
+  let pad-x = inset.at("x").to-absolute()
 
   // Column = depth. Width per column = max record width in that column.
   let max-depth = nodes.fold(0, (a, n) => calc.max(a, n.depth))
@@ -295,26 +330,37 @@
   let canvas-h = col-cursor.fold(0pt, (a, c) => calc.max(a, c)) - y-gap
   if canvas-h < 0pt { canvas-h = 0pt }
 
+  // Origin dot lands inside the value cell, just left of the cell's inner
+  // padding edge (PlantUML's record-graph style). The dashed line and
+  // arrowhead start from the same point.
+  let anchor-x(parent-id) = (
+    pos.at(parent-id).x + metas.at(parent-id).width - pad-x - arrow-dot
+  )
+
   let body = block(width: canvas-w, height: canvas-h, breakable: false, {
-    // Records first, arrows on top — matches PlantUML's draw order so the
-    // origin dot straddles the parent's right border without being clipped
-    // by the cell fill, and the arrowhead sits flush against the child's
-    // left border instead of disappearing under it.
+    // Records first, then dots, then arrows. Drawing dots before lines
+    // keeps the dashed segment cleanly against the dot's edge, and putting
+    // both above the records ensures nothing gets clipped by cell fills.
     for i in range(nodes.len()) {
       place(top + left, dx: pos.at(i).x, dy: pos.at(i).y, metas.at(i).content)
     }
     for i in range(nodes.len()) {
+      for r in anchor-rows.at(i) {
+        let row-y = pos.at(i).y + metas.at(i).row-centers.at(r)
+        _draw-arrow-dot((anchor-x(i), row-y), arrow-color, arrow-dot)
+      }
+    }
+    for i in range(nodes.len()) {
       let n = nodes.at(i)
       if n.parent == none { continue }
-      let p-pos = pos.at(n.parent)
-      let p-meta = metas.at(n.parent)
-      let row-y = p-pos.y + p-meta.row-centers.at(n.parent-row)
-      let start = (p-pos.x + p-meta.width, row-y)
+      let row-y = (
+        pos.at(n.parent).y + metas.at(n.parent).row-centers.at(n.parent-row)
+      )
+      let start = (anchor-x(n.parent), row-y)
       let c-pos = pos.at(i)
       let c-meta = metas.at(i)
       let end = (c-pos.x, c-pos.y + c-meta.height / 2)
-      _draw-arrow(start, end,
-        arrow-color, arrow-thickness, arrow-dot, arrow-head)
+      _draw-arrow-line(start, end, arrow-color, arrow-thickness, arrow-head)
     }
   })
 
