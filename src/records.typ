@@ -385,17 +385,32 @@
 // The companion `record-graph` above stays for callers that want to hand
 // over a topology and let blockcell place things.
 
-// Draw a single cubic Bezier from `start` to `end` with control points
-// `c1` and `c2`. Arrowhead is a filled triangle whose tip sits at `end`,
-// oriented along the tangent at the end (= end - c2).
-#let _draw-bezier-edge(
-  start, c1, c2, end,
+// Draw a multi-segment cubic Bezier path through `segments`, from `start`
+// to `end`. Each segment is `(c1: ..., c2: ..., end: ...)`; the first
+// segment's start is the resolved source anchor, every subsequent segment
+// starts where the previous segment ended, and the last segment's end is
+// snapped to the resolved target anchor (overriding the value Rust
+// emitted, which is approximate).
+//
+// Arrowhead is a filled triangle whose tip sits at `end`, oriented along
+// the tangent at the end (= end - last_segment.c2).
+#let _draw-bezier-path(
+  start, segments, end,
   color, thickness, dashed, head-size,
 ) = {
-  // Body of the curve.
+  let n = segments.len()
+  if n == 0 { return }
+
+  // Build the curve as a single multi-segment path so the stroke is
+  // continuous across waypoints.
+  let cmds = (curve.move(start),)
+  for i in range(n) {
+    let seg = segments.at(i)
+    let seg-end = if i == n - 1 { end } else { seg.end }
+    cmds.push(curve.cubic(seg.c1, seg.c2, seg-end))
+  }
   place(top + left, curve(
-    curve.move(start),
-    curve.cubic(c1, c2, end),
+    ..cmds,
     stroke: (
       paint: color,
       thickness: thickness,
@@ -403,9 +418,10 @@
     ),
   ))
 
-  // Arrowhead at `end`. Tangent direction = end - c2.
-  let tx = (end.at(0) - c2.at(0)).to-absolute()
-  let ty = (end.at(1) - c2.at(1)).to-absolute()
+  // Arrowhead at `end`. Tangent direction = end - last_segment.c2.
+  let last-c2 = segments.at(n - 1).c2
+  let tx = (end.at(0) - last-c2.at(0)).to-absolute()
+  let ty = (end.at(1) - last-c2.at(1)).to-absolute()
   let txn = tx / 1pt
   let tyn = ty / 1pt
   let lenn = calc.sqrt(txn * txn + tyn * tyn)
@@ -447,11 +463,15 @@
 /// - `records`: array of `(x, y, rows)`. `(x, y)` is the top-left of the
 ///   record's bounding box; `rows` is the same shape as `record(...)`'s
 ///   `rows` parameter.
-/// - `edges`: array of `(from, from-row, to, c1, c2)`. `from` / `to` are
-///   indices into `records`; `from-row` is the source row index. The
-///   curve's start is snapped to the row's right-edge dot anchor in the
-///   parent's actual rendered geometry, the end to the child's left-edge
-///   center — `c1` / `c2` give the curve its overall shape.
+/// - `edges`: array of `(from, from-row, to, path)` where `path` is a
+///   non-empty sequence of `(c1, c2, end)` cubic-bezier segments. The
+///   first segment's start is snapped to the row's right-edge dot anchor
+///   in the parent's actual rendered geometry; each subsequent segment
+///   starts where the previous one ended; the last segment's end is
+///   snapped to the child's left-edge center — Rust's `end` value for
+///   the last segment is therefore approximate and overridden here. A
+///   single-segment `path` (the common case) gives a plain cubic; multi-
+///   segment paths come from obstacle-aware routing.
 /// - `fill` / `stroke` / `inner-stroke` / `radius` / `inset`: forwarded
 ///   to each underlying `record(...)`.
 /// - `arrow-color` / `arrow-thickness` / `arrow-head` / `arrow-dot`:
@@ -517,9 +537,13 @@
   for e in edges {
     let s = resolve-start(e)
     let t = resolve-end(e)
-    for p in (s, t, e.c1, e.c2) {
-      canvas-w = calc.max(canvas-w, p.at(0))
-      canvas-h = calc.max(canvas-h, p.at(1))
+    canvas-w = calc.max(canvas-w, calc.max(s.at(0), t.at(0)))
+    canvas-h = calc.max(canvas-h, calc.max(s.at(1), t.at(1)))
+    for seg in e.path {
+      for p in (seg.c1, seg.c2, seg.end) {
+        canvas-w = calc.max(canvas-w, p.at(0))
+        canvas-h = calc.max(canvas-h, p.at(1))
+      }
     }
   }
 
@@ -541,8 +565,8 @@
       }
     }
     for e in edges {
-      _draw-bezier-edge(
-        resolve-start(e), e.c1, e.c2, resolve-end(e),
+      _draw-bezier-path(
+        resolve-start(e), e.path, resolve-end(e),
         arrow-color, arrow-thickness, true, arrow-head,
       )
     }
