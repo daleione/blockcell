@@ -392,17 +392,16 @@
 // snapped to the resolved target anchor (overriding the value Rust
 // emitted, which is approximate).
 //
-// Boundary control handles get their y snapped to the resolved
-// anchor's y: codegen always emits horizontal tangents at endpoints
-// (tangent_at returns (1, 0) at polyline endpoints), so c1.y == start.y
-// and last.c2.y == end.y in Rust's coords. When Typst's measured row
-// heights diverge from layout-rs's predicted ones, we shift start/end
-// vertically — c1/c2 must follow or the cubic's tangent tilts away
-// from horizontal and the arrowhead stops aligning with the trailing
-// dashes.
+// Boundary control handles are adjusted against the resolved anchors.
+// The first c1 keeps the historical horizontal launch from the origin
+// dot; the last c2 is translated by the difference between Rust's
+// approximate target endpoint and Typst's measured target endpoint. That
+// preserves the final path tangent after endpoint snapping, so the
+// arrowhead follows the incoming dashed curve instead of being forced
+// horizontal.
 //
 // Arrowhead is a filled triangle whose tip sits at `end`, oriented along
-// the tangent at the end (= end - last_segment.c2 with c2 snapped).
+// the tangent at the end (= end - adjusted last_segment.c2).
 #let _draw-bezier-path(
   start, segments, end,
   color, thickness, dashed, head-size,
@@ -417,7 +416,12 @@
     let seg = segments.at(i)
     let seg-end = if i == n - 1 { end } else { seg.end }
     let seg-c1 = if i == 0 { (seg.c1.at(0), start.at(1)) } else { seg.c1 }
-    let seg-c2 = if i == n - 1 { (seg.c2.at(0), end.at(1)) } else { seg.c2 }
+    let seg-c2 = if i == n - 1 {
+      (
+        seg.c2.at(0) + end.at(0) - seg.end.at(0),
+        seg.c2.at(1) + end.at(1) - seg.end.at(1),
+      )
+    } else { seg.c2 }
     cmds.push(curve.cubic(seg-c1, seg-c2, seg-end))
   }
   place(top + left, curve(
@@ -429,11 +433,14 @@
     ),
   ))
 
-  // Arrowhead at `end`. Tangent direction = end - snapped last c2,
-  // which is purely horizontal by construction (we just set c2.y = end.y).
-  let last-c2-x = segments.at(n - 1).c2.at(0)
-  let tx = (end.at(0) - last-c2-x).to-absolute()
-  let ty = 0pt
+  // Arrowhead at `end`. Tangent direction = end - adjusted last c2.
+  let last = segments.at(n - 1)
+  let last-c2 = (
+    last.c2.at(0) + end.at(0) - last.end.at(0),
+    last.c2.at(1) + end.at(1) - last.end.at(1),
+  )
+  let tx = (end.at(0) - last-c2.at(0)).to-absolute()
+  let ty = (end.at(1) - last-c2.at(1)).to-absolute()
   let txn = tx / 1pt
   let tyn = ty / 1pt
   let lenn = calc.sqrt(txn * txn + tyn * tyn)
