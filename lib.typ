@@ -88,4 +88,5 @@
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
 #import "src/tree.typ": tree, node, mindmap
 #import "src/records.typ": record, record-graph, record-layout
+#import "src/class.typ": class-layout
 #import "src/palettes.typ": palettes
