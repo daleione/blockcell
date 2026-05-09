@@ -56,9 +56,13 @@
 //                   seq-alt / seq-else / seq-opt / seq-loop / seq-par)
 //   state-chain    State-transition diagram (linear chain or 2D grid);
 //                  edges built with state / loop / jump / bi-jump
-//   tree           Recursive top-down hierarchy (BST, heap, trie, directory,
-//                  JSON); nodes built with `node(...)`, subtrees by nesting
-//                  `tree(...)` calls as children
+//   tree           Recursive hierarchy (BST, heap, trie, directory, JSON,
+//                  org chart, WBS, single-side mind map); nodes built with
+//                  `node(...)`, subtrees by nesting `tree(...)` calls as
+//                  children. `direction:` picks "down" / "right" / "left"
+//   mindmap        Central root with two columns of branch subtrees, one
+//                  growing left and one growing right — the canonical mind
+//                  map shape; branches are `tree(direction: "left"|"right")`
 //   record         Bordered key-value block — two-column rows (bold key |
 //                  value) with internal separators; standalone for struct /
 //                  register / DB-row layouts, or as a node in `record-graph`
@@ -82,6 +86,6 @@
 #import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-ref, seq-divider, seq-else, seq-destroy, seq-create, seq-delay, seq-space, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/seq-puml.typ": seq-puml
 #import "src/states.typ": state-chain, state, loop, jump, bi-jump
-#import "src/tree.typ": tree, node
+#import "src/tree.typ": tree, node, mindmap
 #import "src/records.typ": record, record-graph, record-layout
 #import "src/palettes.typ": palettes

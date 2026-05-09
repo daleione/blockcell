@@ -18,7 +18,7 @@
 //               `"right"` or `"left"` for horizontally-growing branches
 //               (mind maps), and the default `"down"` for top-down org
 //               charts / WBS / BST.
-// mindmap-root  Composes a central root with two arrays of branch subtrees,
+// mindmap       Composes a central root with two arrays of branch subtrees,
 //               one stacked vertically on each side. Each branch is itself
 //               a `tree(direction: "left"|"right", …)`. Use this when you
 //               want the canonical mind-map fan-out instead of a single
@@ -406,7 +406,7 @@
 /// the taller column.
 ///
 /// ```typst
-/// #mindmap-root(
+/// #mindmap(
 ///   node[OS],
 ///   lefts: (
 ///     tree(direction: "left", node[Long term],
@@ -430,7 +430,7 @@
 /// - `edge-style` / `edge-stroke`: forwarded to the central-root → branch
 ///   connectors. Each branch's own connectors are governed by the
 ///   `tree(...)` that produced it.
-#let mindmap-root(
+#let mindmap(
   root,
   lefts: (),
   rights: (),
