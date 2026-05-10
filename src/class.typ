@@ -586,6 +586,7 @@
   classes: (),
   edges: (),
   packages: (),
+  direction: "tb",
   bg-color: white,
   default-fill: rgb("#FEFECE"),
   stroke: 1pt + black,
@@ -612,10 +613,10 @@
     }
   })
 
-  // Top-mid (incoming anchor) and bottom-mid (outgoing anchor) for each
-  // class, snapped to the painter's actual rendered geometry. Codegen's
-  // estimate may differ from Typst's measured width; using the measured
-  // mid-x here keeps the edge endpoints glued to the box edges.
+  let is-lr = direction == "lr"
+  // Edge anchors snapped to the painter's measured geometry. For TB
+  // layout the source is the bottom-mid and the target is the top-mid;
+  // for LR the source is the right-mid and the target is the left-mid.
   // (shift-x / shift-y is applied later, alongside edge segment paths.)
   let top-mid(i) = (
     classes.at(i).x + metas.at(i).mid-x,
@@ -625,6 +626,16 @@
     classes.at(i).x + metas.at(i).mid-x,
     classes.at(i).y + metas.at(i).height,
   )
+  let left-mid(i) = (
+    classes.at(i).x,
+    classes.at(i).y + metas.at(i).mid-y,
+  )
+  let right-mid(i) = (
+    classes.at(i).x + metas.at(i).width,
+    classes.at(i).y + metas.at(i).mid-y,
+  )
+  let from-anchor(i) = if is-lr { right-mid(i) } else { bot-mid(i) }
+  let to-anchor(i) = if is-lr { left-mid(i) } else { top-mid(i) }
 
   // Canvas size = farthest extent across classes, packages, and bezier
   // handles. Packages can extend further than their members because of
@@ -705,8 +716,8 @@
       // the explicit start; the regular `from` lookup is skipped.
       let raw-start = if e.at("from", default: none) == none {
         e.at("start")
-      } else { bot-mid(e.from) }
-      let raw-end = top-mid(e.to)
+      } else { from-anchor(e.from) }
+      let raw-end = to-anchor(e.to)
       let start = shift-pt(raw-start)
       let end = shift-pt(raw-end)
       // Path segments need the same shift since they're absolute coords.
