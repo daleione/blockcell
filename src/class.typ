@@ -475,6 +475,7 @@
   title: none,
   classes: (),
   edges: (),
+  packages: (),
   bg-color: white,
   default-fill: rgb("#FEFECE"),
   stroke: 1pt + black,
@@ -484,6 +485,8 @@
   edge-color: black,
   edge-thickness: 0.8pt,
   head-size: 6pt,
+  package-stroke: 0.6pt + rgb("#888888"),
+  package-fill: rgb("#FAFAFA"),
 ) = context {
   let head-size = head-size.to-absolute()
 
@@ -500,6 +503,7 @@
   // class, snapped to the painter's actual rendered geometry. Codegen's
   // estimate may differ from Typst's measured width; using the measured
   // mid-x here keeps the edge endpoints glued to the box edges.
+  // (shift-x / shift-y is applied later, alongside edge segment paths.)
   let top-mid(i) = (
     classes.at(i).x + metas.at(i).mid-x,
     classes.at(i).y,
@@ -509,7 +513,11 @@
     classes.at(i).y + metas.at(i).height,
   )
 
-  // Canvas size = farthest extent across classes and bezier handles.
+  // Canvas size = farthest extent across classes, packages, and bezier
+  // handles. Packages can extend further than their members because of
+  // their padding band; include them explicitly.
+  let canvas-x0 = 0pt
+  let canvas-y0 = 0pt
   let canvas-w = 0pt
   let canvas-h = 0pt
   for i in range(classes.len()) {
@@ -517,6 +525,12 @@
     let m = metas.at(i)
     canvas-w = calc.max(canvas-w, r.x + m.width)
     canvas-h = calc.max(canvas-h, r.y + m.height)
+  }
+  for p in packages {
+    canvas-w = calc.max(canvas-w, p.x + p.w)
+    canvas-h = calc.max(canvas-h, p.y + p.h)
+    canvas-x0 = calc.min(canvas-x0, p.x)
+    canvas-y0 = calc.min(canvas-y0, p.y)
   }
   for e in edges {
     for seg in e.path {
@@ -527,22 +541,66 @@
     }
   }
 
-  let body = block(width: canvas-w, height: canvas-h, breakable: false, {
+  // If any package extends to negative coords (its outer pad pushes left
+  // / above the layout origin), shift everything right / down so the
+  // resulting block doesn't clip.
+  let shift-x = if canvas-x0 < 0pt { -canvas-x0 } else { 0pt }
+  let shift-y = if canvas-y0 < 0pt { -canvas-y0 } else { 0pt }
+  let final-w = canvas-w + shift-x
+  let final-h = canvas-h + shift-y
+
+  let body = block(width: final-w, height: final-h, breakable: false, {
+    // Packages first, so classes draw on top of the labeled rectangles.
+    // `together` is anonymous and rendered with no fill / dashed border
+    // to visually mark it as a soft hint rather than a real container.
+    for p in packages {
+      let kind = p.at("kind", default: "package")
+      let label = p.at("label", default: [])
+      let stereotype = p.at("stereotype", default: none)
+      let is-together = kind == "together"
+      let pkg-fill = if is-together { none } else { package-fill }
+      let pkg-stroke = if is-together {
+        (paint: rgb("#999999"), thickness: 0.5pt, dash: "dashed")
+      } else { package-stroke }
+      place(top + left, dx: p.x + shift-x, dy: p.y + shift-y,
+        rect(width: p.w, height: p.h, fill: pkg-fill, stroke: pkg-stroke,
+          radius: 3pt))
+      if not is-together and label != [] {
+        // Header strip at the top of the rectangle (~14pt). Label is
+        // bold, slight inset from the left.
+        place(top + left, dx: p.x + shift-x + 6pt, dy: p.y + shift-y + 2pt,
+          text(weight: "bold", size: 0.85em, label))
+      }
+      if stereotype != none {
+        place(top + right, dx: -(final-w - (p.x + shift-x + p.w)) - 6pt,
+              dy: p.y + shift-y + 2pt,
+          text(size: 0.7em, fill: rgb("#666666"), [«#stereotype»]))
+      }
+    }
     // Classes.
     for i in range(classes.len()) {
       let r = classes.at(i)
-      place(top + left, dx: r.x, dy: r.y, metas.at(i).content)
+      place(top + left, dx: r.x + shift-x, dy: r.y + shift-y, metas.at(i).content)
     }
     // Edges. Source = bottom-mid of `from`; target = top-mid of `to`.
     // Codegen ensures Sugiyama TB ordering so this anchoring is sane;
     // see codegen/class.rs::orient_relation for the swap rule.
+    let shift-pt(p) = (p.at(0) + shift-x, p.at(1) + shift-y)
     for e in edges {
-      let start = bot-mid(e.from)
-      let end = top-mid(e.to)
+      let raw-start = bot-mid(e.from)
+      let raw-end = top-mid(e.to)
+      let start = shift-pt(raw-start)
+      let end = shift-pt(raw-end)
+      // Path segments need the same shift since they're absolute coords.
+      let shifted-path = e.path.map(seg => (
+        c1: shift-pt(seg.c1),
+        c2: shift-pt(seg.c2),
+        end: shift-pt(seg.end),
+      ))
       let style = e.at("style", default: "solid")
       let color = e.at("color", default: edge-color)
       _draw-edge(
-        start, e.path, end,
+        start, shifted-path, end,
         e.at("head-from", default: "none"),
         e.at("head-to", default: "none"),
         style, color, bg-color, edge-thickness, head-size,
