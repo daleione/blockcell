@@ -67,6 +67,56 @@
   }
 }
 
+// Lay out a free-text note as a yellow sticky with a dog-eared corner.
+// Returns the same shape as `_layout-class` so the caller can treat
+// notes and classes uniformly.
+#let _layout-note(spec, inset) = {
+  let pad-x = inset.at("x").to-absolute()
+  let pad-y = inset.at("y").to-absolute()
+  let body-content = spec.at("body", default: [])
+  let body = text(size: 0.85em, body-content)
+  let m = measure(body)
+  let dog-ear = 8pt
+  // Body-min ensures the dog-ear has room even for a one-character note.
+  let total-w = calc.max(m.width + 2 * pad-x + dog-ear, 4 * dog-ear)
+  let total-h = calc.max(m.height + 2 * pad-y, 2 * dog-ear)
+
+  let fill-color = rgb("#FBFB77")
+  let fold-color = rgb("#E0E060")
+  let border = 0.6pt + rgb("#9C9C40")
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Body shape with the top-right corner cut away.
+    place(top + left, polygon(
+      fill: fill-color,
+      stroke: border,
+      (0pt, 0pt),
+      (total-w - dog-ear, 0pt),
+      (total-w, dog-ear),
+      (total-w, total-h),
+      (0pt, total-h),
+    ))
+    // Triangular fold tucked into the corner.
+    place(top + left, polygon(
+      fill: fold-color,
+      stroke: border,
+      (total-w - dog-ear, 0pt),
+      (total-w, dog-ear),
+      (total-w - dog-ear, dog-ear),
+    ))
+    // Body text. PlantUML left-aligns notes; we match.
+    place(top + left, dx: pad-x, dy: pad-y, body)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
 // Lay out a single class card. Returns a dict
 //   (content: ..., width: ..., height: ..., mid-x: ..., mid-y: ...)
 // `mid-x` / `mid-y` are the centre offsets within the local frame; the
@@ -363,14 +413,21 @@
   _draw-head(end, to-tan, head-to, color, bg-color, head-size, thickness)
 }
 
-// Place an edge label centered on a parametric position along the path.
-// `t` ∈ [0, 1]: 0 = start anchor, 1 = end anchor. We interpolate along the
-// straight chord between start and end — close enough for short hops; long
-// detours bend the curve away from the chord but the label still reads.
-#let _place-edge-label(start, end, t, body) = {
+// Place an edge label centered on a parametric position along the chord.
+// `t` ∈ [0, 1]: 0 = start anchor, 1 = end anchor. `perp` shifts the label
+// perpendicular to the edge — positive values drift to the chord's left,
+// negative to its right (using the (dx, dy) → (-dy, dx) 90° CCW rotation).
+// Used to keep multiplicity and role labels from stacking on top of each
+// other when both are present at the same end.
+#let _place-edge-label(start, end, t, body, perp: 0pt) = {
   if body == none { return }
-  let x = start.at(0) + (end.at(0) - start.at(0)) * t
-  let y = start.at(1) + (end.at(1) - start.at(1)) * t
+  let dx = end.at(0) - start.at(0)
+  let dy = end.at(1) - start.at(1)
+  let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
+  let (px, py) = if len-pt == 0 { (0, 0) }
+    else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
+  let x = start.at(0) + dx * t + px * perp
+  let y = start.at(1) + dy * t + py * perp
   let lbl = box(inset: 2pt, fill: rgb("#FFFFFFCC"),
     text(size: 0.78em, fill: palettes.base.text, body))
   let m = measure(lbl)
@@ -431,8 +488,12 @@
   let head-size = head-size.to-absolute()
 
   let metas = classes.map(spec => {
-    let cls-fill = spec.at("fill", default: default-fill)
-    _layout-class(spec, cls-fill, stroke, inner-stroke, radius, inset)
+    if spec.at("kind", default: "class") == "note" {
+      _layout-note(spec, inset)
+    } else {
+      let cls-fill = spec.at("fill", default: default-fill)
+      _layout-class(spec, cls-fill, stroke, inner-stroke, radius, inset)
+    }
   })
 
   // Top-mid (incoming anchor) and bottom-mid (outgoing anchor) for each
@@ -487,8 +548,17 @@
         style, color, bg-color, edge-thickness, head-size,
       )
       _place-edge-label(start, end, 0.5, e.at("label", default: none))
-      _place-edge-label(start, end, 0.12, e.at("mult-from", default: none))
-      _place-edge-label(start, end, 0.88, e.at("mult-to", default: none))
+      // Mult and role share the same `t`; they're split apart by a small
+      // perpendicular offset so both fit beside the edge without
+      // overlapping. Positive perp = chord's left, negative = right.
+      _place-edge-label(start, end, 0.12, e.at("mult-from", default: none),
+        perp: 10pt)
+      _place-edge-label(start, end, 0.12, e.at("role-from", default: none),
+        perp: -10pt)
+      _place-edge-label(start, end, 0.88, e.at("mult-to", default: none),
+        perp: 10pt)
+      _place-edge-label(start, end, 0.88, e.at("role-to", default: none),
+        perp: -10pt)
     }
   })
 
