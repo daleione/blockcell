@@ -476,25 +476,72 @@
   _draw-head(end, to-tan, head-to, color, bg-color, head-size, thickness)
 }
 
-// Place an edge label centered on a parametric position along the chord.
-// `t` ∈ [0, 1]: 0 = start anchor, 1 = end anchor. `perp` shifts the label
-// perpendicular to the edge — positive values drift to the chord's left,
-// negative to its right (using the (dx, dy) → (-dy, dx) 90° CCW rotation).
-// Used to keep multiplicity and role labels from stacking on top of each
-// other when both are present at the same end.
-#let _place-edge-label(start, end, t, body, perp: 0pt) = {
+// Returns true iff the rect (x, y, x+w, y+h) overlaps any class /
+// note / lollipop bbox in `classes` × `metas`.
+#let _overlaps-any-class(x, y, w, h, classes, metas) = {
+  let hit = false
+  for i in range(classes.len()) {
+    let r = classes.at(i)
+    let mw = metas.at(i).width
+    let mh = metas.at(i).height
+    let cx = r.x
+    let cy = r.y
+    if not (x + w <= cx or x >= cx + mw
+            or y + h <= cy or y >= cy + mh) {
+      hit = true
+      break
+    }
+  }
+  hit
+}
+
+// Place an edge label centered on a parametric position along the
+// chord. `t` ∈ [0, 1]: 0 = start anchor, 1 = end anchor. `perp` shifts
+// the label perpendicular to the edge — positive values drift to the
+// chord's left (using the (dx, dy) → (-dy, dx) 90° CCW rotation).
+//
+// If `classes` and `metas` are non-empty, the label's bbox is checked
+// against every class bbox; on overlap the perp offset is doubled,
+// then doubled again, before falling back to the original position
+// (some overlap may remain in dense diagrams — proper avoidance needs
+// a layout solver).
+#let _place-edge-label(start, end, t, body, perp: 0pt,
+                       classes: (), metas: (), shift-x: 0pt, shift-y: 0pt) = {
   if body == none { return }
   let dx = end.at(0) - start.at(0)
   let dy = end.at(1) - start.at(1)
   let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
   let (px, py) = if len-pt == 0 { (0, 0) }
     else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
-  let x = start.at(0) + dx * t + px * perp
-  let y = start.at(1) + dy * t + py * perp
   let lbl = box(inset: 2pt, fill: rgb("#FFFFFFCC"),
     text(size: 0.78em, fill: palettes.base.text, body))
   let m = measure(lbl)
-  place(top + left, dx: x - m.width / 2, dy: y - m.height / 2, lbl)
+
+  // Pick the first perp offset whose label bbox doesn't clip a class.
+  let perps = if perp == 0pt {
+    (0pt, 12pt, -12pt, 24pt)
+  } else {
+    (perp, perp * 1.8, perp * 2.6)
+  }
+  let chosen-perp = perp
+  let found = false
+  for p in perps {
+    if not found {
+      let x = start.at(0) + dx * t + px * p - m.width / 2
+      let y = start.at(1) + dy * t + py * p - m.height / 2
+      let check-x = x - shift-x
+      let check-y = y - shift-y
+      let collides = (classes.len() != 0) and _overlaps-any-class(
+        check-x, check-y, m.width, m.height, classes, metas)
+      if not collides {
+        chosen-perp = p
+        found = true
+      }
+    }
+  }
+  let x = start.at(0) + dx * t + px * chosen-perp - m.width / 2
+  let y = start.at(1) + dy * t + py * chosen-perp - m.height / 2
+  place(top + left, dx: x, dy: y, lbl)
 }
 
 /// Painter for class diagrams whose class positions and edge bezier
@@ -671,18 +718,23 @@
         e.at("head-to", default: "none"),
         style, color, bg-color, edge-thickness, head-size,
       )
-      _place-edge-label(start, end, 0.5, e.at("label", default: none))
+      _place-edge-label(start, end, 0.5, e.at("label", default: none),
+        classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       // Mult and role share the same `t`; they're split apart by a small
       // perpendicular offset so both fit beside the edge without
       // overlapping. Positive perp = chord's left, negative = right.
       _place-edge-label(start, end, 0.12, e.at("mult-from", default: none),
-        perp: 10pt)
+        perp: 10pt,
+        classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       _place-edge-label(start, end, 0.12, e.at("role-from", default: none),
-        perp: -10pt)
+        perp: -10pt,
+        classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       _place-edge-label(start, end, 0.88, e.at("mult-to", default: none),
-        perp: 10pt)
+        perp: 10pt,
+        classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       _place-edge-label(start, end, 0.88, e.at("role-to", default: none),
-        perp: -10pt)
+        perp: -10pt,
+        classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       // `note on link`: a tiny yellow sticky next to the chord midpoint.
       let edge-note = e.at("note", default: none)
       if edge-note != none {
