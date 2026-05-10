@@ -683,6 +683,32 @@
         perp: 10pt)
       _place-edge-label(start, end, 0.88, e.at("role-to", default: none),
         perp: -10pt)
+      // `note on link`: a tiny yellow sticky next to the chord midpoint.
+      let edge-note = e.at("note", default: none)
+      if edge-note != none {
+        let mx = start.at(0) + (end.at(0) - start.at(0)) * 0.5
+        let my = start.at(1) + (end.at(1) - start.at(1)) * 0.5
+        let nbody = text(size: 0.78em, edge-note)
+        let nm = measure(nbody)
+        let pad = 2pt
+        let nw = nm.width + 2 * pad
+        let nh = nm.height + 2 * pad
+        // Offset perpendicular to the chord so the sticky doesn't sit
+        // on top of the line.
+        let dx = end.at(0) - start.at(0)
+        let dy = end.at(1) - start.at(1)
+        let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
+        let (px, py) = if len-pt == 0 { (0, 0) }
+          else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
+        let off = 14pt
+        place(top + left,
+          dx: mx + px * off - nw / 2,
+          dy: my + py * off - nh / 2,
+          box(width: nw, height: nh,
+              fill: rgb("#FBFB77"),
+              stroke: 0.4pt + rgb("#9C9C40"),
+              place(center + horizon, nbody)))
+      }
     }
   })
 
