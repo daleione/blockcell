@@ -67,6 +67,38 @@
   }
 }
 
+// Lay out a lollipop: a small filled circle with the label centered
+// below it (UML's "provided interface" notation). Returns the same
+// shape as `_layout-class` so callers treat it uniformly.
+#let _layout-lollipop(spec) = {
+  let name = spec.at("name", default: [])
+  let diameter = 14pt
+  let gap = 2pt
+  let label = text(size: 0.85em, name)
+  let m = measure(label)
+  let total-w = calc.max(m.width, diameter)
+  let total-h = diameter + gap + m.height
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + center, dy: 0pt,
+      circle(radius: diameter / 2, fill: white, stroke: 0.8pt + black))
+    place(top + center, dy: diameter + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    // Edge anchors should sit on the disc, not the label below it. The
+    // disc center is at (mid-x, diameter/2) and its bottom-mid sits at
+    // (mid-x, diameter). We expose mid-y as the disc center for any
+    // future vertical-edge anchoring; top-mid / bot-mid still come
+    // from y / y+height since callers compute those externally.
+    mid-y: diameter / 2,
+  )
+}
+
 // Lay out a free-text note as a yellow sticky with a dog-eared corner.
 // Returns the same shape as `_layout-class` so the caller can treat
 // notes and classes uniformly.
@@ -522,8 +554,11 @@
   let head-size = head-size.to-absolute()
 
   let metas = classes.map(spec => {
-    if spec.at("kind", default: "class") == "note" {
+    let kind = spec.at("kind", default: "class")
+    if kind == "note" {
       _layout-note(spec, inset)
+    } else if kind == "lollipop" or kind == "circle" {
+      _layout-lollipop(spec)
     } else {
       let cls-fill = spec.at("fill", default: default-fill)
       _layout-class(spec, cls-fill, stroke, inner-stroke, radius, inset)
