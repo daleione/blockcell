@@ -641,13 +641,35 @@
   }
   // Per-edge `from-side` / `to-side` overrides take precedence (so
   // sibling-cluster edges that go side-to-side don't get forced into
-  // bot/top anchoring). The defaults follow `direction`.
+  // bot/top anchoring). The defaults follow `direction`. An optional
+  // `from-x` / `from-y` / `to-x` / `to-y` overrides the anchor's
+  // free-axis coordinate (y for left/right sides, x for top/bot)
+  // — codegen sets this when it wants to align both anchors so the
+  // Manhattan route collapses to a single segment.
   let default-from-side = if is-lr { "right" } else { "bot" }
   let default-to-side = if is-lr { "left" } else { "top" }
-  let from-anchor(i, override) = world-anchor(i,
-    if override != none { override } else { default-from-side })
-  let to-anchor(i, override) = world-anchor(i,
-    if override != none { override } else { default-to-side })
+  let resolved-anchor(i, side, override-x, override-y) = {
+    let p = world-anchor(i, side)
+    let px = p.at(0)
+    let py = p.at(1)
+    if (side == "top" or side == "bot") and override-x != none {
+      px = override-x
+    }
+    if (side == "left" or side == "right") and override-y != none {
+      py = override-y
+    }
+    (px, py)
+  }
+  let from-anchor(i, override-side) = resolved-anchor(
+    i,
+    if override-side != none { override-side } else { default-from-side },
+    none, none,
+  )
+  let to-anchor(i, override-side) = resolved-anchor(
+    i,
+    if override-side != none { override-side } else { default-to-side },
+    none, none,
+  )
 
   // Canvas size = farthest extent across classes, packages, and bezier
   // handles. Packages can extend further than their members because of
@@ -728,8 +750,20 @@
       // the explicit start; the regular `from` lookup is skipped.
       let raw-start = if e.at("from", default: none) == none {
         e.at("start")
-      } else { from-anchor(e.from, e.at("from-side", default: none)) }
-      let raw-end = to-anchor(e.to, e.at("to-side", default: none))
+      } else {
+        resolved-anchor(
+          e.from,
+          if "from-side" in e { e.from-side } else { default-from-side },
+          e.at("from-x", default: none),
+          e.at("from-y", default: none),
+        )
+      }
+      let raw-end = resolved-anchor(
+        e.to,
+        if "to-side" in e { e.to-side } else { default-to-side },
+        e.at("to-x", default: none),
+        e.at("to-y", default: none),
+      )
       let start = shift-pt(raw-start)
       let end = shift-pt(raw-end)
       // Path segments need the same shift since they're absolute coords.
