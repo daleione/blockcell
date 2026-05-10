@@ -149,13 +149,20 @@
 
   // Marker glyph (the small `C` / `I` / `A` / … chip in the corner).
   // `hide-marker: true` on the spec suppresses it (used by `hide
-  // circle` global directive).
+  // circle` global directive). `marker-letter` / `marker-color` on the
+  // spec override the kind defaults — used by PlantUML's
+  // `<<(L, color) text>>` custom-marker syntax.
   let hide-marker = spec.at("hide-marker", default: false)
   let style = _kind-style(kind)
-  let letter = if hide-marker { none } else { style.letter }
+  let custom-letter = spec.at("marker-letter", default: none)
+  let custom-color = spec.at("marker-color", default: none)
+  let letter = if hide-marker { none }
+               else if custom-letter != none { custom-letter }
+               else { style.letter }
+  let marker-fill = if custom-color != none { custom-color } else { style.fill }
   let marker-r = 0.55em.to-absolute()
   let marker = if letter == none { none } else {
-    box(width: 2 * marker-r, height: 2 * marker-r, fill: style.fill,
+    box(width: 2 * marker-r, height: 2 * marker-r, fill: marker-fill,
         stroke: 0.5pt + palettes.base.border, radius: 50%,
         place(center + horizon, text(size: 0.75em, weight: "bold", letter)))
   }
