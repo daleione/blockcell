@@ -639,8 +639,15 @@
     let local = local-anchor(i, side)
     (classes.at(i).x + local.at(0), classes.at(i).y + local.at(1))
   }
-  let from-anchor(i) = if is-lr { world-anchor(i, "right") } else { world-anchor(i, "bot") }
-  let to-anchor(i) = if is-lr { world-anchor(i, "left") } else { world-anchor(i, "top") }
+  // Per-edge `from-side` / `to-side` overrides take precedence (so
+  // sibling-cluster edges that go side-to-side don't get forced into
+  // bot/top anchoring). The defaults follow `direction`.
+  let default-from-side = if is-lr { "right" } else { "bot" }
+  let default-to-side = if is-lr { "left" } else { "top" }
+  let from-anchor(i, override) = world-anchor(i,
+    if override != none { override } else { default-from-side })
+  let to-anchor(i, override) = world-anchor(i,
+    if override != none { override } else { default-to-side })
 
   // Canvas size = farthest extent across classes, packages, and bezier
   // handles. Packages can extend further than their members because of
@@ -721,8 +728,8 @@
       // the explicit start; the regular `from` lookup is skipped.
       let raw-start = if e.at("from", default: none) == none {
         e.at("start")
-      } else { from-anchor(e.from) }
-      let raw-end = to-anchor(e.to)
+      } else { from-anchor(e.from, e.at("from-side", default: none)) }
+      let raw-end = to-anchor(e.to, e.at("to-side", default: none))
       let start = shift-pt(raw-start)
       let end = shift-pt(raw-end)
       // Path segments need the same shift since they're absolute coords.
