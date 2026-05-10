@@ -148,8 +148,11 @@
   })
 
   // Marker glyph (the small `C` / `I` / `A` / … chip in the corner).
+  // `hide-marker: true` on the spec suppresses it (used by `hide
+  // circle` global directive).
+  let hide-marker = spec.at("hide-marker", default: false)
   let style = _kind-style(kind)
-  let letter = style.letter
+  let letter = if hide-marker { none } else { style.letter }
   let marker-r = 0.55em.to-absolute()
   let marker = if letter == none { none } else {
     box(width: 2 * marker-r, height: 2 * marker-r, fill: style.fill,
