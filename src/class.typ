@@ -90,12 +90,13 @@
     width: total-w,
     height: total-h,
     mid-x: total-w / 2,
-    // Edge anchors should sit on the disc, not the label below it. The
-    // disc center is at (mid-x, diameter/2) and its bottom-mid sits at
-    // (mid-x, diameter). We expose mid-y as the disc center for any
-    // future vertical-edge anchoring; top-mid / bot-mid still come
-    // from y / y+height since callers compute those externally.
     mid-y: diameter / 2,
+    // Edges anchor on the disc, not at the layout's outer edge — the
+    // label hangs off the disc but isn't part of the connection point.
+    anchor-top: (total-w / 2, 0pt),
+    anchor-bot: (total-w / 2, diameter),
+    anchor-left: (total-w / 2 - diameter / 2, diameter / 2),
+    anchor-right: (total-w / 2 + diameter / 2, diameter / 2),
   )
 }
 
@@ -614,28 +615,32 @@
   })
 
   let is-lr = direction == "lr"
-  // Edge anchors snapped to the painter's measured geometry. For TB
-  // layout the source is the bottom-mid and the target is the top-mid;
-  // for LR the source is the right-mid and the target is the left-mid.
-  // (shift-x / shift-y is applied later, alongside edge segment paths.)
-  let top-mid(i) = (
-    classes.at(i).x + metas.at(i).mid-x,
-    classes.at(i).y,
-  )
-  let bot-mid(i) = (
-    classes.at(i).x + metas.at(i).mid-x,
-    classes.at(i).y + metas.at(i).height,
-  )
-  let left-mid(i) = (
-    classes.at(i).x,
-    classes.at(i).y + metas.at(i).mid-y,
-  )
-  let right-mid(i) = (
-    classes.at(i).x + metas.at(i).width,
-    classes.at(i).y + metas.at(i).mid-y,
-  )
-  let from-anchor(i) = if is-lr { right-mid(i) } else { bot-mid(i) }
-  let to-anchor(i) = if is-lr { left-mid(i) } else { top-mid(i) }
+  // Edge anchors snapped to the painter's measured geometry. Each meta
+  // may declare `anchor-{top,bot,left,right}` points relative to its
+  // local frame (lollipops use this so edges attach to the disc,
+  // not below the label that hangs off the layout box). When absent
+  // we fall back to the box midpoints.
+  let local-anchor(i, side) = {
+    let m = metas.at(i)
+    let key = "anchor-" + side
+    if key in m {
+      m.at(key)
+    } else if side == "top" {
+      (m.mid-x, 0pt)
+    } else if side == "bot" {
+      (m.mid-x, m.height)
+    } else if side == "left" {
+      (0pt, m.mid-y)
+    } else { // "right"
+      (m.width, m.mid-y)
+    }
+  }
+  let world-anchor(i, side) = {
+    let local = local-anchor(i, side)
+    (classes.at(i).x + local.at(0), classes.at(i).y + local.at(1))
+  }
+  let from-anchor(i) = if is-lr { world-anchor(i, "right") } else { world-anchor(i, "bot") }
+  let to-anchor(i) = if is-lr { world-anchor(i, "left") } else { world-anchor(i, "top") }
 
   // Canvas size = farthest extent across classes, packages, and bezier
   // handles. Packages can extend further than their members because of
