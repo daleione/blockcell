@@ -700,7 +700,12 @@
     // see codegen/class.rs::orient_relation for the swap rule.
     let shift-pt(p) = (p.at(0) + shift-x, p.at(1) + shift-y)
     for e in edges {
-      let raw-start = bot-mid(e.from)
+      // Couple-link edges (`(A, B) -- C`) carry an explicit `start` and
+      // a `from-couple: (a, b)` index pair instead of `from`. We honor
+      // the explicit start; the regular `from` lookup is skipped.
+      let raw-start = if e.at("from", default: none) == none {
+        e.at("start")
+      } else { bot-mid(e.from) }
       let raw-end = top-mid(e.to)
       let start = shift-pt(raw-start)
       let end = shift-pt(raw-end)
