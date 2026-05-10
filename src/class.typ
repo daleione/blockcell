@@ -140,12 +140,11 @@
   let stereo-line = if stereo == none { none } else {
     text(size: 0.78em, fill: palettes.base.text-muted, [«#stereo»])
   }
-  let name-line = text(weight: "bold", {
-    name-body
-    if generic != none {
-      text(weight: "regular", size: 0.85em, [ \<#generic\>])
-    }
-  })
+  // The generic parameter list lives in a small dashed box at the
+  // top-right corner of the class card (UML's signature look) — not
+  // inline next to the name. When `hide-marker` is the only override
+  // we still keep the corner box.
+  let name-line = text(weight: "bold", name-body)
 
   // Marker glyph (the small `C` / `I` / `A` / … chip in the corner).
   // `hide-marker: true` on the spec suppresses it (used by `hide
@@ -251,6 +250,28 @@
       for (i, body) in method-bodies.enumerate() {
         place(top + left, dx: pad-x, dy: cy, body)
         cy = cy + method-ms.at(i).height + 2 * pad-y
+      }
+
+      // Generic corner tag — small dashed box hovering at the top-right
+      // corner with the parameter list inside (UML's signature look).
+      // The box overlaps the class corner so codegen's bbox needs no
+      // extra allowance for it.
+      if generic != none {
+        let g-text = text(size: 0.7em, generic)
+        let gm = measure(g-text)
+        let gpad = 1.5pt
+        let gw = gm.width + 2 * gpad
+        let gh = gm.height + 2 * gpad
+        // Bottom-left of the corner box sits at (total-w - gw + 6pt,
+        // -gh/2): the box hangs ~half a height above the top edge and
+        // overlaps ~6pt back into the class's right side.
+        let gx = total-w - gw + 6pt
+        let gy = 0pt - gh / 2
+        place(top + left, dx: gx, dy: gy,
+          box(width: gw, height: gh,
+              fill: white,
+              stroke: (paint: black, thickness: 0.4pt, dash: "dashed"),
+              place(center + horizon, g-text)))
       }
     },
   )
