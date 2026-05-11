@@ -872,3 +872,41 @@
   }
   body
 }
+
+// ============================================================================
+// Measure protocol
+// ============================================================================
+//
+// `class-probe` measures the natural width / height of a single class /
+// note / lollipop spec — the exact same value `class-layout` would
+// compute for `total-w` / `total-h` when codegen does NOT pass `width:` /
+// `height:` overrides. It emits a `metadata((id, w, h))` element with
+// the `<typstuml_measure>` label; the TypstUML Rust runtime queries
+// this label after a pass-1 compile to read measurements back into the
+// layout pipeline.
+//
+// Caller contract: `spec` MUST NOT carry `width:` / `height:` (those
+// would short-circuit the natural-size computation). `x:` / `y:` are
+// ignored if present.
+//
+// Defaults for `inset` MUST stay in sync with `class-layout`'s defaults
+// above — pass-1 and pass-2 must use byte-identical inset for the
+// measurement to be meaningful. Codegen should always pass `inset:` to
+// both ends if it customizes the value.
+#let class-probe(
+  id: none,
+  spec: (:),
+  inset: (x: 0.6em, y: 0.3em),
+) = context {
+  let kind = spec.at("kind", default: "class")
+  let m = if kind == "note" {
+    _layout-note(spec, inset)
+  } else if kind == "lollipop" or kind == "circle" {
+    _layout-lollipop(spec)
+  } else {
+    // Use neutral theme args — they don't affect measurement, only paint.
+    _layout-class(spec, white, 1pt + black, 0.5pt + black, 4pt, inset)
+  }
+  [#metadata((id: id, w: m.width.pt(), h: m.height.pt())) <typstuml_measure>]
+}
+
