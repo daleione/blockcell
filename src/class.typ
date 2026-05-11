@@ -76,7 +76,11 @@
   let gap = 2pt
   let label = text(size: 0.85em, name)
   let m = measure(label)
-  let total-w = calc.max(m.width, diameter)
+  // Codegen passes `width` so its mid-x (used for edge anchoring) lines
+  // up with the disc center we draw here. Without it, codegen's text
+  // measurement and Typst's `measure` disagree, leaving the connector
+  // off the disc.
+  let total-w = spec.at("width", default: calc.max(m.width, diameter))
   let total-h = diameter + gap + m.height
 
   let content = block(width: total-w, height: total-h, breakable: false, {
@@ -216,7 +220,7 @@
   let content-w = (
     (title-w,) + field-ms.map(m => m.width) + method-ms.map(m => m.width)
   ).fold(0pt, (a, w) => calc.max(a, w))
-  let total-w = content-w + 2 * pad-x
+  let measured-total-w = content-w + 2 * pad-x
 
   // Stereotype line gets a 0.2em bottom margin. Inside the name row, the
   // row height is the larger of the name text and the marker, so a tall
@@ -233,7 +237,15 @@
   // compartments" look is preserved when the class has neither fields nor
   // methods (PlantUML draws the box with one section in that case — we
   // match that by collapsing both empty compartments).
-  let total-h = name-h + fields-h + methods-h
+  let measured-total-h = name-h + fields-h + methods-h
+
+  // Honor explicit width / height from codegen so the painter's mid-x
+  // (used for edge anchoring) matches codegen's routing assumptions.
+  // Without this the Typst measure of a class's text drifts from
+  // codegen's text approximation by a few points and edges land off
+  // the box centre.
+  let total-w = spec.at("width", default: measured-total-w)
+  let total-h = spec.at("height", default: measured-total-h)
 
   let body = box(
     width: total-w, height: total-h,
@@ -432,6 +444,7 @@
   start, segments, end,
   head-from, head-to, line-style,
   color, bg-color, thickness, head-size,
+  from-side: none, to-side: none,
 ) = {
   let n = segments.len()
   if n == 0 { return }
@@ -439,19 +452,31 @@
   // The painter-side endpoints are snapped to the rendered class
   // geometry, which can drift from codegen's estimate. The two boundary
   // control handles compensate differently:
-  //   • first c1: x is forced to start.x (giving a vertical launch
-  //     tangent, since class edges run along the TB rank-progression
-  //     axis); y is kept as codegen emitted it.
+  //   • first c1: collapsed onto the launch axis dictated by `from-side`
+  //     so the head tangent is axis-aligned and never degenerate. For
+  //     top/bot (the TB default) that's the vertical axis; for left/right
+  //     it's horizontal.
   //   • last c2: translated by (end - last.end) so the codegen-emitted
-  //     incoming tangent is preserved against the snapped endpoint.
-  // Same scheme as records.typ but transposed for the TB orientation
-  // (records.typ is LR, so it forces a horizontal launch instead).
-  let first-c1 = (start.at(0), segments.at(0).c1.at(1))
+  //     incoming tangent is preserved against the snapped endpoint, then
+  //     collapsed onto the arrival axis dictated by `to-side` for the
+  //     same reason.
+  let from-horizontal = from-side == "left" or from-side == "right"
+  let to-horizontal = to-side == "left" or to-side == "right"
+  let first-c1 = if from-horizontal {
+    (segments.at(0).c1.at(0), start.at(1))
+  } else {
+    (start.at(0), segments.at(0).c1.at(1))
+  }
   let last = segments.at(n - 1)
-  let last-c2 = (
+  let last-c2-translated = (
     last.c2.at(0) + end.at(0) - last.end.at(0),
     last.c2.at(1) + end.at(1) - last.end.at(1),
   )
+  let last-c2 = if to-horizontal {
+    (last-c2-translated.at(0), end.at(1))
+  } else {
+    (end.at(0), last-c2-translated.at(1))
+  }
 
   let cmds = (curve.move(start),)
   for i in range(n) {
@@ -673,7 +698,9 @@
 
   // Canvas size = farthest extent across classes, packages, and bezier
   // handles. Packages can extend further than their members because of
-  // their padding band; include them explicitly.
+  // their padding band; include them explicitly. Classes (and edge
+  // handles) can also dip into negative x/y when codegen has pushed
+  // an association class past the chord — the shift below compensates.
   let canvas-x0 = 0pt
   let canvas-y0 = 0pt
   let canvas-w = 0pt
@@ -683,6 +710,8 @@
     let m = metas.at(i)
     canvas-w = calc.max(canvas-w, r.x + m.width)
     canvas-h = calc.max(canvas-h, r.y + m.height)
+    canvas-x0 = calc.min(canvas-x0, r.x)
+    canvas-y0 = calc.min(canvas-y0, r.y)
   }
   for p in packages {
     canvas-w = calc.max(canvas-w, p.x + p.w)
@@ -779,7 +808,18 @@
         e.at("head-from", default: "none"),
         e.at("head-to", default: "none"),
         style, color, bg-color, edge-thickness, head-size,
+        from-side: if "from-side" in e { e.from-side } else { default-from-side },
+        to-side: if "to-side" in e { e.to-side } else { default-to-side },
       )
+      // Couple-link "apoint" — small filled dot on the A-B chord
+      // marking where the association class is attached. PlantUML
+      // renders this as a 2pt black disc.
+      if e.at("from-couple", default: none) != none {
+        let dot-r = 1.5pt
+        place(top + left,
+          dx: start.at(0) - dot-r, dy: start.at(1) - dot-r,
+          circle(radius: dot-r, fill: color, stroke: none))
+      }
       _place-edge-label(start, end, 0.5, e.at("label", default: none),
         classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       // Mult and role share the same `t`; they're split apart by a small
