@@ -681,6 +681,429 @@
   )
 }
 
+// Lay out an artifact: rectangle with a small folded-page icon
+// in the top-right corner. PlantUML's `artifact Foo` shape.
+#let _layout-artifact(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let icon-w = 10pt
+  let icon-h = 12pt
+  let icon-margin = 4pt
+  let total-w = spec.at(
+    "width",
+    default: calc.max(m.width + 2 * pad-x + icon-w + icon-margin, 56pt),
+  )
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 32pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    // Folded-page icon (top-right).
+    let icon-x = total-w - icon-w - icon-margin
+    let icon-y = icon-margin
+    let fold = icon-w * 0.4
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (icon-x, icon-y),
+      (icon-x + icon-w - fold, icon-y),
+      (icon-x + icon-w, icon-y + fold),
+      (icon-x + icon-w, icon-y + icon-h),
+      (icon-x, icon-y + icon-h),
+    ))
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (icon-x + icon-w - fold, icon-y),
+      (icon-x + icon-w, icon-y + fold),
+      (icon-x + icon-w - fold, icon-y + fold),
+    ))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a collections: two stacked rectangles with the back one
+// offset up-right. PlantUML's `collections Foo` shape.
+#let _layout-collections(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let offset = 4pt
+  // Effective inner width excludes the offset so the back layer
+  // doesn't overhang the labeled face.
+  let inner-w = calc.max(m.width + 2 * pad-x, 48pt)
+  let inner-h = calc.max(m.height + 2 * pad-y, 26pt)
+  let total-w = spec.at("width", default: inner-w + offset)
+  let total-h = spec.at("height", default: inner-h + offset)
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Back rectangle (offset up-right).
+    place(top + left, dx: offset, dy: 0pt,
+      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke))
+    // Front rectangle.
+    place(top + left, dx: 0pt, dy: offset,
+      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke))
+    // Label centered on the front rectangle.
+    place(top + left, dx: 0pt, dy: offset,
+      block(width: inner-w, height: inner-h,
+        align(center + horizon, label)))
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: inner-w / 2,
+    mid-y: offset + inner-h / 2,
+    // Anchor on the front rectangle (the labeled face), not the
+    // overall bbox — otherwise edges would point at the back layer's
+    // protruding corners.
+    anchor-top: (inner-w / 2, offset),
+    anchor-bot: (inner-w / 2, total-h),
+    anchor-left: (0pt, offset + inner-h / 2),
+    anchor-right: (inner-w, offset + inner-h / 2),
+  )
+}
+
+// Lay out an action: rounded rectangle. PlantUML's `action Foo` shape.
+// Visually similar to `card` but slightly tighter radius — a flow-block
+// look rather than a card look.
+#let _layout-action(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 26pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke,
+         radius: 12pt)
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a process: chevron (arrow-shaped rectangle pointing right).
+// PlantUML's `process Foo` shape — a workflow / pipeline step.
+#let _layout-process(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  // Chevron tip protrudes from both left (concave) and right (convex)
+  // ends. The label sits in the rectangular core.
+  let tip = 8pt
+  let core-w = calc.max(m.width + 2 * pad-x, 48pt)
+  let total-w = spec.at("width", default: core-w + 2 * tip)
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (0pt, 0pt),
+      (total-w - tip, 0pt),
+      (total-w, total-h / 2),
+      (total-w - tip, total-h),
+      (0pt, total-h),
+      (tip, total-h / 2),
+    ))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+    // Edges anchor on the rectangular core, not the chevron tips —
+    // arrows pointing at the tip read as "the chevron's pointer",
+    // not as a connection point.
+    anchor-top: (total-w / 2, 0pt),
+    anchor-bot: (total-w / 2, total-h),
+    anchor-left: (tip, total-h / 2),
+    anchor-right: (total-w - tip, total-h / 2),
+  )
+}
+
+// Lay out a label: borderless text. PlantUML's `label Foo` shape —
+// used for annotations that aren't entities. Renders as just the
+// text with no surrounding box.
+#let _layout-label(spec) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: m.width)
+  let total-h = spec.at("height", default: m.height)
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a stack: rectangle plus two thin horizontal lines at the
+// bottom suggesting a stack of pages. PlantUML's `stack Foo` shape.
+#let _layout-stack(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let stack-gap = 3pt
+  let stack-lines = 2 * stack-gap
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 48pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y + stack-lines, 30pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    // Two thin horizontal "page edge" lines near the bottom.
+    place(top + left, dx: 0pt, dy: total-h - stack-lines,
+      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + black))
+    place(top + left, dx: 0pt, dy: total-h - stack-gap,
+      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + black))
+    place(top + left, dx: 0pt, dy: 0pt,
+      block(width: total-w, height: total-h - stack-lines,
+        align(center + horizon, label)))
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: (total-h - stack-lines) / 2,
+  )
+}
+
+// Lay out an agent: rectangle plus a small <<agent>> stereotype tag
+// at the top. PlantUML's `agent Foo` shape.
+#let _layout-agent(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 4pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let stereo-text = text(size: 0.75em, fill: rgb("#666666"), "«agent»")
+  let m = measure(label)
+  let stereo-m = measure(stereo-text)
+  let stereo-h = stereo-m.height + 2pt
+  let total-w = spec.at(
+    "width",
+    default: calc.max(calc.max(m.width, stereo-m.width) + 2 * pad-x, 48pt),
+  )
+  let total-h = spec.at(
+    "height",
+    default: stereo-h + m.height + 2 * pad-y + 2pt,
+  )
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    place(top + center, dy: pad-y, stereo-text)
+    place(top + center, dy: pad-y + stereo-h, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a person (C4-style): a head circle on top of a body
+// trapezoid. PlantUML's `person Foo` shape.
+#let _layout-person(spec, fill) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let head-r = 7pt
+  let body-h = 22pt
+  let body-top-w = head-r * 2.4
+  let body-bot-w = head-r * 4
+  let person-h = head-r * 2 + body-h
+  let person-w = body-bot-w
+  let gap = 3pt
+  let total-w = spec.at("width", default: calc.max(person-w, m.width))
+  let total-h = spec.at("height", default: person-h + gap + m.height)
+  let mid-x = total-w / 2
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Head circle.
+    place(top + left, dx: mid-x - head-r, dy: 0pt,
+      circle(radius: head-r, fill: fill, stroke: stroke))
+    // Body trapezoid (narrow top, wide bottom).
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (mid-x - body-top-w / 2, head-r * 2),
+      (mid-x + body-top-w / 2, head-r * 2),
+      (mid-x + body-bot-w / 2, head-r * 2 + body-h),
+      (mid-x - body-bot-w / 2, head-r * 2 + body-h),
+    ))
+    // Label below.
+    place(top + center, dy: person-h + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: mid-x,
+    mid-y: person-h / 2,
+    anchor-top: (mid-x, 0pt),
+    anchor-bot: (mid-x, person-h),
+    anchor-left: (mid-x - body-bot-w / 2, person-h - body-h / 2),
+    anchor-right: (mid-x + body-bot-w / 2, person-h - body-h / 2),
+  )
+}
+
+// Lay out a boundary: a circle with a small T-shaped stick attached on
+// its left. PlantUML's sequence-side `boundary Foo` symbol.
+#let _layout-boundary(spec, fill) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let disc-r = 8pt
+  let stick = 8pt
+  let figure-h = disc-r * 2
+  let figure-w = disc-r * 2 + stick
+  let gap = 3pt
+  let total-w = spec.at("width", default: calc.max(figure-w, m.width))
+  let total-h = spec.at("height", default: figure-h + gap + m.height)
+  let mid-x = total-w / 2
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Disc, offset right to make room for the stick.
+    place(top + left, dx: mid-x - disc-r + stick / 2, dy: 0pt,
+      circle(radius: disc-r, fill: fill, stroke: stroke))
+    // T-stick: a horizontal stub + a vertical bar.
+    let stick-x = mid-x - disc-r + stick / 2 - stick
+    place(top + left, dx: stick-x, dy: disc-r,
+      line(start: (0pt, 0pt), end: (stick, 0pt), stroke: stroke))
+    place(top + left, dx: stick-x, dy: disc-r - stick / 2,
+      line(start: (0pt, 0pt), end: (0pt, stick), stroke: stroke))
+    // Label.
+    place(top + center, dy: figure-h + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: mid-x,
+    mid-y: figure-h / 2,
+  )
+}
+
+// Lay out a control: a circle with a small upward arrow on the top
+// edge. PlantUML's sequence-side `control Foo` symbol.
+#let _layout-control(spec, fill) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let disc-r = 8pt
+  let arrow = 4pt
+  let figure-h = disc-r * 2 + arrow
+  let figure-w = disc-r * 2
+  let gap = 3pt
+  let total-w = spec.at("width", default: calc.max(figure-w, m.width))
+  let total-h = spec.at("height", default: figure-h + gap + m.height)
+  let mid-x = total-w / 2
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Disc, offset down to make room for the arrow.
+    place(top + left, dx: mid-x - disc-r, dy: arrow,
+      circle(radius: disc-r, fill: fill, stroke: stroke))
+    // Upward arrow on top.
+    place(top + left, dx: mid-x, dy: arrow,
+      line(start: (0pt, 0pt), end: (-arrow, -arrow), stroke: stroke))
+    place(top + left, dx: mid-x, dy: arrow,
+      line(start: (0pt, 0pt), end: (arrow, -arrow), stroke: stroke))
+    // Label.
+    place(top + center, dy: figure-h + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: mid-x,
+    mid-y: figure-h / 2,
+  )
+}
+
+// Lay out an entity-domain: a circle with an underline stripe at the
+// bottom edge. PlantUML's sequence-side `entity Foo` (when in
+// desc-flavor / sequence-flavor as opposed to class-flavor) symbol.
+#let _layout-entity-domain(spec, fill) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let disc-r = 8pt
+  let under-extra = 4pt
+  let under-h = 2pt
+  let figure-h = disc-r * 2 + under-h
+  let figure-w = disc-r * 2 + 2 * under-extra
+  let gap = 3pt
+  let total-w = spec.at("width", default: calc.max(figure-w, m.width))
+  let total-h = spec.at("height", default: figure-h + gap + m.height)
+  let mid-x = total-w / 2
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + left, dx: mid-x - disc-r, dy: 0pt,
+      circle(radius: disc-r, fill: fill, stroke: stroke))
+    // Horizontal underline below the disc.
+    place(top + left, dx: mid-x - disc-r - under-extra, dy: disc-r * 2,
+      line(start: (0pt, 0pt), end: (disc-r * 2 + 2 * under-extra, 0pt), stroke: stroke))
+    place(top + center, dy: figure-h + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: mid-x,
+    mid-y: figure-h / 2,
+  )
+}
+
 // Lay out a free-text note as a yellow sticky with a dog-eared corner.
 // Returns the same shape as `_layout-class` so the caller can treat
 // notes and classes uniformly.
@@ -1239,6 +1662,28 @@
       _layout-hexagon(spec, cls-fill)
     } else if kind == "card" {
       _layout-card(spec, cls-fill)
+    } else if kind == "artifact" {
+      _layout-artifact(spec, cls-fill)
+    } else if kind == "collections" {
+      _layout-collections(spec, cls-fill)
+    } else if kind == "action" {
+      _layout-action(spec, cls-fill)
+    } else if kind == "process" {
+      _layout-process(spec, cls-fill)
+    } else if kind == "label" {
+      _layout-label(spec)
+    } else if kind == "stack" {
+      _layout-stack(spec, cls-fill)
+    } else if kind == "agent" {
+      _layout-agent(spec, cls-fill)
+    } else if kind == "person" {
+      _layout-person(spec, cls-fill)
+    } else if kind == "boundary" {
+      _layout-boundary(spec, cls-fill)
+    } else if kind == "control" {
+      _layout-control(spec, cls-fill)
+    } else if kind == "entity-domain" {
+      _layout-entity-domain(spec, cls-fill)
     } else {
       _layout-class(spec, cls-fill, stroke, inner-stroke, radius, inset)
     }
@@ -1536,6 +1981,28 @@
     _layout-hexagon(spec, white)
   } else if kind == "card" {
     _layout-card(spec, white)
+  } else if kind == "artifact" {
+    _layout-artifact(spec, white)
+  } else if kind == "collections" {
+    _layout-collections(spec, white)
+  } else if kind == "action" {
+    _layout-action(spec, white)
+  } else if kind == "process" {
+    _layout-process(spec, white)
+  } else if kind == "label" {
+    _layout-label(spec)
+  } else if kind == "stack" {
+    _layout-stack(spec, white)
+  } else if kind == "agent" {
+    _layout-agent(spec, white)
+  } else if kind == "person" {
+    _layout-person(spec, white)
+  } else if kind == "boundary" {
+    _layout-boundary(spec, white)
+  } else if kind == "control" {
+    _layout-control(spec, white)
+  } else if kind == "entity-domain" {
+    _layout-entity-domain(spec, white)
   } else {
     // Use neutral theme args — they don't affect measurement, only paint.
     _layout-class(spec, white, 1pt + black, 0.5pt + black, 4pt, inset)
