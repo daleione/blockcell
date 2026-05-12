@@ -246,15 +246,21 @@
   let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
   let (px, py) = if len-pt == 0 { (0, 0) }
     else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
-  let lbl = box(inset: 2pt, fill: rgb("#FFFFFFCC"),
+  // Light-tint background — readable text over a line, much less
+  // obtrusive than the previous opaque (CC ~80% alpha) box.
+  let lbl = box(inset: 2pt, fill: rgb("#FFFFFF80"),
     text(size: 0.78em, fill: palettes.base.text, body))
   let m = measure(lbl)
 
   // Pick the first perp offset whose label bbox doesn't clip a class.
+  // For non-zero perp (mult / role), try the opposite side too — if
+  // the target class sits in the default direction, all positive
+  // candidates collide and the label would otherwise land on the
+  // class's header band.
   let perps = if perp == 0pt {
     (0pt, 12pt, -12pt, 24pt)
   } else {
-    (perp, perp * 1.8, perp * 2.6)
+    (perp, -perp, perp * 1.8, -perp * 1.8, perp * 2.6, -perp * 2.6)
   }
   let chosen-perp = perp
   let found = false
