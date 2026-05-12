@@ -1425,6 +1425,31 @@
     let r = head-size * 0.5
     place(top + left, dx: tip-x - r, dy: tip-y - r,
       circle(radius: r, fill: bg-color, stroke: thickness + color))
+  } else if head == "socket-open" or head == "socket-closed" {
+    // Component-interface socket: a half-circle ARC whose open side
+    // faces the line direction (i.e. "cups" the incoming line). The
+    // arc center is offset OUTWARD from the tip so the cup opens toward
+    // the source. Approximated with an arc-shaped polygon — Typst's
+    // primitive `circle` doesn't support arc spans, so we draw a full
+    // circle and overlay a rectangle to mask the unwanted half.
+    let r = head-size * 0.55
+    // Center sits past the tip in the line's direction (so the open
+    // side faces back toward the source).
+    let cx = tip-x + ux * r
+    let cy = tip-y + uy * r
+    place(top + left, dx: cx - r, dy: cy - r,
+      circle(radius: r, fill: none, stroke: thickness + color))
+    // Mask the "back" half (the half on the far side of the tip from
+    // the source) by overlaying a rectangle in bg-color.
+    let mask-half = r + thickness.to-absolute()
+    let mask-cx = cx + ux * (mask-half / 2)
+    let mask-cy = cy + uy * (mask-half / 2)
+    let mask-w = if calc.abs(ux) > 0.5 { mask-half } else { 2 * r + 2pt }
+    let mask-h = if calc.abs(uy) > 0.5 { mask-half } else { 2 * r + 2pt }
+    place(top + left,
+      dx: mask-cx - mask-w / 2,
+      dy: mask-cy - mask-h / 2,
+      rect(width: mask-w, height: mask-h, fill: bg-color, stroke: none))
   }
   // Unknown heads silently render nothing.
 }
