@@ -4,7 +4,7 @@
 // composition / association / dependency).
 // ============================================================================
 //
-// class-layout  Painter for class diagrams whose record positions and edge
+// cuca-layout  Painter for class diagrams whose record positions and edge
 //               bezier paths are computed externally (TypstUML's
 //               codegen/class.rs). Companion to `record-layout` — we keep
 //               the two separate because class arrows draw one of seven
@@ -1599,7 +1599,7 @@
 /// paths are computed by codegen (TypstUML's `codegen/class.rs`).
 ///
 /// ```typst
-/// #class-layout(
+/// #cuca-layout(
 ///   classes: (
 ///     (x: 0pt, y: 0pt, kind: "class", name: [Animal],
 ///      fields: ((vis: "+", body: [name: String]),),
@@ -1632,7 +1632,7 @@
 /// - `edge-color` / `edge-thickness`: default edge stroke styling
 ///   (overridden per-edge by `color` in an edge dict).
 /// - `head-size`: tip size for arrow / triangle / diamond / circle heads.
-#let class-layout(
+#let cuca-layout(
   title: none,
   classes: (),
   edges: (),
@@ -1952,8 +1952,8 @@
 // Measure protocol
 // ============================================================================
 //
-// `class-probe` measures the natural width / height of a single class /
-// note / lollipop spec — the exact same value `class-layout` would
+// `cuca-probe` measures the natural width / height of a single class /
+// note / lollipop spec — the exact same value `cuca-layout` would
 // compute for `total-w` / `total-h` when codegen does NOT pass `width:` /
 // `height:` overrides. It emits a `metadata((id, w, h))` element with
 // the `<typstuml_measure>` label; the TypstUML Rust runtime queries
@@ -1964,11 +1964,11 @@
 // would short-circuit the natural-size computation). `x:` / `y:` are
 // ignored if present.
 //
-// Defaults for `inset` MUST stay in sync with `class-layout`'s defaults
+// Defaults for `inset` MUST stay in sync with `cuca-layout`'s defaults
 // above — pass-1 and pass-2 must use byte-identical inset for the
 // measurement to be meaningful. Codegen should always pass `inset:` to
 // both ends if it customizes the value.
-#let class-probe(
+#let cuca-probe(
   id: none,
   spec: (:),
   inset: (x: 0.6em, y: 0.3em),
@@ -2036,14 +2036,14 @@
 }
 
 // Measure the *label content* of a `package` / `namespace` / similar
-// container as `class-layout`'s package painter would render it: bold
+// container as `cuca-layout`'s package painter would render it: bold
 // 0.85em text, no insets included. Callers add the painter's left /
 // right / top / bottom margins themselves to derive the outer band
 // dimensions.
 //
 // Returns w / h as float pt via the `<typstuml_measure>` metadata
 // channel.
-#let package-probe(
+#let container-probe(
   id: none,
   label: [],
 ) = context {
