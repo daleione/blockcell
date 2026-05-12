@@ -104,6 +104,583 @@
   )
 }
 
+// Lay out a use-case actor (stickman). Renders a simple head + body +
+// arms + legs stick figure with the name below. Matches PlantUML's
+// default actor style. Returns the same dict shape as `_layout-class`.
+#let _layout-actor(spec) = {
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  // Tuned to PlantUML proportions: head ≈ 1/5 of figure height,
+  // total figure height ≈ 40pt, arms width ≈ 24pt. Label below.
+  let head-r = 4pt
+  let body-len = 16pt
+  let arm-y = 4pt
+  let arm-half = 12pt
+  let leg-y = body-len - 2pt
+  let leg-half = 8pt
+  let stickman-w = arm-half * 2
+  let stickman-h = head-r * 2 + body-len + leg-half + 2pt
+  let gap = 3pt
+  let total-w = calc.max(stickman-w, m.width)
+  let total-h = stickman-h + gap + m.height
+  let mid-x = total-w / 2
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Head.
+    place(top + left, dx: mid-x - head-r, dy: 0pt,
+      circle(radius: head-r, fill: white, stroke: 0.9pt + black))
+    // Body: vertical line.
+    let body-top = 2 * head-r
+    place(top + left, dx: mid-x, dy: body-top,
+      line(start: (0pt, 0pt), end: (0pt, body-len), stroke: 0.9pt + black))
+    // Arms: horizontal line.
+    place(top + left, dx: mid-x - arm-half, dy: body-top + arm-y,
+      line(start: (0pt, 0pt), end: (2 * arm-half, 0pt), stroke: 0.9pt + black))
+    // Left leg.
+    place(top + left, dx: mid-x, dy: body-top + leg-y,
+      line(start: (0pt, 0pt), end: (-leg-half, leg-half), stroke: 0.9pt + black))
+    // Right leg.
+    place(top + left, dx: mid-x, dy: body-top + leg-y,
+      line(start: (0pt, 0pt), end: (leg-half, leg-half), stroke: 0.9pt + black))
+    // Label below.
+    place(top + center, dy: stickman-h + gap, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: mid-x,
+    mid-y: stickman-h / 2,
+    // Edges anchor on the stickman silhouette, not the label.
+    anchor-top: (mid-x, 0pt),
+    anchor-bot: (mid-x, stickman-h),
+    anchor-left: (mid-x - arm-half, stickman-h / 2),
+    anchor-right: (mid-x + arm-half, stickman-h / 2),
+  )
+}
+
+// Lay out a database cylinder. PlantUML draws this as a rectangle with
+// a half-ellipse top cap and a curved bottom — we approximate with a
+// rectangle whose top edge is replaced by an ellipse outline and a
+// curved bottom edge using Typst's `path` element.
+#let _layout-database(spec, fill) = {
+  let pad-x = 8pt
+  let pad-y = 4pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let cap-h = 6pt
+  let body-min-h = 32pt
+  let body-h = calc.max(m.height + 2 * pad-y, body-min-h)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 40pt))
+  let total-h = spec.at("height", default: body-h + 2 * cap-h)
+
+  let stroke = 0.9pt + black
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Body rectangle (no top, no bottom — caps cover them).
+    place(top + left, dy: cap-h,
+      rect(width: total-w, height: total-h - 2 * cap-h, fill: fill, stroke: none))
+    // Side strokes.
+    place(top + left, dx: 0pt, dy: cap-h,
+      line(start: (0pt, 0pt), end: (0pt, total-h - 2 * cap-h), stroke: stroke))
+    place(top + left, dx: total-w, dy: cap-h,
+      line(start: (0pt, 0pt), end: (0pt, total-h - 2 * cap-h), stroke: stroke))
+    // Top ellipse (full, fills the top cap region).
+    place(top + left, dy: 0pt,
+      ellipse(width: total-w, height: 2 * cap-h, fill: fill, stroke: stroke))
+    // Bottom curve: just the front half of an ellipse.
+    place(top + left, dy: total-h - 2 * cap-h,
+      ellipse(width: total-w, height: 2 * cap-h, fill: fill, stroke: stroke))
+    // Hide the back-half of the bottom ellipse by overlaying a rectangle
+    // that's transparent on top of the body but covers the upper half of
+    // the bottom ellipse's bounding box. (Typst doesn't have arc paths
+    // first-class, so we approximate.)
+    place(top + left, dy: total-h - 2 * cap-h,
+      rect(width: total-w, height: cap-h, fill: fill, stroke: none))
+    // Re-stroke the visible top edge of the bottom ellipse (its widest
+    // line, which is the body's bottom edge).
+    place(top + left, dy: total-h - 2 * cap-h,
+      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: stroke))
+    // Centered label.
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a UML2 component box: a rectangle with the small two-tab icon
+// in the top-right corner. Label is centered.
+#let _layout-component(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let icon-w = 12pt
+  let icon-h = 10pt
+  let icon-margin = 4pt
+  let total-w = spec.at(
+    "width",
+    default: m.width + 2 * pad-x + icon-w + icon-margin,
+  )
+  let total-h = spec.at("height", default: m.height + 2 * pad-y)
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    // Two-tab icon at top-right.
+    let icon-x = total-w - icon-w - icon-margin
+    let icon-y = icon-margin
+    // Lower tab.
+    place(top + left, dx: icon-x, dy: icon-y + icon-h * 0.45,
+      rect(width: icon-w, height: icon-h * 0.4, fill: fill, stroke: stroke))
+    // Upper tab.
+    place(top + left, dx: icon-x, dy: icon-y,
+      rect(width: icon-w, height: icon-h * 0.4, fill: fill, stroke: stroke))
+    // Vertical spine of the icon (connects the tabs to the box edge).
+    place(top + left, dx: icon-x + icon-w * 0.25, dy: icon-y,
+      line(start: (0pt, 0pt), end: (0pt, icon-h), stroke: stroke))
+    // Label.
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a deployment node: a 3D box with the top and right faces
+// rendered in parallelogram-perspective. Label centered in the front
+// face.
+#let _layout-node(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  // Perspective offset for the 3D top/right faces.
+  let depth = 6pt
+  let front-w = calc.max(m.width + 2 * pad-x, 40pt)
+  let front-h = calc.max(m.height + 2 * pad-y, 28pt)
+  let total-w = spec.at("width", default: front-w + depth)
+  let total-h = spec.at("height", default: front-h + depth)
+  let stroke = 0.9pt + black
+
+  let fw = total-w - depth
+  let fh = total-h - depth
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Top face: parallelogram from (depth, 0) → (total-w, 0) →
+    // (total-w - depth, depth) → (0, depth) but PlantUML's orientation
+    // is "perspective right-and-up", so the top tilts away to the
+    // upper-right.
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (depth, 0pt),
+      (total-w, 0pt),
+      (fw, depth),
+      (0pt, depth),
+    ))
+    // Right face: from (total-w, 0) → (total-w, fh) → (fw, total-h) →
+    // (fw, depth).
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (total-w, 0pt),
+      (total-w, fh),
+      (fw, total-h),
+      (fw, depth),
+    ))
+    // Front face (drawn last so it's on top of the perspective seams).
+    place(top + left, dx: 0pt, dy: depth,
+      rect(width: fw, height: fh, fill: fill, stroke: stroke))
+    // Label centered in the front face.
+    place(top + left, dx: fw / 2 - m.width / 2, dy: depth + fh / 2 - m.height / 2, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: fw / 2,
+    mid-y: depth + fh / 2,
+    // Edge anchors clamp to the front face (where labels and arrows
+    // visually attach); the back perspective faces are decorative.
+    anchor-top: (fw / 2, depth),
+    anchor-bot: (fw / 2, total-h),
+    anchor-left: (0pt, depth + fh / 2),
+    anchor-right: (fw, depth + fh / 2),
+  )
+}
+
+// Lay out a use-case ellipse. PlantUML's `usecase Foo` / `(Foo)`
+// renders as an oval with the label inside.
+#let _layout-usecase(spec, fill) = {
+  let pad-x = 12pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  // Ellipses need extra horizontal padding because the rounded ends
+  // visually "shrink" the usable label space. PlantUML's heuristic is
+  // roughly 1.5× wider than tall for a one-line label.
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 48pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + left,
+      ellipse(width: total-w, height: total-h, fill: fill, stroke: stroke))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a cloud outline. Approximated with a sequence of overlapping
+// circles forming a fluffy boundary, sized to fit the label.
+#let _layout-cloud(spec, fill) = {
+  let pad-x = 14pt
+  let pad-y = 10pt
+  let name = spec.at("name", default: [])
+  let label = text(name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 64pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 40pt))
+  let stroke = 0.9pt + black
+
+  // Cloud silhouette = three overlapping bumps along the top edge
+  // backed by a flat-bottom curve. Approximate with a rounded box +
+  // three filled circles on the top.
+  let bump-r = total-h * 0.32
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Base capsule, slightly inset so the bumps protrude.
+    place(top + left, dx: bump-r * 0.4, dy: bump-r * 0.6,
+      rect(width: total-w - bump-r * 0.8, height: total-h - bump-r * 0.6,
+           fill: fill, stroke: stroke, radius: 10pt))
+    // Three top bumps.
+    place(top + left, dx: bump-r * 0.5, dy: 0pt,
+      circle(radius: bump-r, fill: fill, stroke: stroke))
+    place(top + left, dx: total-w / 2 - bump-r, dy: -bump-r * 0.15,
+      circle(radius: bump-r * 1.1, fill: fill, stroke: stroke))
+    place(top + left, dx: total-w - 2.5 * bump-r, dy: 0pt,
+      circle(radius: bump-r, fill: fill, stroke: stroke))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a plain rectangle. PlantUML's most generic container /
+// leaf shape — equivalent to `_layout-class` minus the compartment
+// dividers and stereotype chip. Used directly for `rectangle Foo` and
+// as the painter fallback for unimplemented USymbols.
+#let _layout-rectangle(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 40pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 24pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a folder shape: a rectangle with a small tab on the top-left
+// edge, matching PlantUML's `folder Foo`.
+#let _layout-folder(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 8pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let tab-w = 18pt
+  let tab-h = 6pt
+  let tab-skew = 4pt
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y + tab-h, 32pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Body rectangle (below the tab).
+    place(top + left, dy: tab-h,
+      rect(width: total-w, height: total-h - tab-h, fill: fill, stroke: stroke))
+    // Tab outline — trapezoid jutting up from the body's top edge.
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (0pt, tab-h),
+      (0pt, 0pt),
+      (tab-w - tab-skew, 0pt),
+      (tab-w, tab-h),
+    ))
+    // Label centered in the body.
+    place(top + left, dx: 0pt, dy: tab-h,
+      block(width: total-w, height: total-h - tab-h,
+        align(center + horizon, label)))
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: tab-h + (total-h - tab-h) / 2,
+  )
+}
+
+// Lay out a UML frame: a rectangle with a small labeled notch in the
+// top-left corner. PlantUML uses this for "package as frame" style.
+#let _layout-frame(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 8pt
+  let name = spec.at("name", default: [])
+  let label-text = text(size: 0.8em, weight: "bold", name)
+  let m = measure(label-text)
+  let notch-w = m.width + 12pt
+  let notch-h = m.height + 4pt
+  let notch-corner = 4pt
+  let total-w = spec.at("width", default: calc.max(notch-w + 16pt, 60pt))
+  let total-h = spec.at("height", default: calc.max(notch-h + m.height + 2 * pad-y, 40pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    // Notch polygon: top-left corner with a stepped notch carved out.
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (0pt, 0pt),
+      (notch-w, 0pt),
+      (notch-w, notch-h - notch-corner),
+      (notch-w - notch-corner, notch-h),
+      (0pt, notch-h),
+    ))
+    place(top + left, dx: 6pt, dy: 2pt, label-text)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a file shape: a rectangle with the top-right corner folded
+// down to form a small dog-ear. Matches PlantUML's `file Foo`.
+#let _layout-file(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let fold = 10pt
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + fold, 60pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 30pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Body: rectangle with the upper-right corner cut.
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (0pt, 0pt),
+      (total-w - fold, 0pt),
+      (total-w, fold),
+      (total-w, total-h),
+      (0pt, total-h),
+    ))
+    // Folded-corner triangle.
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (total-w - fold, 0pt),
+      (total-w, fold),
+      (total-w - fold, fold),
+    ))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a queue — a horizontal cylinder (database rotated 90°),
+// matching PlantUML's `queue Foo`. The label sits centered in the
+// straight body, with rounded caps on the left and right.
+#let _layout-queue(spec, fill) = {
+  let pad-x = 6pt
+  let pad-y = 4pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let cap-w = 6pt
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + 2 * cap-w, 48pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    // Body rectangle (between caps).
+    place(top + left, dx: cap-w, dy: 0pt,
+      rect(width: total-w - 2 * cap-w, height: total-h, fill: fill, stroke: none))
+    // Top and bottom strokes.
+    place(top + left, dx: cap-w, dy: 0pt,
+      line(start: (0pt, 0pt), end: (total-w - 2 * cap-w, 0pt), stroke: stroke))
+    place(top + left, dx: cap-w, dy: total-h,
+      line(start: (0pt, 0pt), end: (total-w - 2 * cap-w, 0pt), stroke: stroke))
+    // Left cap (full ellipse).
+    place(top + left, dx: 0pt, dy: 0pt,
+      ellipse(width: 2 * cap-w, height: total-h, fill: fill, stroke: stroke))
+    // Right cap (full ellipse — but the front-half is the visible part).
+    place(top + left, dx: total-w - 2 * cap-w, dy: 0pt,
+      ellipse(width: 2 * cap-w, height: total-h, fill: fill, stroke: stroke))
+    // Mask the left-half of the right cap so the "back" curve is hidden.
+    place(top + left, dx: total-w - 2 * cap-w, dy: 0pt,
+      rect(width: cap-w, height: total-h, fill: fill, stroke: none))
+    // Re-stroke the visible front of the right cap.
+    place(top + left, dx: total-w - 2 * cap-w + cap-w, dy: 0pt,
+      line(start: (0pt, 0pt), end: (0pt, total-h), stroke: stroke))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a storage — rounded capsule (pill). Matches PlantUML's
+// `storage Foo`.
+#let _layout-storage(spec, fill) = {
+  let pad-x = 12pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 60pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
+  let radius = total-h / 2
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + left,
+      rect(width: total-w, height: total-h, fill: fill, stroke: stroke,
+           radius: radius))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a hexagon (6 sides). Matches PlantUML's `hexagon Foo`.
+#let _layout-hexagon(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  // Hexagon proportions: 6 vertices, side cuts angle in 1/4 of the
+  // total width on each side.
+  let cut = 10pt
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + 2 * cut, 56pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 30pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    place(top + left, polygon(
+      fill: fill, stroke: stroke,
+      (cut, 0pt),
+      (total-w - cut, 0pt),
+      (total-w, total-h / 2),
+      (total-w - cut, total-h),
+      (cut, total-h),
+      (0pt, total-h / 2),
+    ))
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
+// Lay out a card — rounded rectangle. Matches PlantUML's `card Foo`.
+#let _layout-card(spec, fill) = {
+  let pad-x = 10pt
+  let pad-y = 6pt
+  let name = spec.at("name", default: [])
+  let label = text(weight: "bold", name)
+  let m = measure(label)
+  let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
+  let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
+  let stroke = 0.9pt + black
+
+  let content = block(width: total-w, height: total-h, breakable: false, {
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
+    place(center + horizon, label)
+  })
+
+  (
+    content: content,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
+
 // Lay out a free-text note as a yellow sticky with a dog-eared corner.
 // Returns the same shape as `_layout-class` so the caller can treat
 // notes and classes uniformly.
@@ -629,12 +1206,40 @@
 
   let metas = classes.map(spec => {
     let kind = spec.at("kind", default: "class")
+    let cls-fill = spec.at("fill", default: default-fill)
     if kind == "note" {
       _layout-note(spec, inset)
     } else if kind == "lollipop" or kind == "circle" {
       _layout-lollipop(spec)
+    } else if kind == "actor" {
+      _layout-actor(spec)
+    } else if kind == "database" {
+      _layout-database(spec, cls-fill)
+    } else if kind == "component" {
+      _layout-component(spec, cls-fill)
+    } else if kind == "node" {
+      _layout-node(spec, cls-fill)
+    } else if kind == "usecase" {
+      _layout-usecase(spec, cls-fill)
+    } else if kind == "cloud" {
+      _layout-cloud(spec, cls-fill)
+    } else if kind == "rectangle" {
+      _layout-rectangle(spec, cls-fill)
+    } else if kind == "folder" {
+      _layout-folder(spec, cls-fill)
+    } else if kind == "frame" {
+      _layout-frame(spec, cls-fill)
+    } else if kind == "file" {
+      _layout-file(spec, cls-fill)
+    } else if kind == "queue" {
+      _layout-queue(spec, cls-fill)
+    } else if kind == "storage" {
+      _layout-storage(spec, cls-fill)
+    } else if kind == "hexagon" {
+      _layout-hexagon(spec, cls-fill)
+    } else if kind == "card" {
+      _layout-card(spec, cls-fill)
     } else {
-      let cls-fill = spec.at("fill", default: default-fill)
       _layout-class(spec, cls-fill, stroke, inner-stroke, radius, inset)
     }
   })
@@ -903,6 +1508,34 @@
     _layout-note(spec, inset)
   } else if kind == "lollipop" or kind == "circle" {
     _layout-lollipop(spec)
+  } else if kind == "actor" {
+    _layout-actor(spec)
+  } else if kind == "database" {
+    _layout-database(spec, white)
+  } else if kind == "component" {
+    _layout-component(spec, white)
+  } else if kind == "node" {
+    _layout-node(spec, white)
+  } else if kind == "usecase" {
+    _layout-usecase(spec, white)
+  } else if kind == "cloud" {
+    _layout-cloud(spec, white)
+  } else if kind == "rectangle" {
+    _layout-rectangle(spec, white)
+  } else if kind == "folder" {
+    _layout-folder(spec, white)
+  } else if kind == "frame" {
+    _layout-frame(spec, white)
+  } else if kind == "file" {
+    _layout-file(spec, white)
+  } else if kind == "queue" {
+    _layout-queue(spec, white)
+  } else if kind == "storage" {
+    _layout-storage(spec, white)
+  } else if kind == "hexagon" {
+    _layout-hexagon(spec, white)
+  } else if kind == "card" {
+    _layout-card(spec, white)
   } else {
     // Use neutral theme args — they don't affect measurement, only paint.
     _layout-class(spec, white, 1pt + black, 0.5pt + black, 4pt, inset)
