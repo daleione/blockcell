@@ -910,3 +910,19 @@
   [#metadata((id: id, w: m.width.pt(), h: m.height.pt())) <typstuml_measure>]
 }
 
+// Measure the *label content* of a `package` / `namespace` / similar
+// container as `class-layout`'s package painter would render it: bold
+// 0.85em text, no insets included. Callers add the painter's left /
+// right / top / bottom margins themselves to derive the outer band
+// dimensions.
+//
+// Returns w / h as float pt via the `<typstuml_measure>` metadata
+// channel.
+#let package-probe(
+  id: none,
+  label: [],
+) = context {
+  let m = measure(text(weight: "bold", size: 0.85em, label))
+  [#metadata((id: id, w: m.width.pt(), h: m.height.pt())) <typstuml_measure>]
+}
+

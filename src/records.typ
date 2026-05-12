@@ -495,6 +495,34 @@
 ///   to each underlying `record(...)`.
 /// - `arrow-color` / `arrow-thickness` / `arrow-head` / `arrow-dot`:
 ///   styling knobs for edges.
+// Measure protocol: report the natural width / height / row centers of
+// a single record as `_layout-record` would compute them, without
+// drawing anything. The `row_centers` array drops out into the metadata
+// dict so TypstUML's Rust codegen can anchor edges at exact row centres
+// instead of inferring them from a heuristic estimator. `value_min`
+// matches the `value-min` knob `record-layout` passes — keep them in
+// sync so the probe and the layout see the same column-width floor.
+#let record-probe(
+  id: none,
+  rows: (),
+  fill: rgb("#F1F1F1"),
+  stroke: 1.5pt + black,
+  inner-stroke: 0.6pt + black,
+  radius: 5pt,
+  inset: (x: 0.5em, y: 0.25em),
+  value-min: 12pt,
+) = context {
+  let g = _layout-record(rows, fill, stroke, inner-stroke, radius, inset,
+                         value-min: value-min)
+  let centers = g.row-centers.map(c => c.pt())
+  [#metadata((
+    id: id,
+    w: g.width.pt(),
+    h: g.height.pt(),
+    row_centers: centers,
+  )) <typstuml_measure>]
+}
+
 #let record-layout(
   title: none,
   records: (),
