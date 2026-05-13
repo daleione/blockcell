@@ -316,20 +316,31 @@
   }
 
   let default-h = 2.8em
+  // For rect / stadium, treat `default-h` as a *minimum*: a single-line
+  // action keeps the visually uniform 2.8em, while a multi-line label
+  // grows to fit. We resolve this inside a `context` block so we can
+  // measure the body's natural height.
+  let inset-y = if type(inset) == dictionary {
+    inset.at("y", default: 0pt)
+  } else { inset }
+  let min-height-box(radius) = context {
+    let body-content = { set align(center + horizon); body }
+    let body-h = measure(box(width: width, inset: inset, body-content)).height
+    let h = if height == auto {
+      calc.max(default-h.to-absolute(), body-h)
+    } else { height }
+    box(
+      width: width, height: h,
+      fill: f, stroke: s,
+      radius: radius, inset: inset, baseline: 40%,
+      body-content,
+    )
+  }
+
   let rendered = if shape == "rect" {
-    box(
-      width: width, height: if height == auto { default-h } else { height },
-      fill: f, stroke: s,
-      radius: 2pt, inset: inset, baseline: 40%,
-      { set align(center + horizon); body },
-    )
+    min-height-box(2pt)
   } else if shape == "stadium" {
-    box(
-      width: width, height: if height == auto { default-h } else { height },
-      fill: f, stroke: s,
-      radius: 999pt, inset: inset, baseline: 40%,
-      { set align(center + horizon); body },
-    )
+    min-height-box(999pt)
   } else if shape == "circle" {
     let sz = if width == auto and height == auto { 3.2em } else { width }
     box(
@@ -355,6 +366,37 @@
           block(width: w * 0.7, { set align(center); text(size: 0.9em, body) }))
       })
     }
+  } else if ("input", "output", "sendSignal", "acceptEvent").contains(shape) {
+    // Activity SDL / UML signal shapes, sized from the body.
+    //   input        — left-slanted parallelogram   (data input)
+    //   output       — right-slanted parallelogram  (data output)
+    //   sendSignal   — convex pentagon →            (signal send)
+    //   acceptEvent  — concave pentagon ←           (signal receive)
+    context {
+      let em = 1em.to-absolute()
+      let inset-x = if type(inset) == dictionary { inset.at("x", default: 0pt) } else { inset }
+      let body-m = measure(box(width: width, body))
+      let slant = 0.7 * em
+      let body-w = body-m.width
+      let body-h = body-m.height + 2 * inset-y.to-absolute()
+      let w = if width == auto { body-w + 2 * inset-x.to-absolute() + 2 * slant } else { width }
+      let h = if height == auto { calc.max(default-h.to-absolute(), body-h) } else { height }
+      let poly = if shape == "input" {
+        ((slant, 0pt), (w, 0pt), (w - slant, h), (0pt, h))
+      } else if shape == "output" {
+        ((0pt, 0pt), (w - slant, 0pt), (w, h), (slant, h))
+      } else if shape == "sendSignal" {
+        ((0pt, 0pt), (w - slant, 0pt), (w, h / 2), (w - slant, h), (0pt, h))
+      } else {
+        // acceptEvent — left-notched pentagon
+        ((0pt, 0pt), (w, 0pt), (w, h), (0pt, h), (slant, h / 2))
+      }
+      box(width: w, height: h, baseline: 40%, {
+        place(top + left, polygon(fill: f, stroke: s, ..poly))
+        place(center + horizon,
+          block(width: w - 2 * slant, { set align(center); body }))
+      })
+    }
   }
 
   if edge-label == none {
@@ -365,9 +407,12 @@
 }
 
 /// Rectangular process node. Defaults to `palettes.pastel.blue` — the
-/// conventional "action step" color in flowcharts.
-#let process(body, fill: palettes.pastel.blue, ..args) = flow-node(
-  body, shape: "rect", fill: fill, ..args,
+/// conventional "action step" color in flowcharts. Pass `shape:` to
+/// route through one of the SDL / UML signal shapes (`"input"`,
+/// `"output"`, `"sendSignal"`, `"acceptEvent"`) while keeping the same
+/// fill defaults — useful for activity diagrams.
+#let process(body, shape: "rect", fill: palettes.pastel.blue, ..args) = flow-node(
+  body, shape: shape, fill: fill, ..args,
 )
 
 /// Diamond-shaped decision node. Defaults to `palettes.pastel.yellow`
