@@ -28,7 +28,7 @@
 //                    label placement with class-bbox avoidance
 // ============================================================================
 
-#import "cuca/shape-card.typ": _layout-class, _layout-note, _layout-lollipop
+#import "cuca/shape-card.typ": _layout-class, _layout-note, _layout-lollipop, _layout-object
 #import "cuca/shape-desc.typ": *
 #import "cuca/edges.typ": _draw-edge, _place-edge-label
 
@@ -41,6 +41,8 @@
   let cls-fill = spec.at("fill", default: default-fill)
   if kind == "note" {
     _layout-note(spec, inset)
+  } else if kind == "object" {
+    _layout-object(spec, cls-fill, class-stroke, inner-stroke, radius, inset)
   } else if kind == "lollipop" or kind == "circle" {
     _layout-lollipop(spec)
   } else if kind == "actor" {

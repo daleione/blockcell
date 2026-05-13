@@ -272,3 +272,84 @@
     mid-y: total-h / 2,
   )
 }
+
+// Object diagram instance card — 2-compartment box (underlined name on
+// top, `name = value` rows below). No marker chip, no method
+// compartment, no generic corner box. `spec.fields` is a list of
+// `(name, value)` dicts emitted by `src/codegen/cuca/emit.rs` for
+// `EntityKindData::Object`.
+#let _layout-object(spec, fill, stroke, inner-stroke, radius, inset) = {
+  let pad-x = inset.at("x").to-absolute()
+  let pad-y = inset.at("y").to-absolute()
+
+  let name-body = spec.at("name", default: [])
+  let stereo = spec.at("stereotype", default: none)
+  let fields = spec.at("fields", default: ())
+
+  let stereo-line = if stereo == none { none } else {
+    text(size: 0.78em, fill: palettes.base.text-muted, [«#stereo»])
+  }
+  // PlantUML object diagrams underline the instance name (UML
+  // convention for distinguishing an instance from its class).
+  let name-line = text(weight: "bold", underline(name-body))
+
+  // Field rows are pre-joined `name = value` content blocks emitted by
+  // codegen so the painter doesn't need to concatenate (which throws
+  // off inline `measure`).
+  let field-bodies = fields
+
+  let stereo-m = if stereo-line == none { (width: 0pt, height: 0pt) }
+                 else { measure(stereo-line) }
+  let name-m = measure(name-line)
+  let field-ms = field-bodies.map(measure)
+
+  let content-w = (
+    (calc.max(stereo-m.width, name-m.width),) + field-ms.map(m => m.width)
+  ).fold(0pt, (a, w) => calc.max(a, w))
+  let measured-total-w = content-w + 2 * pad-x
+
+  let stereo-gap = if stereo-line == none { 0pt } else { 0.2em.to-absolute() }
+  let stereo-h = if stereo-line == none { 0pt } else { stereo-m.height + stereo-gap }
+  let name-row-h = name-m.height
+  let name-h = stereo-h + name-row-h + 2 * pad-y
+  let row-h(ms) = ms.fold(0pt, (acc, m) => acc + m.height + 2 * pad-y)
+  let fields-h = if fields.len() == 0 { 0pt } else { row-h(field-ms) }
+  let measured-total-h = name-h + fields-h
+
+  let total-w = spec.at("width", default: measured-total-w)
+  let total-h = spec.at("height", default: measured-total-h)
+
+  let body = box(
+    width: total-w, height: total-h,
+    fill: fill, stroke: stroke, radius: radius,
+    {
+      // Compartment separator between name row and fields.
+      if fields-h > 0pt {
+        place(top + left, dx: 0pt, dy: name-h,
+          line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: inner-stroke))
+      }
+
+      if stereo-line != none {
+        place(top + left, dx: pad-x, dy: pad-y, stereo-line)
+      }
+
+      // Name row, centered horizontally.
+      let name-row-top = pad-y + stereo-h
+      place(top + center, dy: name-row-top, name-line)
+
+      let cy = name-h + pad-y
+      for (i, b) in field-bodies.enumerate() {
+        place(top + left, dx: pad-x, dy: cy, b)
+        cy = cy + field-ms.at(i).height + 2 * pad-y
+      }
+    },
+  )
+
+  (
+    content: body,
+    width: total-w,
+    height: total-h,
+    mid-x: total-w / 2,
+    mid-y: total-h / 2,
+  )
+}
