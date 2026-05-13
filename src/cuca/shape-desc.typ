@@ -30,9 +30,15 @@
   let leg-half = 8pt
   let stickman-w = arm-half * 2
   let stickman-h = head-r * 2 + body-len + leg-half + 2pt
-  let gap = 3pt
+  // Two independent spacings keep the figure visually balanced:
+  // `top-gap` is the visible clearance between the leg tips and the
+  // label glyphs; `bot-pad` is the breathing room between the label
+  // and the bbox bottom (= edge attachment point), so a downward
+  // outgoing arrow doesn't graze the descenders of the label text.
+  let top-gap = 3pt
+  let bot-pad = 4pt
   let total-w = calc.max(stickman-w, m.width)
-  let total-h = stickman-h + gap + m.height
+  let total-h = stickman-h + top-gap + m.height + bot-pad
   let mid-x = total-w / 2
 
   let content = block(width: total-w, height: total-h, breakable: false, {
@@ -53,7 +59,7 @@
     place(top + left, dx: mid-x, dy: body-top + leg-y,
       line(start: (0pt, 0pt), end: (leg-half, leg-half), stroke: 0.9pt + black))
     // Label below.
-    place(top + center, dy: stickman-h + gap, label)
+    place(top + center, dy: stickman-h + top-gap, label)
   })
 
   (
@@ -62,9 +68,12 @@
     height: total-h,
     mid-x: mid-x,
     mid-y: stickman-h / 2,
-    // Edges anchor on the stickman silhouette, not the label.
+    // Edge anchors. Top is at the head, left/right at the arms — both
+    // sit on the silhouette so heads cup the figure cleanly. Bottom
+    // must be below the label, otherwise a downward outgoing edge
+    // crosses through the label text on its way out of the bbox.
     anchor-top: (mid-x, 0pt),
-    anchor-bot: (mid-x, stickman-h),
+    anchor-bot: (mid-x, total-h),
     anchor-left: (mid-x - arm-half, stickman-h / 2),
     anchor-right: (mid-x + arm-half, stickman-h / 2),
   )
