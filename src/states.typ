@@ -31,6 +31,11 @@
 #let _muted = palettes.base.text-muted
 #let _body-size = 0.82em
 #let _label-size = 0.78em
+// A curved edge (self-loop / back-edge) flattens toward its target but
+// still arrives a touch off the arrowhead axis. End the bezier this far
+// short of the tip and run a straight segment into the head, so the line
+// enters through the centre of the arrowhead triangle, not along an edge.
+#let _head-stub = 12pt
 
 // Reassemble an `event [guard] / action` label from its three optional
 // parts. Returns `none` when all three are empty.
@@ -412,9 +417,10 @@
             stroke: stroke,
             fill: none,
             curve.move((sx, by)),
-            curve.cubic((sx, by + ext), (ex, by + ext), (ex, by)),
+            curve.cubic((sx, by + ext), (ex, by + ext), (ex, by + _head-stub)),
+            curve.line((ex, by)),
           ))
-          _place-head(ex, by, 0pt, -ext, edge-paint)
+          _place-head(ex, by, 0pt, -_head-stub, edge-paint)
         } else {
           let lbl = edge-label()
           if lbl != none {
@@ -433,9 +439,10 @@
             stroke: stroke,
             fill: none,
             curve.move((rx, sy)),
-            curve.cubic((rx + ext, sy), (rx + ext, ey), (rx, ey)),
+            curve.cubic((rx + ext, sy), (rx + ext, ey), (rx + _head-stub, ey)),
+            curve.line((rx, ey)),
           ))
-          _place-head(rx, ey, -ext, 0pt, edge-paint)
+          _place-head(rx, ey, -_head-stub, 0pt, edge-paint)
         } else {
           let lbl = edge-label()
           if lbl != none {
@@ -470,14 +477,16 @@
         } else {
           calc.max(a.y + a.h, b.y + b.h) + ext
         }
+        let stub-y = if side == "min" { ey - _head-stub } else { ey + _head-stub }
         if phase == "geom" {
           place(top + left, curve(
             stroke: stroke,
             fill: none,
             curve.move((sx, sy)),
-            curve.cubic((sx, bow), (ex, bow), (ex, ey)),
+            curve.cubic((sx, bow), (ex, bow), (ex, stub-y)),
+            curve.line((ex, ey)),
           ))
-          _place-head(ex, ey, 0pt, ey - bow, edge-paint)
+          _place-head(ex, ey, 0pt, ey - stub-y, edge-paint)
         } else {
           let lbl = edge-label()
           if lbl != none {
@@ -499,14 +508,16 @@
         } else {
           calc.max(a.x + a.w, b.x + b.w) + ext
         }
+        let stub-x = if side == "min" { ex - _head-stub } else { ex + _head-stub }
         if phase == "geom" {
           place(top + left, curve(
             stroke: stroke,
             fill: none,
             curve.move((sx, sy)),
-            curve.cubic((bow, sy), (bow, ey), (ex, ey)),
+            curve.cubic((bow, sy), (bow, ey), (stub-x, ey)),
+            curve.line((ex, ey)),
           ))
-          _place-head(ex, ey, ex - bow, 0pt, edge-paint)
+          _place-head(ex, ey, ex - stub-x, 0pt, edge-paint)
         } else {
           let lbl = edge-label()
           if lbl != none {
