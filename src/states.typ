@@ -117,7 +117,10 @@
 }
 
 #let _shape-of(kind) = {
-  if kind == "initial" or kind == "final" or kind == "history" or kind == "deep-history" {
+  let circles = (
+    "initial", "final", "history", "deep-history", "entry-point", "exit-point",
+  )
+  if kind in circles {
     "circle"
   } else if kind == "choice" {
     "diamond"
@@ -264,6 +267,32 @@
   ))
 }
 
+// Entry point: a hollow circle (sits on a composite's border).
+#let _render-entry(n) = {
+  let d = calc.min(n.w, n.h)
+  place(top + left, dx: n.x + (n.w - d) / 2, dy: n.y + (n.h - d) / 2, circle(
+    width: d,
+    fill: _state-fill,
+    stroke: 1pt + _pseudo-fill,
+  ))
+}
+
+// Exit point: a hollow circle with an X through it.
+#let _render-exit(n) = {
+  let d = calc.min(n.w, n.h)
+  let ox = n.x + (n.w - d) / 2
+  let oy = n.y + (n.h - d) / 2
+  place(top + left, dx: ox, dy: oy, circle(
+    width: d,
+    fill: _state-fill,
+    stroke: 1pt + _pseudo-fill,
+  ))
+  let pad = d * 0.24
+  let s = 0.9pt + _pseudo-fill
+  place(top + left, line(start: (ox + pad, oy + pad), end: (ox + d - pad, oy + d - pad), stroke: s))
+  place(top + left, line(start: (ox + d - pad, oy + pad), end: (ox + pad, oy + d - pad), stroke: s))
+}
+
 #let _render-node(n) = {
   let k = n.kind
   if k == "initial" {
@@ -278,6 +307,10 @@
     _render-history(n, false)
   } else if k == "deep-history" {
     _render-history(n, true)
+  } else if k == "entry-point" {
+    _render-entry(n)
+  } else if k == "exit-point" {
+    _render-exit(n)
   } else if k == "composite" {
     _render-composite(n)
   } else {
@@ -296,25 +329,28 @@
   ))
 }
 
-// A note: a pale-yellow sticky with a dashed connector to its anchor state.
+// A note: a pale-yellow sticky with a dashed connector to its anchor
+// state. `side: "none"` (an unconnected floating note) skips the connector.
 #let _render-note(note) = {
   let body = _with-breaks(note.at("body", default: ""))
-  let a = note.anchor
   let side = note.at("side", default: "right")
-  // Connector: from the note's inner edge to the anchor's facing edge,
-  // both at vertical mid-height.
-  let note-mid-y = note.y + note.h / 2
-  let anchor-mid-y = a.y + a.h / 2
-  let (cx0, cx1) = if side == "right" {
-    (note.x, a.x + a.w)
-  } else {
-    (note.x + note.w, a.x)
+  if side != "none" {
+    let a = note.anchor
+    // Connector: from the note's inner edge to the anchor's facing edge,
+    // both at vertical mid-height.
+    let note-mid-y = note.y + note.h / 2
+    let anchor-mid-y = a.y + a.h / 2
+    let (cx0, cx1) = if side == "right" {
+      (note.x, a.x + a.w)
+    } else {
+      (note.x + note.w, a.x)
+    }
+    place(top + left, line(
+      start: (cx0, note-mid-y),
+      end: (cx1, anchor-mid-y),
+      stroke: (paint: luma(130), thickness: 0.7pt, dash: "dashed"),
+    ))
   }
-  place(top + left, line(
-    start: (cx0, note-mid-y),
-    end: (cx1, anchor-mid-y),
-    stroke: (paint: luma(130), thickness: 0.7pt, dash: "dashed"),
-  ))
   place(top + left, dx: note.x, dy: note.y, box(
     width: note.w,
     height: note.h,
@@ -607,4 +643,38 @@
   } else {
     diagram
   }
+}
+
+// --------------------------------------------------------------------------
+// Measure probes — pass-1 of the double-pass protocol. Each emits a
+// `metadata((id, w, h))` element tagged `<typstuml_measure>`; the Rust
+// runtime reads it back to size node bboxes before layout. The arithmetic
+// mirrors `_render-simple` / `_render-note` so the probed size is exactly
+// what pass-2 draws.
+// --------------------------------------------------------------------------
+
+/// Natural box size of a simple / composite state — name plus, when the
+/// state has `entry/exit/do` body rows, a name band + divider + body block.
+#let state-probe(id: none, display: "", body: ()) = context {
+  let name = measure(text(fill: _text-fill, _with-breaks(display)))
+  let (w, h) = if body.len() == 0 {
+    // Name centered in the box; 22pt horizontal breathing room.
+    (name.width + 22pt, calc.max(name.height + 14pt, 32pt))
+  } else {
+    // Name band (fixed 1.9em) + divider + body block (inset x:6 y:4).
+    // 16pt horizontal padding — the 12pt inset plus a little air so the
+    // widest body row isn't edge-to-edge with the border.
+    let bm = measure(text(size: _body-size, body.map(l => _with-breaks(l)).join(linebreak())))
+    let band = measure(box(width: 0pt, height: 1.9em)).height
+    (calc.max(name.width, bm.width) + 16pt, band + bm.height + 8pt)
+  }
+  [#metadata((id: id, w: w.pt(), h: h.pt())) <typstuml_measure>]
+}
+
+/// Natural box size of a note's yellow sticky — body text plus the
+/// painter's `(x: 6pt, y: 4pt)` inset and a little slack so the widest
+/// line isn't measured edge-to-edge (which makes Typst re-wrap it).
+#let state-note-probe(id: none, body: "") = context {
+  let m = measure(text(size: _body-size, fill: _text-fill, _with-breaks(body)))
+  [#metadata((id: id, w: (m.width + 16pt).pt(), h: (m.height + 10pt).pt())) <typstuml_measure>]
 }
