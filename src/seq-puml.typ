@@ -399,15 +399,18 @@
   }
 
   // note left : text  /  note right : text
-  let m3 = line.match(regex("^(?:r?h?)note\s+(?:left|right)\s*:\s*(.+)$"))
+  let m3 = line.match(regex("^(?:r?h?)note\s+(left|right)\s*:\s*(.+)$"))
   if m3 != none {
-    return (type: "note-single", over: "__last__", label: m3.captures.at(0).trim())
+    return (type: "note-single", over: "__last__",
+            side: m3.captures.at(0),
+            label: m3.captures.at(1).trim())
   }
 
   // Multi-line: note left / note right (no colon)
-  let m4 = line.match(regex("^(?:r?h?)note\s+(?:left|right)\s*$"))
+  let m4 = line.match(regex("^(?:r?h?)note\s+(left|right)\s*$"))
   if m4 != none {
-    return (type: "note-start", over: "__last__", label: "")
+    return (type: "note-start", over: "__last__",
+            side: m4.captures.at(0), label: "")
   }
 
   none
@@ -502,11 +505,15 @@
       }
       base
     } else if s.type == "note" {
-      (
+      let base = (
         type: "note",
         over: s.over,
         label: _str-to-content(s.label),
       )
+      // Preserve `side` (set by `note left` / `note right` after a message)
+      // so the renderer can place the note in the correct margin.
+      if "side" in s and s.side != none { base.insert("side", s.side) }
+      base
     } else if s.type == "ref" {
       (
         type: "ref",
@@ -648,13 +655,16 @@
         let over = st.note-state.over
         let content = st.note-state.lines.join("\n")
 
-        // Resolve __last__
+        // Resolve __last__ to the SENDER of the previous message (left/right
+        // sides are relative to the sender's lifeline, not the receiver's).
         if over == "__last__" {
-          if st.last-to != none { over = st.last-to }
-          else if st.last-from != none { over = st.last-from }
+          if st.last-from != none { over = st.last-from }
+          else if st.last-to != none { over = st.last-to }
         }
 
         let step = (type: "note", over: over, label: content)
+        let side = st.note-state.at("side", default: none)
+        if side != none { step.insert("side", side) }
         if st.frag-stack.len() > 0 {
           let top = st.frag-stack.last()
           top.children.push(step)
@@ -919,17 +929,26 @@
     let nt = _parse-note(line)
     if nt != none {
       if nt.type == "note-start" {
-        st.note-state = (over: nt.over, lines: ())
+        st.note-state = (
+          over: nt.over,
+          side: nt.at("side", default: none),
+          lines: (),
+        )
       } else {
         let over = nt.over
         if over == "__last__" {
-          if st.last-to != none { over = st.last-to }
-          else if st.last-from != none { over = st.last-from }
+          // PlantUML anchors `note left/right : …` on the SENDER of the
+          // previous message — the visual "left/right" sides are relative
+          // to the sender's lifeline, not the receiver's.
+          if st.last-from != none { over = st.last-from }
+          else if st.last-to != none { over = st.last-to }
         }
         if over == "across" {
           over = "__divider__"
         }
         let step = (type: "note", over: over, label: nt.label)
+        let side = nt.at("side", default: none)
+        if side != none { step.insert("side", side) }
         if st.frag-stack.len() > 0 {
           let top = st.frag-stack.last()
           top.children.push(step)

@@ -320,6 +320,7 @@
     if step.type == "fragment-start" {
       frag-stack.push((
         start: render-steps.len(),
+        depth: frag-stack.len(),
         kind: step.at("kind", default: "alt"),
         label: step.at("label", default: none),
       ))
@@ -329,6 +330,7 @@
         fragments.push((
           start: frag.start,
           end: calc.max(render-steps.len() - 1, frag.start),
+          depth: frag.depth,
           kind: frag.kind,
           label: frag.label,
         ))
@@ -368,6 +370,7 @@
     fragments.push((
       start: frag.start,
       end: calc.max(render-steps.len() - 1, frag.start),
+      depth: frag.depth,
       kind: frag.kind,
       label: frag.label,
     ))
@@ -1002,6 +1005,11 @@
             if label != none and label != [] [\[else: #label\]] else [\[else\]])))
   })
 
+  // Notes that ride outside the column grid (`note left` on the leftmost
+  // participant, `note right` on the rightmost). Recorded here and rendered
+  // in the side-margin overlays so they don't squash into the lifelines.
+  let outside-left-notes = ()
+  let outside-right-notes = ()
   let step-cells = ()
   for (step-idx, step) in render-steps.enumerate() {
     if step.type == "note" {
@@ -1012,15 +1020,37 @@
       } else {
         over.map(id => id-to-col.at(id))
       }
-      let lo = calc.min(..cols)
-      let hi = calc.max(..cols)
-      let span = hi - lo + 1
+      let mut-lo = calc.min(..cols)
+      let mut-hi = calc.max(..cols)
+      let side = step.at("side", default: none)
       let fill = step.at("fill", default: rgb("#FFF9C4"))
       let stroke-paint = step.at("stroke", default: rgb("#A88B00"))
-      for i in range(lo) { step-cells.push([]) }
-      step-cells.push(grid.cell(colspan: span,
-        render-note(label, fill: fill, stroke-paint: stroke-paint)))
-      for i in range(hi + 1, n) { step-cells.push([]) }
+      // `note left` on the leftmost lifeline (or `note right` on the
+      // rightmost) needs to render OUTSIDE the column grid — PlantUML
+      // floats it in the figure margin past the edge lifeline. Defer to
+      // the side-note overlay below.
+      // `note left` / `note right` (`side` set) always anchor on the
+      // sender's lifeline regardless of where that lifeline sits, so we
+      // route every side note through the absolute-positioned overlay
+      // below. `note over X` (`side == none`) still flows through the grid
+      // so it can span multiple columns.
+      if side == "left" {
+        outside-left-notes.push((
+          row: step-idx, col: mut-lo,
+          label: label, fill: fill, stroke: stroke-paint))
+        for i in range(n) { step-cells.push([]) }
+      } else if side == "right" {
+        outside-right-notes.push((
+          row: step-idx, col: mut-hi,
+          label: label, fill: fill, stroke: stroke-paint))
+        for i in range(n) { step-cells.push([]) }
+      } else {
+        let span = mut-hi - mut-lo + 1
+        for i in range(mut-lo) { step-cells.push([]) }
+        step-cells.push(grid.cell(colspan: span,
+          render-note(label, fill: fill, stroke-paint: stroke-paint)))
+        for i in range(mut-hi + 1, n) { step-cells.push([]) }
+      }
     } else if step.type == "ref" {
       let over = step.over
       let label = step.at("label", default: none)
@@ -1359,13 +1389,19 @@
 
   // Fragment frames: dashed border around a range of step rows with a small
   // corner tag (kind name) and an optional condition label in brackets.
+  // Per-depth horizontal indent so nested fragments visibly sit inside
+  // their parents instead of overlapping at full body width.
+  let frag-indent-step = 0.5 * em
   let fragment-overlay = block(width: 100%, height: body-height, {
     for frag in fragments {
       let y-top = frag.start * row-h
       let y-bot = (frag.end + 1) * row-h - row-gap
       let frame-h = y-bot - y-top
-      place(top + left, dy: y-top,
-        box(width: 100%, height: frame-h,
+      let depth = frag.at("depth", default: 0)
+      let dx-inset = depth * frag-indent-step
+      let frame-w = 100% - 2 * dx-inset
+      place(top + left, dx: dx-inset, dy: y-top,
+        box(width: frame-w, height: frame-h,
             stroke: (paint: palettes.base.border-soft,
                      thickness: metrics.stroke-thin, dash: "dashed")))
       // Corner tag: a single filled label in the top-left bundling the
@@ -1378,7 +1414,7 @@
       // `group` is special-cased: PlantUML uses the user-supplied label as
       // the entire header (no "GROUP" prefix), so we drop the kind name and
       // render the label without brackets when present.
-      place(top + left, dy: y-top,
+      place(top + left, dx: dx-inset, dy: y-top,
         box(fill: palettes.base.surface,
             stroke: metrics.stroke-thin + palettes.base.border-soft,
             inset: (x: 0.4em, y: 0.1em),
@@ -1416,8 +1452,51 @@
       ))
   })
 
+  // Side-margin notes: rendered as an absolute-positioned overlay over the
+  // composed body so the note's inner edge lands just past the sender's
+  // activation rectangle (which sits centered on the lifeline), clearing
+  // the rect with a small visual gap.
+  let any-left = outside-left-notes.len() > 0
+  let any-right = outside-right-notes.len() > 0
+  let side-note-width = 8 * em
+  // Half the activation strip plus a small breathing gap, so notes never
+  // touch the focus-of-control rectangle even if the sender is currently
+  // active at that row.
+  let side-note-gap = activation-width / 2 + 0.3 * em
+
   let composed = if resolved-boxes.len() == 0 {
-    stack(dir: ttb, spacing: 0pt, header-row, v(body-pad-top), body-overlay)
+    let main-stack = stack(dir: ttb, spacing: 0pt,
+      header-row, v(body-pad-top), body-overlay)
+    if any-left or any-right {
+      let header-y = header-height + body-pad-top
+      let total-h = header-height + body-pad-top + body-height
+      layout(size => {
+        let w = size.width
+        let col-w = (w - (n - 1) * column-gap) / n
+        block(width: w, height: total-h, {
+          place(top + left, main-stack)
+          for note in outside-left-notes {
+            let lifeline-x = note.col * (col-w + column-gap) + col-w / 2
+            // Note's right edge sits just left of the activation strip;
+            // left edge overflows when the column is narrower than the note.
+            let dx = lifeline-x - side-note-gap - side-note-width
+            place(top + left, dx: dx, dy: header-y + note.row * row-h,
+              box(width: side-note-width, height: step-height,
+                align(horizon,
+                  render-note(note.label, fill: note.fill, stroke-paint: note.stroke))))
+          }
+          for note in outside-right-notes {
+            let lifeline-x = note.col * (col-w + column-gap) + col-w / 2
+            // Note's left edge sits just right of the activation strip;
+            // right edge overflows past the body's right edge when needed.
+            place(top + left, dx: lifeline-x + side-note-gap, dy: header-y + note.row * row-h,
+              box(width: side-note-width, height: step-height,
+                align(horizon,
+                  render-note(note.label, fill: note.fill, stroke-paint: note.stroke))))
+          }
+        })
+      })
+    } else { main-stack }
   } else {
     // Boxes are full-height swim lanes: draw a single tinted rectangle
     // running from the title bar at the top to the bottom of the body, with
