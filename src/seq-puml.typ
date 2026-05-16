@@ -98,6 +98,52 @@
   "entity", "database", "collections", "queue",
 )
 
+// ---- Multi-line `participant Foo [ … ]` creole body ------------------------
+
+// Convert one body line to a Typst-markup snippet. Returns `none` for blank
+// lines so the caller can drop them.
+//   `----` (3+ dashes) → horizontal rule
+//   `""text""`         → raw / monospace
+//   `=text`            → bold (PlantUML's header levels collapse to bold;
+//                        Typst markup has no inline header tag)
+//   anything else      → plain text
+#let _puml-display-line(line) = {
+  let l = line.trim()
+  if l == "" { return none }
+  if l.match(regex("^-{3,}$")) != none {
+    return "#line(length: 100%, stroke: 0.5pt)"
+  }
+  let m-mono = l.match(regex("^\"\"(.+)\"\"$"))
+  if m-mono != none {
+    return "`" + m-mono.captures.at(0) + "`"
+  }
+  let m-h = l.match(regex("^=+\s*(.+)$"))
+  if m-h != none {
+    return "*" + m-h.captures.at(0) + "*"
+  }
+  l
+}
+
+// Join body lines into a single Typst-markup string. Separator depends on
+// the content kind:
+//   * all plain-text lines      → `\` (tight line break)
+//   * any creole construct line → blank line (paragraph break) so the rule /
+//                                 raw / heading reads as a block element
+// Returns `(text: str, lines: int)` so the caller can grow `header-height`
+// to fit.
+#let _puml-display-block(lines) = {
+  let parts = ()
+  let any-block = false
+  for line in lines {
+    let snip = _puml-display-line(line)
+    if snip == none { continue }
+    if snip.starts-with("#") { any-block = true }
+    parts.push(snip)
+  }
+  let joined = if any-block { parts.join("\n\n") } else { parts.join(" \\ ") }
+  (text: joined, lines: parts.len())
+}
+
 // ---- Line parsers (pure functions, no side effects) ------------------------
 
 // Attempt to parse a participant declaration line.
@@ -428,9 +474,13 @@
 }
 
 // Convert a plain string to Typst content.
-// We eval in markup mode directly — no wrapping in [...] brackets.
+// We eval in markup mode directly — no wrapping in [...] brackets. Literal
+// `\n` in the source string is rewritten to Typst's markup line break
+// (` \ `, backslash followed by space) so PlantUML labels like
+// `Alice -> Bob : foo\nbar` render across two lines.
 #let _str-to-content(s) = {
   if s == "" { return [] }
+  let s = s.replace("\\n", " \\ ")
   eval(s, mode: "markup")
 }
 
@@ -521,8 +571,10 @@
   header-height: 2.6em,
   column-gap: 1em,
   row-gap: 0.4em,
-  activate: true,
+  activate: auto,
   activation-width: 0.8em,
+  message-align: "center",
+  response-below: false,
 ) = {
   // Extract text from raw block or string.
   let text = if type(body) == str { body } else { body.text }
@@ -539,6 +591,11 @@
     steps: (),            // top-level step list
     frag-stack: (),       // stack of {kind, label, children}
     note-state: none,     // none or {over, lines}
+    pblock-state: none,   // none or {id, lines} — accumulating a `participant Foo [ … ]` block
+    pblock-max-lines: 1,  // max body-line count across all participants; drives header-height
+    autoactivate-on: true,   // PlantUML strict default is off; we default on
+                             // because zero-span auto-activations are filtered
+                             // anyway, leaving only the meaningful spans.
     last-from: none,      // last message sender
     last-to: none,        // last message receiver
     call-stack: (),       // for `return` keyword resolution
@@ -554,11 +611,36 @@
     if line.starts-with("/'") { continue }
     if line.starts-with("@startuml") or line.starts-with("@enduml") { continue }
     if line.starts-with("hide ") or line.starts-with("skinparam ") { continue }
-    if line.starts-with("autoactivate ") { continue }
+    if line.starts-with("autoactivate ") {
+      let arg = lower(line.slice("autoactivate ".len()).trim())
+      st.autoactivate-on = (arg == "on" or arg == "yes" or arg == "true")
+      continue
+    }
     if line.starts-with("title ") or line == "title" { continue }
     if line.starts-with("header ") or line.starts-with("footer ") { continue }
     if line.starts-with("mainframe ") { continue }
     if line.starts-with("newpage") { continue }
+
+    // ---- Multi-line participant block: `participant Foo [ … ]` ----
+    if st.pblock-state != none {
+      if line == "]" {
+        let target-id = st.pblock-state.id
+        let body = _puml-display-block(st.pblock-state.lines)
+        for (i, existing) in st.participants.enumerate() {
+          if existing.id == target-id {
+            st.participants.at(i).name = body.text
+            break
+          }
+        }
+        if body.lines > st.pblock-max-lines {
+          st.pblock-max-lines = body.lines
+        }
+        st.pblock-state = none
+      } else {
+        st.pblock-state.lines.push(line)
+      }
+      continue
+    }
 
     // ---- Multi-line note state machine ----
     if st.note-state != none {
@@ -657,8 +739,23 @@
       continue
     }
 
-    // ---- Participant declaration ----
-    let p = _parse-participant(line)
+    // ---- Participant declaration (possibly opening a `[ … ]` body) ----
+    let header-line = line
+    let opens-pblock = false
+    if line.ends-with("[") {
+      let starts-pkw = false
+      for kw in _participant-keywords {
+        if line.starts-with(kw + " ") or line.starts-with(kw + "\t") {
+          starts-pkw = true
+          break
+        }
+      }
+      if starts-pkw {
+        header-line = line.slice(0, line.len() - 1).trim()
+        opens-pblock = true
+      }
+    }
+    let p = _parse-participant(header-line)
     if p != none {
       let found = false
       for (i, existing) in st.participants.enumerate() {
@@ -676,6 +773,9 @@
       // If we are inside an open `box ... end box`, record the participant.
       if st.box-state != none and not (p.id in st.box-state.ids) {
         st.box-state.ids.push(p.id)
+      }
+      if opens-pblock {
+        st.pblock-state = (id: p.id, lines: ())
       }
       continue
     }
@@ -1018,14 +1118,26 @@
 
   // ---- Call seq-lane ----
   let final-boxes = if st.boxes.len() > 0 { st.boxes } else { none }
+  // Grow `header-height` when any participant has a multi-line `[ … ]` body
+  // so the rendered title/rule/subtitle stack stays inside the header rect.
+  let effective-header-height = if st.pblock-max-lines > 1 {
+    let needed = st.pblock-max-lines * 1.25em + 0.6em
+    if needed > header-height { needed } else { header-height }
+  } else { header-height }
+  // Resolve `activate: auto` (the default) from the parsed `autoactivate`
+  // directive; explicit `true`/`false` from the caller wins. PlantUML's own
+  // default is no auto-activation unless `autoactivate on` is set.
+  let effective-activate = if activate == auto { st.autoactivate-on } else { activate }
   seq-lane(
     width: width,
     step-height: step-height,
-    header-height: header-height,
+    header-height: effective-header-height,
     column-gap: column-gap,
     row-gap: row-gap,
-    activate: activate,
+    activate: effective-activate,
     activation-width: activation-width,
+    message-align: message-align,
+    response-below: response-below,
     participants: final-participants,
     boxes: final-boxes,
     ..steps,

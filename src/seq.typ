@@ -183,6 +183,8 @@
   autonumber: false,
   participants: none,
   boxes: none,
+  message-align: "center",
+  response-below: false,
   ..steps,
 ) = context {
   let em = 1em.to-absolute()
@@ -251,10 +253,6 @@
   let user-overrides = (:)
   let user-order = ()
   if participants != none {
-    let used-ids = auto-ids.fold((:), (acc, id) => {
-      acc.insert(id, true)
-      acc
-    })
     let seen-user-ids = (:)
     for p in participants {
       if not ("id" in p) {
@@ -264,9 +262,6 @@
         panic("seq-lane participants contains duplicate id `" + p.id + "`.")
       }
       seen-user-ids.insert(p.id, true)
-      if not (p.id in used-ids) {
-        panic("seq-lane participants contains unused id `" + p.id + "`. Remove it or reference it from a step.")
-      }
       user-overrides.insert(p.id, p)
       user-order.push(p.id)
     }
@@ -603,17 +598,37 @@
     // Close any still-open base activations.
     for (id, start) in base-open {
       if start != none {
+        // If the base was auto-opened by a self-call (no explicit return), the
+        // U-shape's return arm lands at y=0.75 of the call's row — extend the
+        // base down to cover that so the rectangle wraps the whole U.
+        let opened-by-self = base-self-opener.at(id, default: none) != none
+        let bot = if opened-by-self { 0.75 } else { 0.5 }
         activations.push((
           col: id-to-col.at(id),
           start: start,
           end: render-steps.len() - 1,
           depth: 0,
           top-y: base-top-y.at(id, default: 0.5),
-          bot-y: 0.5,
+          bot-y: bot,
         ))
       }
     }
   }
+
+  // Drop one-shot base activations that don't span anything — typical for
+  // `A -> B` calls with no matching return; they'd render as a hairline on
+  // the lifeline and just add visual noise. But keep all nested (depth >= 1)
+  // activations regardless of span (a self-call legitimately has start ==
+  // end yet draws a meaningful U-shape), and keep any depth-0 base that
+  // wraps a nested activation so the U-shape's outer rect stays anchored.
+  let _acts-snapshot = activations
+  activations = activations.filter(a => {
+    if a.depth > 0 { return true }
+    if a.start != a.end { return true }
+    _acts-snapshot.any(o =>
+      o.depth > 0 and o.col == a.col
+      and o.start <= a.end and o.end >= a.start)
+  })
 
   // True if column `col` has an activation rectangle covering step `i`.
   let is-active(col, i) = activations.any(a =>
@@ -750,9 +765,24 @@
     let left-extra = if lo-active { act-shift } else { 0pt }
     let right-extra = if hi-active { act-shift } else { 0pt }
     let line-len = 100% - 2 * inset - left-extra - right-extra
+    // `responseMessageBelowArrow true` puts response labels under the line.
+    // A "response" is either a dashed return arrow (`-->`) or a reversed-
+    // direction call (`<-`) — both read as a reply to the previous call.
+    let is-return = style != "solid" or direction == "left"
+    let label-dy = if is-return and response-below { 0.6 * em } else { -0.6 * em }
+    // Resolve `message-align`: `direction` follows the arrow head's side so
+    // the label hugs the destination; explicit left/center/right are absolute.
+    let align-kind = if message-align == "direction" { direction } else { message-align }
+    let (label-anchor, label-dx) = if align-kind == "left" {
+      (horizon + left, inset + left-extra + 0.4 * em)
+    } else if align-kind == "right" {
+      (horizon + right, -(inset + right-extra) - 0.4 * em)
+    } else {
+      (horizon + center, 0pt)
+    }
     block(width: 100%, height: 100%, {
       if label != none {
-        place(horizon + center, dy: -0.6 * em,
+        place(label-anchor, dx: label-dx, dy: label-dy,
           text(size: 0.65em, fill: palettes.base.text-muted, label))
       }
       place(horizon + left, dx: inset + left-extra,
@@ -1251,10 +1281,18 @@
         } else {
           // Nested self-call activation: top aligns with the self-call
           // arrow arrival point, bottom aligns with the self-return arrow
-          // departure point.
-          let yt = act.start * row-h + step-height * 0.75
-          let yb = act.end * row-h + step-height * 0.5
-          (yt, yb - yt)
+          // departure point. For a single-row self-call (start == end with
+          // no explicit return) those formulas invert, so fall back to a
+          // fixed extent within the row that overlaps the wrapping base.
+          if act.start == act.end {
+            let yt = act.start * row-h + step-height * 0.5
+            let yb = act.start * row-h + step-height * 0.75
+            (yt, yb - yt)
+          } else {
+            let yt = act.start * row-h + step-height * 0.75
+            let yb = act.end * row-h + step-height * 0.5
+            (yt, yb - yt)
+          }
         }
         let x = 50% - activation-width / 2 + act.depth * nested-offset
         let fill = p-fill.lighten(calc.max(0%, 35% - act.depth * 20%))
