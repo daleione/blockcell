@@ -107,7 +107,10 @@
   col-gap: 4em,
 ) = context {
   let col-gap = col-gap.to-absolute()
-  let stroke = 0.8pt + palettes.base.border
+  // Use a square cap so the perpendicular segments that compose every
+  // L-corner in this layout (top junction, bottom merge, bypass arms)
+  // overlap by half a stroke width and don't leave a notch at the join.
+  let stroke = std.stroke(thickness: 0.8pt, paint: palettes.base.border, cap: "square")
   let paint = std.stroke(stroke).paint
   let bar-h = 0.45em.to-absolute()
 
@@ -393,7 +396,13 @@
       if merge-header == "bar" {
         place(top + left, dx: bar-left, dy: y-merge-line - bar-h / 2,
           rect(width: bar-right - bar-left, height: bar-h, fill: black, stroke: none))
-      } else if live-body.len() > 1 {
+      } else {
+        // Gather live-body column centers and bridge them across to
+        // centre-x at the merge line. With a single surviving body case
+        // (the other side detached via `stop`), its column-centre is
+        // typically off-axis from the block's centre-x, so without this
+        // bridge the enclosing `flow-col`'s auto-arrow to the next node
+        // would dangle in space.
         let live-centers = ()
         for (i, c) in body-cases.enumerate() {
           if not c.at("detach", default: false) {
@@ -406,6 +415,11 @@
           place(top + left,
             line(start: (l, y-merge-line), end: (r, y-merge-line), stroke: stroke))
         }
+        // Exit trunk from the merge line down to the block's bottom edge,
+        // so the enclosing flow-col's next down-arrow abuts it cleanly
+        // instead of leaving a visible vertical gap across the 0.1em pad.
+        place(top + left, dx: center-x,
+          line(start: (0pt, y-merge-line), end: (0pt, total-h), stroke: stroke))
       }
     }
   })
