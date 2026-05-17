@@ -229,7 +229,15 @@
     col-heights.fold(0pt, (a, b) => calc.max(a, b)),
     max-side-h,
   )
-  let merge-gap = 1em.to-absolute()
+  // For a bar merge-header (fork/split), match the bottom gap to the
+  // top descent (junction-gap + arrow-len) so the body sits visually
+  // centred between the two sync bars. The diamond case keeps the
+  // tighter 1em gap because there is no bar to balance against.
+  let merge-gap = if merge-header == "bar" {
+    junction-gap + arrow-len
+  } else {
+    1em.to-absolute()
+  }
 
   let y-head-bot = head-m.height
   let y-junction = y-head-bot + junction-gap
@@ -268,14 +276,24 @@
 
     // Trunk + junction row from head bottom — only when there's at
     // least one body column to descend into.
+    //
+    // For "bar" headers (fork/split sync-bar), each branch arrow drops
+    // straight off the bar — the bar itself already spans horizontally,
+    // so there's no central trunk and no junction line. For "diamond"
+    // (and "none") headers, a short trunk drops to a junction line
+    // which fans out to per-column verticals.
     if n-body > 0 {
-      place(top + left, dx: center-x,
-        line(start: (0pt, y-head-bot), end: (0pt, y-junction), stroke: stroke))
+      let drop-start-y = if header == "bar" { y-head-bot } else { y-junction }
 
-      if n-body > 1 {
-        place(top + left,
-          line(start: (col-centers.first(), y-junction),
-               end: (col-centers.last(), y-junction), stroke: stroke))
+      if header != "bar" {
+        place(top + left, dx: center-x,
+          line(start: (0pt, y-head-bot), end: (0pt, y-junction), stroke: stroke))
+
+        if n-body > 1 {
+          place(top + left,
+            line(start: (col-centers.first(), y-junction),
+                 end: (col-centers.last(), y-junction), stroke: stroke))
+        }
       }
 
       for (i, c) in body-cases.enumerate() {
@@ -283,7 +301,7 @@
         let body-w = body-ms.at(i).width
 
         place(top + left, dx: cx,
-          line(start: (0pt, y-junction),
+          line(start: (0pt, drop-start-y),
                end: (0pt, y-sub-top - head-size), stroke: stroke))
         place(top + left, dx: cx - head-size / 2, dy: y-sub-top - head-size,
           head-down)
@@ -298,8 +316,19 @@
         let case-detach = c.at("detach", default: false)
         if merge and not case-detach {
           let body-bot = y-sub-top + col-heights.at(i)
-          place(top + left, dx: cx,
-            line(start: (0pt, body-bot), end: (0pt, y-merge-line), stroke: stroke))
+          if merge-header == "bar" {
+            // Each branch arrow lands on the top edge of the merge bar
+            // with an arrowhead, mirroring the down-arrows from the top
+            // bar into each body.
+            let bar-top = y-merge-line - bar-h / 2
+            place(top + left, dx: cx,
+              line(start: (0pt, body-bot), end: (0pt, bar-top - head-size), stroke: stroke))
+            place(top + left, dx: cx - head-size / 2, dy: bar-top - head-size,
+              head-down)
+          } else {
+            place(top + left, dx: cx,
+              line(start: (0pt, body-bot), end: (0pt, y-merge-line), stroke: stroke))
+          }
         }
       }
     }
