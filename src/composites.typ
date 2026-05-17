@@ -313,11 +313,19 @@
   let items = nodes.pos()
   if items.len() == 0 { return }
 
-  // Unwrap sentinel dicts produced by `flow-node(edge-label: ...)`.
+  // Unwrap sentinel dicts produced by `flow-node(edge-label: ...)` and
+  // by `flow-loop(...)`. `supplies-entry: true` tells us the next node
+  // draws its own entry arrowhead internally, so the auto-inserted
+  // edge above it should be a headless line — otherwise two heads
+  // stack against the same target.
   let unwrap(item) = if type(item) == dictionary and item.at("flow-node-wrapped", default: false) {
-    (body: item.body, edge-label: item.edge-label)
+    (
+      body: item.body,
+      edge-label: item.at("edge-label", default: none),
+      supplies-entry: item.at("supplies-entry", default: false),
+    )
   } else {
-    (body: item, edge-label: none)
+    (body: item, edge-label: none, supplies-entry: false)
   }
 
   let rows = ()
@@ -328,6 +336,7 @@
         direction: "down",
         style: edge-style,
         label: u.edge-label,
+        head: if u.supplies-entry { "none" } else { "arrow" },
       )))
     }
     rows.push(align(center, u.body))

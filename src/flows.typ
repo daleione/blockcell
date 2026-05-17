@@ -610,74 +610,85 @@
   body,
   back-label: [retry],
   arm: 8em,
-) = context {
-  let body-m = measure(body)
-  let bw = body-m.width
-  let bh = body-m.height
-  let arm = arm.to-absolute()
+) = (
+  // Wrap as a flow-col sentinel so the enclosing `flow-col` draws its
+  // gap edge as a *headless* line above this block — the entry
+  // arrowhead is supplied internally below at the body's top border,
+  // so the loop-back arm and the external entry visually converge into
+  // a single arrowhead instead of stacking two.
+  flow-node-wrapped: true,
+  supplies-entry: true,
+  edge-label: none,
+  body: context {
+    let body-m = measure(body)
+    let bw = body-m.width
+    let bh = body-m.height
+    let arm = arm.to-absolute()
 
-  let stroke = 0.8pt + palettes.base.border
-  let paint = std.stroke(stroke).paint
-  let head-size = 0.6em.to-absolute()
+    let stroke = 0.8pt + palettes.base.border
+    let paint = std.stroke(stroke).paint
+    let head-size = 0.6em.to-absolute()
 
-  // Vertical segments between the horizontal turns and the body: long enough
-  // to visually read as an approach/descent, not just an arrow head.
-  let approach-len = 1.4em.to-absolute()
-  let descent-len = 1.4em.to-absolute()
+    // Vertical segments between the horizontal turns and the body:
+    // long enough to read as approach/descent rather than just an
+    // arrow head.
+    let approach-len = 1.4em.to-absolute()
+    let descent-len = 1.4em.to-absolute()
 
-  // Keep body-cx at the block's horizontal center so the block drops into an
-  // outer `flow-col` without misalignment. When the body is wider than
-  // `2*arm`, the back-edge lands inside the body's bbox (typically over
-  // empty phantom area on the left of an inner `branch`). When narrower,
-  // phantom padding extends the block to contain both sides.
-  let half-w = calc.max(bw / 2, arm)
-  let total-w = 2 * half-w
-  let body-cx = half-w
-  let body-x = body-cx - bw / 2
-  let back-x = body-cx - arm
+    // Keep body-cx at the block's horizontal center so the block drops
+    // into an outer `flow-col` without misalignment. When the body is
+    // wider than `2*arm`, the back-edge lands inside the body's bbox
+    // (typically over empty phantom area on the left of an inner
+    // `branch`). When narrower, phantom padding extends the block to
+    // contain both sides.
+    let half-w = calc.max(bw / 2, arm)
+    let total-w = 2 * half-w
+    let body-cx = half-w
+    let body-x = body-cx - bw / 2
+    let back-x = body-cx - arm
 
-  let y-top-arm = 0pt
-  let y-body-top = y-top-arm + approach-len + head-size
-  let y-body-bot = y-body-top + bh
-  let y-bot-arm = y-body-bot + descent-len
-  let total-h = y-bot-arm + 0.2em.to-absolute()
-  let label-offset = 0.4em.to-absolute()
+    let y-top-arm = 0pt
+    let y-body-top = y-top-arm + approach-len + head-size
+    let y-body-bot = y-body-top + bh
+    let y-bot-arm = y-body-bot + descent-len
+    let total-h = y-bot-arm + 0.2em.to-absolute()
+    let label-offset = 0.4em.to-absolute()
 
-  let head-up = polygon(fill: paint, stroke: none,
-    (0pt, head-size), (head-size, head-size), (head-size / 2, 0pt))
+    let head-down = polygon(fill: paint, stroke: none,
+      (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
 
-  block(width: total-w, height: total-h, {
-    place(top + left, dx: body-x, dy: y-body-top, body)
+    block(width: total-w, height: total-h, {
+      place(top + left, dx: body-x, dy: y-body-top, body)
 
-    // Bottom: body-cx ↓ descent ↓ turn left → back-x
-    place(top + left, dx: body-cx, dy: y-body-bot,
-      line(start: (0pt, 0pt), end: (0pt, descent-len), stroke: stroke))
-    place(top + left, dy: y-bot-arm,
-      line(start: (body-cx, 0pt), end: (back-x, 0pt), stroke: stroke))
+      // Bottom: body-cx ↓ descent ↓ turn left → back-x
+      place(top + left, dx: body-cx, dy: y-body-bot,
+        line(start: (0pt, 0pt), end: (0pt, descent-len), stroke: stroke))
+      place(top + left, dy: y-bot-arm,
+        line(start: (body-cx, 0pt), end: (back-x, 0pt), stroke: stroke))
 
-    // Back-edge vertical
-    place(top + left, dx: back-x, dy: y-top-arm,
-      line(start: (0pt, 0pt), end: (0pt, y-bot-arm - y-top-arm), stroke: stroke))
+      // Back-edge vertical
+      place(top + left, dx: back-x, dy: y-top-arm,
+        line(start: (0pt, 0pt), end: (0pt, y-bot-arm - y-top-arm), stroke: stroke))
 
-    // Top: back-x → turn right → body-cx ↓ approach into body top. The
-    // entry arrowhead is omitted on purpose — the enclosing `flow-col`
-    // already drops a down-arrow at the block's top, and duplicating it
-    // here would stack two heads on the diamond. The loop-back direction
-    // is communicated by an upward head at the midpoint of the vertical
-    // back-edge instead (drawn below).
-    place(top + left, dy: y-top-arm,
-      line(start: (back-x, 0pt), end: (body-cx, 0pt), stroke: stroke))
-    place(top + left, dx: body-cx, dy: y-top-arm,
-      line(start: (0pt, 0pt), end: (0pt, approach-len + head-size), stroke: stroke))
-    let mid-y = (y-top-arm + y-bot-arm) / 2 - head-size / 2
-    place(top + left, dx: back-x - head-size / 2, dy: mid-y, head-up)
+      // Top: back-x → turn right → body-cx ↓ approach into body top
+      // with a single arrowhead at the body's top border. Because the
+      // enclosing flow-col drops a headless line above this block, the
+      // external entry and the loop-back arm both converge into this
+      // one arrowhead.
+      place(top + left, dy: y-top-arm,
+        line(start: (back-x, 0pt), end: (body-cx, 0pt), stroke: stroke))
+      place(top + left, dx: body-cx, dy: y-top-arm,
+        line(start: (0pt, 0pt), end: (0pt, approach-len), stroke: stroke))
+      place(top + left, dx: body-cx - head-size / 2, dy: y-body-top - head-size,
+        head-down)
 
-    if back-label != none {
-      place(top + left, dx: back-x + label-offset, dy: (y-top-arm + y-bot-arm) / 2 - label-offset,
-        text(size: 0.6em, fill: palettes.base.text-muted, back-label))
-    }
-  })
-}
+      if back-label != none {
+        place(top + left, dx: back-x + label-offset, dy: (y-top-arm + y-bot-arm) / 2 - label-offset,
+          text(size: 0.6em, fill: palettes.base.text-muted, back-label))
+      }
+    })
+  },
+)
 
 // ----------------------------------------------------------------------------
 // Activity start / stop / end / detach markers
@@ -863,8 +874,19 @@
 /// pass-1 doc; Rust queries the `<typstuml_measure>` metadata to learn
 /// each node's natural width / height before solving lane widths and
 /// per-node placement.
+/// Unwrap the `flow-node-wrapped` sentinel dict (produced by `flow-loop`
+/// and similar) into plain content. Pass-through for anything that's
+/// already content. Used by the swimlane probe and painter so a
+/// compound node containing a `flow-loop` can still be measured /
+/// placed.
+#let _swimlane-unwrap(node) = if type(node) == dictionary and node.at("flow-node-wrapped", default: false) {
+  node.body
+} else {
+  node
+}
+
 #let swimlane-probe(id: none, body) = context {
-  let m = measure(body)
+  let m = measure(_swimlane-unwrap(body))
   [#metadata((
     id: id,
     w: m.width.pt(),
@@ -953,7 +975,7 @@
 
     // Nodes — placed at their pre-computed (x, y) inside the body area.
     for n in nodes {
-      place(top + left, dx: n.x, dy: header-h + n.y, n.content)
+      place(top + left, dx: n.x, dy: header-h + n.y, _swimlane-unwrap(n.content))
     }
 
     // Polyline edges. Each segment is a separate `line()`; the shared
