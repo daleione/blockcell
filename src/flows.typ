@@ -614,8 +614,8 @@
   let total-h = y-bot-arm + 0.2em.to-absolute()
   let label-offset = 0.4em.to-absolute()
 
-  let head-down = polygon(fill: paint, stroke: none,
-    (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
+  let head-up = polygon(fill: paint, stroke: none,
+    (0pt, head-size), (head-size, head-size), (head-size / 2, 0pt))
 
   block(width: total-w, height: total-h, {
     place(top + left, dx: body-x, dy: y-body-top, body)
@@ -630,13 +630,18 @@
     place(top + left, dx: back-x, dy: y-top-arm,
       line(start: (0pt, 0pt), end: (0pt, y-bot-arm - y-top-arm), stroke: stroke))
 
-    // Top: back-x → turn right → body-cx ↓ approach ↓ arrow into body top
+    // Top: back-x → turn right → body-cx ↓ approach into body top. The
+    // entry arrowhead is omitted on purpose — the enclosing `flow-col`
+    // already drops a down-arrow at the block's top, and duplicating it
+    // here would stack two heads on the diamond. The loop-back direction
+    // is communicated by an upward head at the midpoint of the vertical
+    // back-edge instead (drawn below).
     place(top + left, dy: y-top-arm,
       line(start: (back-x, 0pt), end: (body-cx, 0pt), stroke: stroke))
     place(top + left, dx: body-cx, dy: y-top-arm,
-      line(start: (0pt, 0pt), end: (0pt, approach-len), stroke: stroke))
-    place(top + left, dx: body-cx - head-size / 2, dy: y-body-top - head-size,
-      head-down)
+      line(start: (0pt, 0pt), end: (0pt, approach-len + head-size), stroke: stroke))
+    let mid-y = (y-top-arm + y-bot-arm) / 2 - head-size / 2
+    place(top + left, dx: back-x - head-size / 2, dy: mid-y, head-up)
 
     if back-label != none {
       place(top + left, dx: back-x + label-offset, dy: (y-top-arm + y-bot-arm) / 2 - label-offset,
@@ -822,6 +827,150 @@
     ..title-cells,
     ..body-cells,
   )
+}
+
+/// Measure protocol probe for swimlane nodes — mirrors `record-probe` /
+/// `cuca-probe`. Codegen emits one of these per activity action in a
+/// pass-1 doc; Rust queries the `<typstuml_measure>` metadata to learn
+/// each node's natural width / height before solving lane widths and
+/// per-node placement.
+#let swimlane-probe(id: none, body) = context {
+  let m = measure(body)
+  [#metadata((
+    id: id,
+    w: m.width.pt(),
+    h: m.height.pt(),
+  )) <typstuml_measure>]
+}
+
+/// Absolute-position swimlane painter — the "principled" replacement for
+/// the grid-based `swimlane` above. Rust pre-solves lane columns + per-node
+/// (x, y) bboxes + cross-lane polyline edges; this painter composes
+/// everything on one `block` canvas so cross-lane connectors are plain
+/// `line()` calls in the same coordinate frame as the nodes.
+///
+/// Args:
+/// - `title`: optional bold title above the canvas.
+/// - `lanes`: `((label, color, x, width), ...)` — `x` and `width` define
+///   each lane column in canvas coordinates.
+/// - `nodes`: `((content, x, y), ...)` — top-left placement of each node
+///   inside the body area (the header band is added internally).
+/// - `edges`: `((points: ((x, y), ...), arrow: bool), ...)` — polylines.
+///   Intra-lane edges are typically 2 points (straight down); cross-lane
+///   edges follow the PlantUML 4-point "down → across → down" snake.
+/// - `header-height`: thickness of the lane title band.
+/// - `body-height`: height of the lane body area (canvas total = header
+///   + body). Rust computes from the lowest node + slack.
+#let swimlane-layout(
+  title: none,
+  lanes: (),
+  nodes: (),
+  edges: (),
+  header-height: 2em,
+  body-height: 0pt,
+) = context {
+  let header-h = header-height.to-absolute()
+  let body-h = body-height.to-absolute()
+  let canvas-w = lanes.fold(0pt, (a, l) => calc.max(a, l.x + l.width))
+  let canvas-h = header-h + body-h
+
+  let title-stroke = 0.8pt + palettes.base.border
+  let sep-stroke = (paint: palettes.base.border-soft, thickness: 0.6pt, dash: "dashed")
+  // Square cap so multi-segment polylines (the cross-lane snake) join
+  // cleanly at their L-corners without a butt-cap notch.
+  let edge-stroke = std.stroke(
+    thickness: 0.8pt, paint: palettes.base.border, cap: "square",
+  )
+  let arrow-color = palettes.base.border
+  let head-size = 0.6em.to-absolute()
+
+  // Direction-aware arrowhead at the end of a polyline.
+  let head-poly(dx-sign, dy-sign, vertical) = if vertical {
+    if dy-sign >= 0 {
+      polygon(fill: arrow-color, stroke: none,
+        (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
+    } else {
+      polygon(fill: arrow-color, stroke: none,
+        (0pt, head-size), (head-size, head-size), (head-size / 2, 0pt))
+    }
+  } else {
+    if dx-sign >= 0 {
+      polygon(fill: arrow-color, stroke: none,
+        (0pt, 0pt), (head-size, head-size / 2), (0pt, head-size))
+    } else {
+      polygon(fill: arrow-color, stroke: none,
+        (head-size, 0pt), (0pt, head-size / 2), (head-size, head-size))
+    }
+  }
+
+  let body = block(width: canvas-w, height: canvas-h, breakable: false, {
+    // Header band: per-lane background + label.
+    for l in lanes {
+      let fill = if l.color == none { palettes.base.surface-alt } else { l.color }
+      place(top + left, dx: l.x, dy: 0pt,
+        block(width: l.width, height: header-h, fill: fill, stroke: title-stroke,
+          align(center + horizon, text(weight: "bold", size: 0.9em, l.label))))
+    }
+
+    // Body-area dashed separators between lane columns and at the outer
+    // edges.
+    for l in lanes {
+      place(top + left, dx: l.x, dy: header-h,
+        line(start: (0pt, 0pt), end: (0pt, body-h), stroke: sep-stroke))
+    }
+    let last = lanes.last()
+    place(top + left, dx: last.x + last.width, dy: header-h,
+      line(start: (0pt, 0pt), end: (0pt, body-h), stroke: sep-stroke))
+
+    // Nodes — placed at their pre-computed (x, y) inside the body area.
+    for n in nodes {
+      place(top + left, dx: n.x, dy: header-h + n.y, n.content)
+    }
+
+    // Polyline edges. Each segment is a separate `line()`; the shared
+    // square cap makes L-corners join without notches. Optional arrowhead
+    // anchored to the final segment's direction.
+    for e in edges {
+      let pts = e.points.map(p => (p.at(0), header-h + p.at(1)))
+      if pts.len() < 2 { continue }
+      for i in range(pts.len() - 1) {
+        let a = pts.at(i)
+        let b = pts.at(i + 1)
+        place(top + left,
+          line(start: a, end: b, stroke: edge-stroke))
+      }
+      if e.at("arrow", default: true) {
+        let end-pt = pts.last()
+        let prev-pt = pts.at(pts.len() - 2)
+        let dx = end-pt.at(0) - prev-pt.at(0)
+        let dy = end-pt.at(1) - prev-pt.at(1)
+        let vertical = calc.abs(dy.pt()) >= calc.abs(dx.pt())
+        let dx-sign = if dx >= 0pt { 1 } else { -1 }
+        let dy-sign = if dy >= 0pt { 1 } else { -1 }
+        let anchor = if vertical {
+          if dy-sign >= 0 {
+            (end-pt.at(0) - head-size / 2, end-pt.at(1) - head-size)
+          } else {
+            (end-pt.at(0) - head-size / 2, end-pt.at(1))
+          }
+        } else {
+          if dx-sign >= 0 {
+            (end-pt.at(0) - head-size, end-pt.at(1) - head-size / 2)
+          } else {
+            (end-pt.at(0), end-pt.at(1) - head-size / 2)
+          }
+        }
+        place(top + left, dx: anchor.at(0), dy: anchor.at(1),
+          head-poly(dx-sign, dy-sign, vertical))
+      }
+    }
+  })
+
+  if title != none {
+    align(center)[#strong(title)]
+    v(0.5em, weak: true)
+  }
+  body
 }
 
 // ----------------------------------------------------------------------------
