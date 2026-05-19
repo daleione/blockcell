@@ -171,9 +171,15 @@
       and body-cases.at(0).at("detach", default: false)
       and bypass-meta.len() > 0
   )
+  // Label that should travel with the centerline trunk after swap —
+  // the original bypass label (e.g. the "no" arm of an `if (c) then
+  // (yes) break endif`) would otherwise be lost when bypass-meta is
+  // overwritten with the body-case data below.
+  let trunk-label = none
   if swap-mode {
     let bc = body-cases.at(0)
     let bp = bypass-meta.at(0)
+    trunk-label = bp.label
     bypass-meta.at(0) = (
       label: bc.label,
       side: bp.side,
@@ -337,10 +343,21 @@
     // `if (c) then (label) stop endif` — the main flow continues
     // through the diamond's bottom because the terminating body has
     // been moved to the side), draw a straight trunk from the head
-    // bottom all the way to the merge line.
+    // bottom all the way to the merge line, with an arrowhead just
+    // below the head so the continuation direction is visible, and
+    // carry the trunk's label adjacent to that arrow.
     if n-body == 0 and merge {
       place(top + left, dx: center-x,
         line(start: (0pt, y-head-bot), end: (0pt, y-merge-line), stroke: stroke))
+      place(top + left, dx: center-x - head-size / 2,
+        dy: y-head-bot + arrow-len - head-size,
+        head-down)
+      if trunk-label != none {
+        place(top + left,
+          dx: center-x + head-size / 2 + label-gap,
+          dy: y-head-bot + (arrow-len - head-size) / 2 - label-gap,
+          text(size: 0.6em, fill: palettes.base.text-muted, trunk-label))
+      }
     }
 
     // Bypass overlay paths. The exit is the diamond's side vertex (for
@@ -378,13 +395,20 @@
 
       if bp-body == none {
         // Pure bypass — vertical descent through the side margin and
-        // (when merging) horizontal back to centre.
+        // (when merging) horizontal back to centre. Place an
+        // arrowhead near the bottom of the descent so the bypass
+        // shows direction (otherwise the No arm of a typical
+        // `if (c) then body endif` rendered with bypass: true looks
+        // undirected).
         place(top + left, dx: bypass-x, dy: exit-y,
           line(start: (0pt, 0pt), end: (0pt, y-merge-line - exit-y), stroke: stroke))
         if merge {
           place(top + left, dy: y-merge-line,
             line(start: (calc.min(bypass-x, center-x), 0pt),
                  end: (calc.max(bypass-x, center-x), 0pt), stroke: stroke))
+          place(top + left, dx: bypass-x - head-size / 2,
+            dy: y-merge-line - head-size - 0.4em.to-absolute(),
+            head-down)
         }
       } else {
         // Side branch with a body. Descend from the head row to the
@@ -656,6 +680,8 @@
 
     let head-down = polygon(fill: paint, stroke: none,
       (0pt, 0pt), (head-size, 0pt), (head-size / 2, head-size))
+    let head-up = polygon(fill: paint, stroke: none,
+      (0pt, head-size), (head-size, head-size), (head-size / 2, 0pt))
 
     block(width: total-w, height: total-h, {
       place(top + left, dx: body-x, dy: y-body-top, body)
@@ -666,9 +692,15 @@
       place(top + left, dy: y-bot-arm,
         line(start: (body-cx, 0pt), end: (back-x, 0pt), stroke: stroke))
 
-      // Back-edge vertical
+      // Back-edge vertical. Midpoint gets an upward arrowhead so the
+      // back-edge's direction is visible without relying solely on
+      // the re-entry arrow at the top.
       place(top + left, dx: back-x, dy: y-top-arm,
         line(start: (0pt, 0pt), end: (0pt, y-bot-arm - y-top-arm), stroke: stroke))
+      let back-mid-y = (y-top-arm + y-bot-arm) / 2
+      place(top + left, dx: back-x - head-size / 2,
+        dy: back-mid-y - head-size / 2,
+        head-up)
 
       // Top: back-x → turn right → body-cx ↓ approach into body top
       // with a single arrowhead at the body's top border. Because the
