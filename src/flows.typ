@@ -305,6 +305,26 @@
       for (i, c) in body-cases.enumerate() {
         let cx = col-centers.at(i)
         let body-w = body-ms.at(i).width
+        let body-h = col-heights.at(i)
+        // A body slot whose measured size is essentially zero (e.g.
+        // `flow-col([])` from a no-op branch like `if (c) then (yes)
+        // break endif`) would otherwise show the column-entry arrow
+        // immediately above the body-bottom continuation arrow into
+        // the next sibling, producing two stacked arrowheads. Collapse
+        // the column into a single straight trunk in that case.
+        let case-detach = c.at("detach", default: false)
+        let is-empty = body-w <= 0.1pt and body-h <= 0.1pt
+
+        if is-empty and merge and not case-detach {
+          place(top + left, dx: cx,
+            line(start: (0pt, drop-start-y),
+                 end: (0pt, y-merge-line), stroke: stroke))
+          place(top + left,
+            dx: cx + head-size / 2 + label-gap,
+            dy: y-junction + (arrow-len - head-size) / 2 - label-gap,
+            text(size: 0.6em, fill: palettes.base.text-muted, c.label))
+          continue
+        }
 
         place(top + left, dx: cx,
           line(start: (0pt, drop-start-y),
@@ -319,9 +339,8 @@
 
         place(top + left, dx: cx - body-w / 2, dy: y-sub-top, c.body)
 
-        let case-detach = c.at("detach", default: false)
         if merge and not case-detach {
-          let body-bot = y-sub-top + col-heights.at(i)
+          let body-bot = y-sub-top + body-h
           if merge-header == "bar" {
             // Each branch arrow lands on the top edge of the merge bar
             // with an arrowhead, mirroring the down-arrows from the top
@@ -343,19 +362,20 @@
     // `if (c) then (label) stop endif` — the main flow continues
     // through the diamond's bottom because the terminating body has
     // been moved to the side), draw a straight trunk from the head
-    // bottom all the way to the merge line, with an arrowhead just
-    // below the head so the continuation direction is visible, and
-    // carry the trunk's label adjacent to that arrow.
+    // bottom all the way to the merge line, with an arrowhead at the
+    // vertical midpoint of the trunk so the continuation direction
+    // is visible, and carry the trunk's label adjacent to it.
     if n-body == 0 and merge {
       place(top + left, dx: center-x,
         line(start: (0pt, y-head-bot), end: (0pt, y-merge-line), stroke: stroke))
+      let trunk-mid-y = (y-head-bot + y-merge-line) / 2
       place(top + left, dx: center-x - head-size / 2,
-        dy: y-head-bot + arrow-len - head-size,
+        dy: trunk-mid-y - head-size / 2,
         head-down)
       if trunk-label != none {
         place(top + left,
           dx: center-x + head-size / 2 + label-gap,
-          dy: y-head-bot + (arrow-len - head-size) / 2 - label-gap,
+          dy: trunk-mid-y - head-size / 2 - label-gap,
           text(size: 0.6em, fill: palettes.base.text-muted, trunk-label))
       }
     }
@@ -396,8 +416,8 @@
       if bp-body == none {
         // Pure bypass — vertical descent through the side margin and
         // (when merging) horizontal back to centre. Place an
-        // arrowhead near the bottom of the descent so the bypass
-        // shows direction (otherwise the No arm of a typical
+        // arrowhead at the vertical midpoint of the descent so the
+        // bypass shows direction (otherwise the No arm of a typical
         // `if (c) then body endif` rendered with bypass: true looks
         // undirected).
         place(top + left, dx: bypass-x, dy: exit-y,
@@ -406,8 +426,9 @@
           place(top + left, dy: y-merge-line,
             line(start: (calc.min(bypass-x, center-x), 0pt),
                  end: (calc.max(bypass-x, center-x), 0pt), stroke: stroke))
+          let bypass-mid-y = (exit-y + y-merge-line) / 2
           place(top + left, dx: bypass-x - head-size / 2,
-            dy: y-merge-line - head-size - 0.4em.to-absolute(),
+            dy: bypass-mid-y - head-size / 2,
             head-down)
         }
       } else {
