@@ -204,6 +204,35 @@
     if (side == "left" or side == "right") and override-y != none {
       py = override-y
     }
+    // For ellipse-shaped entities (usecase) the bbox corners sit
+    // outside the visible silhouette, so an off-midpoint anchor lands
+    // in a visible gap between the line end and the curved boundary.
+    // Project the anchor onto the actual ellipse where it crosses the
+    // override coord so the arrowhead sits flush with the shape.
+    let kind = classes.at(i).at("kind", default: "")
+    if kind == "usecase" {
+      let m = metas.at(i)
+      let cx = classes.at(i).x + m.mid-x
+      let cy = classes.at(i).y + m.mid-y
+      let a = m.width / 2
+      let b = m.height / 2
+      if (side == "left" or side == "right") and override-y != none {
+        let dy = py - cy
+        let frac = 1 - (dy / b) * (dy / b)
+        if frac > 0 {
+          let dx = a * calc.sqrt(frac)
+          px = if side == "left" { cx - dx } else { cx + dx }
+        }
+      }
+      if (side == "top" or side == "bot") and override-x != none {
+        let dx = px - cx
+        let frac = 1 - (dx / a) * (dx / a)
+        if frac > 0 {
+          let dy = b * calc.sqrt(frac)
+          py = if side == "top" { cy - dy } else { cy + dy }
+        }
+      }
+    }
     (px, py)
   }
   let from-anchor(i, override-side) = resolved-anchor(
@@ -324,6 +353,8 @@
       ))
       let style = e.at("style", default: "solid")
       let color = e.at("color", default: edge-color)
+      let from-overridden = (e.at("from-x", default: none) != none) or (e.at("from-y", default: none) != none)
+      let to-overridden = (e.at("to-x", default: none) != none) or (e.at("to-y", default: none) != none)
       _draw-edge(
         start, shifted-path, end,
         e.at("head-from", default: "none"),
@@ -331,6 +362,13 @@
         style, color, bg-color, edge-thickness, head-size,
         from-side: if "from-side" in e { e.from-side } else { default-from-side },
         to-side: if "to-side" in e { e.to-side } else { default-to-side },
+        // When codegen explicitly placed the anchor (e.g. sibling
+        // distribution along a shared face), trust its emitted tangent
+        // and skip the axis collapse — otherwise the head would be
+        // forced perpendicular to the face even when the line arrives
+        // at a diagonal.
+        from-axis-snap: not from-overridden,
+        to-axis-snap: not to-overridden,
       )
       // Couple-link "apoint" — small filled dot on the A-B chord
       // marking where the association class is attached. PlantUML

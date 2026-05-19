@@ -152,6 +152,7 @@
   head-from, head-to, line-style,
   color, bg-color, thickness, head-size,
   from-side: none, to-side: none,
+  from-axis-snap: true, to-axis-snap: true,
 ) = {
   let n = segments.len()
   if n == 0 { return }
@@ -167,9 +168,18 @@
   //     incoming tangent is preserved against the snapped endpoint, then
   //     collapsed onto the arrival axis dictated by `to-side` for the
   //     same reason.
+  //
+  // `*-axis-snap: false` opts a side out of the axis collapse — used
+  // when codegen explicitly set the anchor coord (via from-x/y or
+  // to-x/y override) and intends a non-axis-aligned tangent (e.g. a
+  // straight diagonal cubic between two distributed anchors). The
+  // (end - last.end) translation still applies so the curve closes on
+  // the painter-side endpoint.
   let from-horizontal = from-side == "left" or from-side == "right"
   let to-horizontal = to-side == "left" or to-side == "right"
-  let first-c1 = if from-horizontal {
+  let first-c1 = if not from-axis-snap {
+    segments.at(0).c1
+  } else if from-horizontal {
     (segments.at(0).c1.at(0), start.at(1))
   } else {
     (start.at(0), segments.at(0).c1.at(1))
@@ -179,7 +189,9 @@
     last.c2.at(0) + end.at(0) - last.end.at(0),
     last.c2.at(1) + end.at(1) - last.end.at(1),
   )
-  let last-c2 = if to-horizontal {
+  let last-c2 = if not to-axis-snap {
+    last-c2-translated
+  } else if to-horizontal {
     (last-c2-translated.at(0), end.at(1))
   } else {
     (end.at(0), last-c2-translated.at(1))
