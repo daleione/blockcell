@@ -58,6 +58,17 @@
   s.split("\\n").map(part => part).join(linebreak())
 }
 
+// Height of the name band atop a state box that has body rows. Scales
+// with the name's measured height (so a multi-line `\n` name doesn't
+// overflow), with a floor matching the original single-line band.
+// Must be called inside a `context` so `em` resolves and `measure`
+// works. `_render-simple` and `state-probe` share this so the probed
+// size matches what's drawn.
+#let _name-band-h(display) = calc.max(
+  (1.9em).to-absolute(),
+  measure(text(fill: _text-fill, _with-breaks(display))).height + (0.5em).to-absolute(),
+)
+
 // Resolve a node's border stroke from its `border-style` / `border-color`.
 #let _node-stroke(n) = {
   let bs = n.at("border-style", default: "solid")
@@ -150,24 +161,28 @@
         // name vertically centered
         place(center + horizon, text(fill: _text-fill, _with-breaks(display)))
       } else {
-        // name band on top, divider, body rows
-        set text(fill: _text-fill)
-        place(top + left, dx: 0pt, dy: 0pt, box(
-          width: n.w,
-          height: 1.9em,
-          inset: (x: 6pt),
-          align(left + horizon, _with-breaks(display)),
-        ))
-        place(top + left, dy: 1.9em, line(
-          start: (0pt, 0pt),
-          end: (n.w, 0pt),
-          stroke: stroke,
-        ))
-        place(top + left, dy: 1.9em, box(
-          width: n.w,
-          inset: (x: 6pt, y: 4pt),
-          text(size: _body-size, body.map(l => _with-breaks(l)).join(linebreak())),
-        ))
+        // name band on top, divider, body rows. Band height scales
+        // with the (possibly multi-line) name — see `_name-band-h`.
+        context {
+          let band = _name-band-h(display)
+          set text(fill: _text-fill)
+          place(top + left, dx: 0pt, dy: 0pt, box(
+            width: n.w,
+            height: band,
+            inset: (x: 6pt),
+            align(left + horizon, _with-breaks(display)),
+          ))
+          place(top + left, dy: band, line(
+            start: (0pt, 0pt),
+            end: (n.w, 0pt),
+            stroke: stroke,
+          ))
+          place(top + left, dy: band, box(
+            width: n.w,
+            inset: (x: 6pt, y: 4pt),
+            text(size: _body-size, body.map(l => _with-breaks(l)).join(linebreak())),
+          ))
+        }
       }
     },
   ))
@@ -570,6 +585,50 @@
 
     let ga = geom(a)
     let gb = geom(b)
+    // Obstacle-routed detour: codegen supplies an explicit `start` and a
+    // `path` of cubic segments that bend around composite frames / sibling
+    // boxes. Otherwise fall back to a straight center-to-center line.
+    let routed-path = tr.at("path", default: none)
+    if routed-path != none and routed-path.len() > 0 {
+      let start = tr.at("start", default: (ga.cx, ga.cy))
+      let last = routed-path.at(routed-path.len() - 1)
+      let end = last.end
+      if phase == "geom" {
+        let cmds = (curve.move(start),)
+        for seg in routed-path { cmds.push(curve.cubic(seg.c1, seg.c2, seg.end)) }
+        place(top + left, curve(stroke: stroke, fill: none, ..cmds))
+        _place-head(end.at(0), end.at(1), end.at(0) - last.c2.at(0), end.at(1) - last.c2.at(1), edge-paint)
+      } else {
+        let lbl = _with-breaks(_join-label(
+          tr.at("event", default: none),
+          tr.at("guard", default: none),
+          tr.at("action", default: none),
+        ))
+        if lbl != none {
+          // Anchor at the middle segment and nudge the label off the line
+          // perpendicular to the segment's tangent (mirrors the straight-
+          // edge case) — a bare +x offset lands on diagonal/horizontal
+          // edges right over the arrow.
+          let seg = routed-path.at(calc.quo(routed-path.len(), 2))
+          let ax = (seg.c1.at(0) + seg.c2.at(0)) / 2
+          let ay = (seg.c1.at(1) + seg.c2.at(1)) / 2
+          let tx = seg.c2.at(0) - seg.c1.at(0)
+          let ty = seg.c2.at(1) - seg.c1.at(1)
+          let len = calc.sqrt((tx / 1pt) * (tx / 1pt) + (ty / 1pt) * (ty / 1pt))
+          let nx = if len > 0.0001 { -(ty / 1pt) / len } else { 0 }
+          let ny = if len > 0.0001 { (tx / 1pt) / len } else { -1 }
+          let m = measure(text(size: _label-size, lbl))
+          let half-ext = calc.abs(nx) * m.width / 2 + calc.abs(ny) * m.height / 2
+          let off = half-ext + 4pt
+          place(top + left, dx: ax + nx * off - m.width / 2, dy: ay + ny * off - m.height / 2, box(
+            fill: white.transparentize(15%),
+            inset: (x: 1.5pt),
+            text(size: _label-size, fill: _muted, lbl),
+          ))
+        }
+      }
+      return
+    }
     let start = _perimeter(ga.cx, ga.cy, ga.hw, ga.hh, ga.shape, gb.cx, gb.cy)
     let end = _perimeter(gb.cx, gb.cy, gb.hw, gb.hh, gb.shape, ga.cx, ga.cy)
 
@@ -661,11 +720,11 @@
     // Name centered in the box; 22pt horizontal breathing room.
     (name.width + 22pt, calc.max(name.height + 14pt, 32pt))
   } else {
-    // Name band (fixed 1.9em) + divider + body block (inset x:6 y:4).
-    // 16pt horizontal padding — the 12pt inset plus a little air so the
-    // widest body row isn't edge-to-edge with the border.
+    // Name band (scales with the name's line count) + divider + body
+    // block (inset x:6 y:4). 16pt horizontal padding — the 12pt inset
+    // plus a little air so the widest body row isn't edge-to-edge.
     let bm = measure(text(size: _body-size, body.map(l => _with-breaks(l)).join(linebreak())))
-    let band = measure(box(width: 0pt, height: 1.9em)).height
+    let band = _name-band-h(display)
     (calc.max(name.width, bm.width) + 16pt, band + bm.height + 8pt)
   }
   [#metadata((id: id, w: w.pt(), h: h.pt())) <typstuml_measure>]
