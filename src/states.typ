@@ -454,6 +454,26 @@
       tr.at("action", default: none),
     ))
 
+    // A label laid out as a dot-style label node carries a reserved
+    // position (`label-pos`); the edge line passes through that point, so
+    // draw the text just to its right and skip the per-branch midpoint
+    // logic. The geometry phase still draws the line normally.
+    let label-pos = tr.at("label-pos", default: none)
+    if label-pos != none {
+      if phase != "geom" {
+        let lbl = edge-label()
+        if lbl != none {
+          let m = measure(text(size: _label-size, lbl))
+          place(top + left, dx: label-pos.at(0) + 3pt, dy: label-pos.at(1) - m.height / 2, box(
+            fill: white.transparentize(15%),
+            inset: (x: 1.5pt),
+            text(size: _label-size, fill: _muted, lbl),
+          ))
+        }
+        return
+      }
+    }
+
     if tr.at("self-loop", default: false) {
       // Self-loop: a small arc bulging onto the perpendicular axis — the
       // right side in TB, the bottom in LR. That side is usually clear,
