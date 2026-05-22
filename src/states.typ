@@ -757,3 +757,19 @@
   let m = measure(text(size: _body-size, fill: _text-fill, _with-breaks(body)))
   [#metadata((id: id, w: (m.width + 16pt).pt(), h: (m.height + 10pt).pt())) <typstuml_measure>]
 }
+
+/// Natural size of a transition's `event [guard] / action` label, measured
+/// at `_label-size` exactly as `draw-edge` renders it. The Rust layout sizes
+/// the label virtual node from this instead of a char-count estimate (which
+/// is wrong for proportional / CJK text). Emits `(0pt, 0pt)` for an empty
+/// label so the read-back can fall back to "no label".
+#let state-edge-label-probe(id: none, event: none, guard: none, action: none) = context {
+  let lbl = _join-label(event, guard, action)
+  let (w, h) = if lbl == none {
+    (0pt, 0pt)
+  } else {
+    let m = measure(text(size: _label-size, _with-breaks(lbl)))
+    (m.width, m.height)
+  }
+  [#metadata((id: id, w: w.pt(), h: h.pt())) <typstuml_measure>]
+}
