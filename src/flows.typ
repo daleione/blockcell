@@ -227,8 +227,14 @@
   let center-x = total-w / 2
 
   let head-size = 0.6em.to-absolute()
-  let junction-gap = 1em.to-absolute()
-  let arrow-len = 2.4em.to-absolute()
+  // Swap mode has no body column on the centerline — just a small side stop
+  // in the margin. The full junction descent / merge gap (sized for body
+  // columns) would pad the centerline trunk out to ~2x a normal edge, so the
+  // next node ends up far below the diamond. Use tight gaps there: the trunk
+  // stays close to one edge length and the side stop tucks beside the diamond,
+  // matching PlantUML's `if (c) then (label) stop endif` spacing.
+  let junction-gap = if swap-mode { 0.4em.to-absolute() } else { 1em.to-absolute() }
+  let arrow-len = if swap-mode { 0.6em.to-absolute() } else { 2.4em.to-absolute() }
   // sub-h is the descent height shared by body columns and any
   // side-margin bodies, so the merge line clears all of them.
   let sub-h = calc.max(
@@ -241,6 +247,8 @@
   // tighter 1em gap because there is no bar to balance against.
   let merge-gap = if merge-header == "bar" {
     junction-gap + arrow-len
+  } else if swap-mode {
+    0.4em.to-absolute()
   } else {
     1em.to-absolute()
   }
@@ -362,17 +370,22 @@
     // `if (c) then (label) stop endif` — the main flow continues
     // through the diamond's bottom because the terminating body has
     // been moved to the side), draw a straight trunk from the head
-    // bottom all the way to the merge line, with an arrowhead at the
-    // vertical midpoint of the trunk so the continuation direction
-    // is visible, and carry the trunk's label adjacent to it.
+    // bottom down through the merge line and carry the trunk's label
+    // adjacent to it. Like a normal merge trunk this is headless: the
+    // enclosing `flow-col` inserts the directional arrow into the next
+    // node, so adding one here too would stack a second arrowhead
+    // mid-trunk and visually break the line.
+    //
+    // The trunk runs a touch past the merge line (≈0.9em) so it overlaps
+    // the head of the `flow-col` edge that follows: the block's laid-out
+    // height ends at the merge line, but that auto-edge starts a few
+    // points lower, and without the overlap the centerline shows a gap
+    // between the diamond's trunk and the arrow into the next node.
     if n-body == 0 and merge {
       place(top + left, dx: center-x,
-        line(start: (0pt, y-head-bot), end: (0pt, y-merge-line), stroke: stroke))
-      let trunk-mid-y = (y-head-bot + y-merge-line) / 2
-      place(top + left, dx: center-x - head-size / 2,
-        dy: trunk-mid-y - head-size / 2,
-        head-down)
+        line(start: (0pt, y-head-bot), end: (0pt, y-merge-line + 0.9em.to-absolute()), stroke: stroke))
       if trunk-label != none {
+        let trunk-mid-y = (y-head-bot + y-merge-line) / 2
         place(top + left,
           dx: center-x + head-size / 2 + label-gap,
           dy: trunk-mid-y - head-size / 2 - label-gap,
