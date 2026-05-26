@@ -710,6 +710,120 @@
 - 你在做一行多块的结构图
 - 你希望布局在宽度变化时更稳定
 
+=== `timeline` <layer3-timeline>
+
+按比例的时间轴 / 单轨甘特：把一条横轨按时长切成若干段，段宽即时长，日期自动钉在分段边界上。
+
+适合：
+
+- 会员 / 订阅有效期、消耗顺序
+- 项目阶段、路线图
+- 请求延迟分解、流水线耗时
+- 任何“按时长成比例 + 边界打日期”的横向时间结构
+
+#section-label[日期模式：直接给日期]
+
+每段写 `to:`（该段的绝对结束日），顶层给一个 `start:`，段宽与日期标签全部自动算出。
+
+#example-pair(
+  ```typst
+  #timeline(
+    width: 300pt, axis: "above",
+    start: datetime(year: 2026, month: 5, day: 26),
+    (to: datetime(year: 2027, month: 5, day: 26),
+     fill: rgb("#f7d774"), label: [专家版]),
+    (to: datetime(year: 2031, month: 10, day: 30),
+     fill: palettes.sequential.green.at(2), label: [普通版]),
+  )
+  ```
+,
+  [
+    #box(width: 300pt)[
+      #timeline(
+        width: 300pt, axis: "above",
+        start: datetime(year: 2026, month: 5, day: 26),
+        (to: datetime(year: 2027, month: 5, day: 26),
+         fill: rgb("#f7d774"), label: [专家版]),
+        (to: datetime(year: 2031, month: 10, day: 30),
+         fill: palettes.sequential.green.at(2), label: [普通版]),
+      )
+    ]
+  ],
+)
+
+#section-label[权重模式：给相对长度]
+
+没有日期时，每段写 `span:`（数字或 `duration`）；省略 `fill` 时按 `palette` 自动取色。
+
+#example-pair(
+  ```typst
+  #timeline(width: 300pt, axis: none,
+    (span: 2, label: [设计]),
+    (span: 5, label: [开发]),
+    (span: 1, label: [上线]),
+  )
+  ```
+,
+  [
+    #box(width: 300pt)[
+      #timeline(width: 300pt, axis: none,
+        (span: 2, label: [设计]),
+        (span: 5, label: [开发]),
+        (span: 1, label: [上线]),
+      )
+    ]
+  ],
+)
+
+#section-label[常用参数]
+
+#params-box("timeline",
+  ("..segments",  ("array",)),
+  ("width",       ("auto", "length")),
+  ("height",      ("length",)),
+  ("gap",         ("length",)),
+  ("axis",        ("str", "none")),
+  ("start",       ("datetime", "none")),
+  ("label-pos",   ("str",)),
+  returns: "content",
+)
+
+#param-detail("..segments", ("array",))[
+  段字典数组。每段用 `to:`（日期模式）或 `span:`（权重模式）给长度；可带
+  `label` / `sub` / `fill` / `label-pos` / `tick` 及 `stroke` / `dash` 等覆盖。
+]
+
+#param-detail("width", ("auto", "length"),
+  default: raw("auto", lang: none))[
+  整轨宽度。`auto` 撑满父容器。
+]
+
+#param-detail("gap", ("length",),
+  default: raw("0pt", lang: none))[
+  段间间距。默认 `0pt`（紧贴，表示时间连续）。
+]
+
+#param-detail("axis", ("str", "none"),
+  default: raw("\"below\"", lang: none))[
+  日期轴位置：`"below"` / `"above"` / `"both"` / `none`。仅日期模式有效。
+]
+
+#param-detail("start", ("datetime", "none"),
+  default: raw("none", lang: none))[
+  起始日期。日期模式必填。
+]
+
+#param-detail("label-pos", ("str",),
+  default: raw("\"inside\"", lang: none))[
+  段标签位置：`inside` / `above` / `below`。窄段放不下时可移到轨外。
+]
+
+#section-label[适合在这些情况下用]
+
+- 你在画有效期 / 消耗顺序 / 项目排期
+- 你希望段宽按真实时长自动成比例
+- 你不想手工算权重，也不想手摆日期标签
+
 === `seq-lane` <layer3-seq-lane>
 
 用于绘制时序图。
@@ -818,6 +932,7 @@
 - `section`：带标题卡片
 - `legend`：颜色说明
 - `bit-row`：位字段行
+- `timeline`：按比例时间轴 / 单轨甘特
 - `seq-lane`：时序图入口
 
 如果你接下来想按场景学习更完整的图法，建议继续阅读后面的专题章节：

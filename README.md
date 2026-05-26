@@ -62,9 +62,9 @@ All six are produced by the snapshot tests in `tests/`; see `examples/` for full
 | -------------------- | ----------------------- | ------------------------------------------------ |
 | Layer 1 — Atoms      | Small visual elements   | `cell`, `tag`, `badge`, `note`, `edge`           |
 | Layer 2 — Containers | Grouping and structure  | `region`, `target`, `group`, `stack`             |
-| Layer 3 — Composites | Common diagram patterns | `schema`, `linked-schema`, `bit-row`, `seq-lane` |
+| Layer 3 — Composites | Common diagram patterns | `schema`, `linked-schema`, `bit-row`, `timeline`, `seq-lane` |
 
-Specialized chapters: `flow-col` / `branch` / `switch` / `flow-loop` for flowcharts, `state-chain` / `state` / `loop` / `jump` for state machines, `tree` / `node` for hierarchies, `seq-lane` / `seq-call` / `seq-ret` / fragments for sequences.
+Specialized chapters: `flow-col` / `branch` / `switch` / `flow-loop` for flowcharts, `state-chain` / `state` / `loop` / `jump` for state machines, `tree` / `node` for hierarchies, `seq-lane` / `seq-call` / `seq-ret` / fragments for sequences, `timeline` for proportional time tracks / single-track Gantt.
 
 ## Built-in palettes
 

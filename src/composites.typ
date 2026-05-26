@@ -14,6 +14,20 @@
 #import "palettes.typ": palettes
 #import "internal/metrics.typ": metrics
 
+// ---------------------------------------------------------------------------
+// Shared proportional-layout geometry (used by `bit-row` and `timeline`).
+// Keeping the math in one place means the gap-budget rule and the scale
+// formula each live exactly once.
+// ---------------------------------------------------------------------------
+
+// Contiguous packing: weights → column widths. Gaps are subtracted from the
+// budget FIRST (like `match-row`), so columns + gutters sum to exactly `px`.
+#let _span-cols(weights, px, gap) = {
+  let usable = px - gap * (weights.len() - 1)
+  let total = weights.sum()
+  weights.map(w => usable * w / total)
+}
+
 /// A top-level diagram container with optional title and description.
 ///
 /// Wraps content as an inline box so multiple schemas flow horizontally.
@@ -211,15 +225,16 @@
     )
   }
 
+  let cols = _span-cols(fields.map(f => f.bits), width, 0pt)
   box(baseline: 30%, {
-    for f in fields {
+    for (i, f) in fields.enumerate() {
       cell(
         {
           f.label
           if show-bits { sub-label[#{ str(f.bits) }b] }
         },
         fill: f.fill,
-        width: width * f.bits / total,
+        width: cols.at(i),
         stroke: f.at("stroke", default: metrics.stroke-normal + palettes.base.border),
         dash: f.at("dash", default: none),
       )
@@ -467,5 +482,194 @@
       align: align,
       ..children.map(c => if type(c) == function { c(h) } else { c }),
     )
+  })
+}
+
+/// A proportional timeline / single-track Gantt: a horizontal track cut into
+/// segments whose *widths encode durations*, with optional date ticks pinned to
+/// the segment boundaries.
+///
+/// Two ways to give a segment its length (one mode per timeline):
+///   - *date mode* — each segment carries `to: datetime` (its absolute end);
+///     widths and boundary labels derive from a top-level `start:`.
+///   - *weight mode* — each segment carries `span:` (a number or `duration`).
+///
+/// ```typst
+/// #timeline(
+///   width: 480pt, axis: "above",
+///   start: datetime(year: 2026, month: 5, day: 26),
+///   (to: datetime(year: 2027, month: 5,  day: 26), fill: rgb("#f7d774"),
+///    label: [*专家版* · 优先生效], sub: [含普通版全部权益]),
+///   (to: datetime(year: 2031, month: 10, day: 30),
+///    fill: palettes.sequential.green.at(2), label: [*普通版* · 接续生效]),
+/// )
+///
+/// #timeline(width: 360pt,                 // weight mode, palette-cycled fills
+///   (span: 2, label: [设计]), (span: 5, label: [开发]), (span: 1, label: [上线]))
+/// ```
+///
+/// Each positional argument is a segment dict:
+/// - `to` / `span`: length (see modes above).
+/// - `label` / `sub`: in-segment text and subtitle.
+/// - `label-pos`: `"inside"` (default) / `"above"` / `"below"` — push a long
+///   label out of a narrow segment into a lane above/below the track.
+/// - `fill`: segment color; omitted → cycled from the row-level `palette:`.
+/// - `tick`: overrides this segment's end-boundary date label with content.
+/// - `stroke` / `dash` / `radius` / `inset`: per-segment overrides.
+///
+/// Row-level args:
+/// - `width`: total track width; `auto` fills the parent.
+/// - `gap`: gutter between segments; `0pt` (default) = flush / continuous.
+/// - `axis`: `"below"` (default) / `"above"` / `"both"` / `none`. Date mode only.
+/// - `start`: `datetime`, required in date mode.
+/// - `tick-format`: `datetime => content`; default `[year]-[month]-[day]`.
+/// - `palette`: color array cycled when a segment omits `fill:`.
+/// - `label-pos`: default label placement for all segments.
+#let timeline(
+  ..segments,
+  width: auto,
+  height: 2.4em,
+  gap: 0pt,
+  axis: "below",
+  start: none,
+  tick-format: auto,
+  palette: palettes.categorical,
+  label-pos: "inside",
+  radius: 4pt,
+  inset: (x: 4pt, y: 4pt),
+  stroke: auto,
+) = {
+  let segs = segments.pos()
+  if segs.len() == 0 { return }
+  let n = segs.len()
+
+  // --- mode detection + validation -----------------------------------------
+  let date-mode = segs.any(s => "to" in s)
+  if date-mode and segs.any(s => "span" in s) {
+    panic("timeline: use either `to:` (date mode) or `span:` (weight mode), not both.")
+  }
+  if date-mode and start == none {
+    panic("timeline: date mode (`to:`) requires a top-level `start:` datetime.")
+  }
+
+  // --- weights + boundary labels -------------------------------------------
+  let weights = ()
+  let boundaries = ()        // axis labels: start, then each segment's end
+  if date-mode {
+    boundaries.push(start)
+    let prev = start
+    for s in segs {
+      if "to" not in s { panic("timeline: in date mode every segment needs `to:`.") }
+      let w = (s.to - prev).hours()
+      if w <= 0 { panic("timeline: dates must strictly increase (start < to_1 < to_2 < …).") }
+      weights.push(w)
+      boundaries.push(s.at("tick", default: s.to))
+      prev = s.to
+    }
+  } else {
+    for s in segs {
+      let v = s.at("span", default: none)
+      if v == none { panic("timeline: weight mode needs `span:` on every segment.") }
+      let w = if type(v) == duration { v.hours() } else { v }
+      if w <= 0 { panic("timeline: `span:` must be positive.") }
+      weights.push(w)
+    }
+  }
+
+  let fmt = if tick-format == auto {
+    d => d.display("[year]-[month]-[day]")
+  } else { tick-format }
+  let fmt-tick(b) = if type(b) == datetime { fmt(b) } else { b }
+
+  let pos-of(s) = s.at("label-pos", default: label-pos)
+  let has-above = segs.any(s => pos-of(s) == "above")
+  let has-below = segs.any(s => pos-of(s) == "below")
+  let show-axis-above = date-mode and axis in ("above", "both")
+  let show-axis-below = date-mode and axis in ("below", "both")
+
+  // --- geometry (all derived from one `_span-cols`) ------------------------
+  let lefts-of(cols) = {
+    let xs = ()
+    let acc = 0pt
+    for (i, c) in cols.enumerate() { xs.push(acc + gap * i); acc += c }
+    xs
+  }
+
+  // --- the bar ---------------------------------------------------------------
+  let bar(px) = {
+    let cols = _span-cols(weights, px, gap)
+    grid(columns: cols, column-gutter: gap, rows: height,
+      ..segs.enumerate().map(((i, s)) => {
+        let f = s.at("fill", default: palette.at(calc.rem(i, palette.len())))
+        let auto-stroke = if type(f) == color { 0.8pt + f.darken(40%) }
+                          else { 0.8pt + palettes.base.border }
+        let inside = pos-of(s) == "inside"
+        cell(
+          width: 100%, height: 100%, fill: f,
+          radius: s.at("radius", default: radius),
+          inset: s.at("inset", default: inset),
+          stroke: s.at("stroke", default: if stroke == auto { auto-stroke } else { stroke }),
+          dash: s.at("dash", default: none),
+          subtitle: if inside { s.at("sub", default: none) } else { none },
+          align: center + horizon,   // fixed-height segments: center label vertically
+          if inside { s.at("label", default: []) } else { [] },
+        )
+      }))
+  }
+
+  // --- a lane of out-of-segment labels, centered on each segment -----------
+  // Height adapts to the tallest label in the lane (placed labels don't
+  // contribute to layout height, so it's measured explicitly).
+  let label-lane(px, which) = {
+    let cols = _span-cols(weights, px, gap)
+    let lefts = lefts-of(cols)
+    let items = ()
+    for (i, s) in segs.enumerate() {
+      if pos-of(s) == which {
+        let body = note(align(center, {
+          s.at("label", default: [])
+          if "sub" in s { linebreak(); text(0.9em, fill: palettes.base.text-muted, s.sub) }
+        }))
+        items.push((cx: lefts.at(i) + cols.at(i) / 2, body: body))
+      }
+    }
+    let h = calc.max(0pt, ..items.map(it => measure(it.body).height))
+    box(width: px, height: h, {
+      for it in items {
+        place(top + center, dx: it.cx - px / 2, it.body)
+      }
+    })
+  }
+
+  // --- the date axis: ends flush, interior ticks on gutter centers ---------
+  let axis-row(px) = {
+    let cols = _span-cols(weights, px, gap)
+    let cuts = (0pt,)
+    let acc = 0pt
+    for (i, c) in cols.enumerate() {
+      acc += c
+      if i < n - 1 { cuts.push(acc + gap / 2); acc += gap }
+    }
+    cuts.push(px)
+    let last = cuts.len() - 1
+    box(width: px, height: 1.4em, {
+      for (i, x) in cuts.enumerate() {
+        let lbl = note(fmt-tick(boundaries.at(i)))
+        if i == 0 { place(top + left, lbl) }
+        else if i == last { place(top + right, lbl) }
+        else { place(top + center, dx: x - px / 2, lbl) }
+      }
+    })
+  }
+
+  layout(size => {
+    let px = if width == auto { size.width } else { width }
+    let rows = ()
+    if show-axis-above { rows.push(axis-row(px)) }
+    if has-above { rows.push(label-lane(px, "above")) }
+    rows.push(bar(px))
+    if has-below { rows.push(label-lane(px, "below")) }
+    if show-axis-below { rows.push(axis-row(px)) }
+    stack(dir: ttb, spacing: 4pt, ..rows)
   })
 }

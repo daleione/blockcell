@@ -45,6 +45,10 @@
 //   flow-col       Vertical flow-chart column with auto-inserted down-arrows
 //   tier           Labeled layer row for layered-architecture diagrams
 //   match-row      Side-by-side row with children stretched to equal heights
+//   timeline       Proportional timeline / single-track Gantt: segments whose
+//                  widths encode durations, with date ticks pinned to the
+//                  boundaries (date mode `to:` + `start:`, or weight mode
+//                  `span:`); inside/above/below label placement
 //   branch         Diamond decision: Yes continues down, No branches right
 //   branch-merge   Diamond with Yes / No columns that rejoin below
 //   switch         N-way branch (diamond fans out to cases, rejoining below);
@@ -81,7 +85,7 @@
 
 #import "src/atoms.typ": cell, tag, note, label, badge, pill, sub-label, span-label, wrap, brace, edge, flow-node, process, decision, terminal, junction, field-cell
 #import "src/containers.typ": region, target, connector, divider, detail, entry-list, stack, group
-#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row
+#import "src/composites.typ": schema, linked-schema, grid-row, lane, section, legend, bit-row, flex-row, flow-col, tier, match-row, timeline
 #import "src/flows.typ": branch, branch-merge, switch, case, flow-loop
 #import "src/seq.typ": seq-lane, seq-call, seq-ret, seq-note, seq-act, seq-ref, seq-divider, seq-else, seq-destroy, seq-create, seq-delay, seq-space, seq-autonumber, seq-autonumber-stop, seq-autonumber-resume, seq-alt, seq-opt, seq-loop, seq-par
 #import "src/seq-puml.typ": seq-puml

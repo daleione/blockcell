@@ -46,6 +46,7 @@
   phantom: false,
   overlay: none,
   subtitle: none,
+  align: auto,
   baseline: 30%,
 ) = {
   let actual-fill = if phantom { fill.transparentize(60%) } else { fill }
@@ -57,7 +58,11 @@
     radius: radius, inset: inset, baseline: baseline,
     {
       set text(fill: palettes.base.text, hyphenate: false)
-      set align(if subtitle == none { center } else { center + horizon })
+      // `align: auto` keeps the heuristic (horizon only when a subtitle needs
+      // balancing); pass an explicit alignment to override — e.g. a fixed-height
+      // cell that should vertically center its single label.
+      set std.align(if align != auto { align }
+        else if subtitle == none { center } else { center + horizon })
       set par(justify: false)
       if expandable {
         text(size: 0.7em, sym.arrow.l)
