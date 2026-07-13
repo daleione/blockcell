@@ -379,7 +379,9 @@
           dx: start.at(0) - dot-r, dy: start.at(1) - dot-r,
           circle(radius: dot-r, fill: color, stroke: none))
       }
+      let label-pos = e.at("label-pos", default: none)
       _place-edge-label(start, end, 0.5, e.at("label", default: none),
+        label-pos: if label-pos == none { none } else { shift-pt(label-pos) },
         classes: classes, metas: metas, shift-x: shift-x, shift-y: shift-y)
       // Mult and role share the same `t`; they're split apart by a small
       // perpendicular offset so both fit beside the edge without

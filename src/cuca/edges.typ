@@ -245,24 +245,57 @@
 // the label perpendicular to the edge — positive values drift to the
 // chord's left (using the (dx, dy) → (-dy, dx) 90° CCW rotation).
 //
+// `label-pos: (x, y)` overrides the whole `start`/`end`/`t` chord
+// computation with an absolute point — codegen sets this for
+// orthogonally-routed edges (§3.8), where the straight start→end
+// chord's midpoint can land far from the actual bent path; it instead
+// picks the midpoint of the route's longest straight trunk segment.
+// Collision avoidance falls back to a small set of absolute offset
+// candidates instead of the chord-relative perpendicular, since an
+// absolute point has no single "perpendicular" direction to rotate
+// around.
+//
 // If `classes` and `metas` are non-empty, the label's bbox is checked
 // against every class bbox; on overlap the perp offset is doubled,
 // then doubled again, before falling back to the original position
 // (some overlap may remain in dense diagrams — proper avoidance needs
 // a layout solver).
-#let _place-edge-label(start, end, t, body, perp: 0pt,
+#let _place-edge-label(start, end, t, body, perp: 0pt, label-pos: none,
                        classes: (), metas: (), shift-x: 0pt, shift-y: 0pt) = {
   if body == none { return }
-  let dx = end.at(0) - start.at(0)
-  let dy = end.at(1) - start.at(1)
-  let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
-  let (px, py) = if len-pt == 0 { (0, 0) }
-    else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
   // Light-tint background — readable text over a line, much less
   // obtrusive than the previous opaque (CC ~80% alpha) box.
   let lbl = box(inset: 2pt, fill: rgb("#FFFFFF80"),
     text(size: 0.78em, fill: palettes.base.text, body))
   let m = measure(lbl)
+
+  if label-pos != none {
+    let candidates = ((0pt, 0pt), (0pt, 12pt), (0pt, -12pt), (12pt, 0pt), (-12pt, 0pt))
+    let chosen = (0pt, 0pt)
+    let found = false
+    for (ox, oy) in candidates {
+      if not found {
+        let x = label-pos.at(0) + ox - m.width / 2
+        let y = label-pos.at(1) + oy - m.height / 2
+        let collides = (classes.len() != 0) and _overlaps-any-class(
+          x - shift-x, y - shift-y, m.width, m.height, classes, metas)
+        if not collides {
+          chosen = (ox, oy)
+          found = true
+        }
+      }
+    }
+    let x = label-pos.at(0) + chosen.at(0) - m.width / 2
+    let y = label-pos.at(1) + chosen.at(1) - m.height / 2
+    place(top + left, dx: x, dy: y, lbl)
+    return
+  }
+
+  let dx = end.at(0) - start.at(0)
+  let dy = end.at(1) - start.at(1)
+  let len-pt = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt))
+  let (px, py) = if len-pt == 0 { (0, 0) }
+    else { (-dy / (len-pt * 1pt), dx / (len-pt * 1pt)) }
 
   // Pick the first perp offset whose label bbox doesn't clip a class.
   // For non-zero perp (mult / role), try the opposite side too — if
